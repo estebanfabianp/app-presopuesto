@@ -21,34 +21,34 @@ USE `mydb` ;
 -- Table `mydb`.`producto`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mydb`.`producto` (
-  `idproducto` INT NOT NULL AUTO_INCREMENT,
-  `nombre_del_producto` VARCHAR(45) NULL,
-  `monto_maximo` DECIMAL(10,2) NULL,
-  `monto_minimo` DECIMAL(10,2) NULL,
-  `porcentaje_de_interes` DECIMAL(5,2) NULL,
-  `idproductocol` INT NULL,
-  `productocol` VARCHAR(45) NOT NULL,
-  PRIMARY KEY (`idproducto`, `productocol`))
-ENGINE = InnoDB;
+  `idproducto` INT NOT NULL AUTO_INCREMENT COMMENT 'Identificador único del producto',
+  `nombre_del_producto` VARCHAR(45) NULL COMMENT 'Nombre del producto',
+  `monto_maximo` DECIMAL(10,2) NULL COMMENT 'Monto máximo permitido',
+  `monto_minimo` DECIMAL(10,2) NULL COMMENT 'Monto mínimo permitido',
+  `porcentaje_de_interes` DECIMAL(5,2) NULL COMMENT 'Porcentaje de interés aplicado',
+  `idproductocol` INT NULL COMMENT 'Columna adicional de producto (uso específico)',
+  `productocol` VARCHAR(45) NOT NULL COMMENT 'Columna clave adicional del producto',
+  PRIMARY KEY (`idproducto`, `productocol`)
+) ENGINE = InnoDB COMMENT='Tabla que almacena los productos financieros';
 
 
 -- -----------------------------------------------------
 -- Table `mydb`.`persona`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mydb`.`persona` (
-  `idpersona` INT NOT NULL AUTO_INCREMENT,
-  `nombre` VARCHAR(45) NULL,
-  PRIMARY KEY (`idpersona`))
-ENGINE = InnoDB;
+  `idpersona` INT NOT NULL AUTO_INCREMENT COMMENT 'Identificador único de la persona',
+  `nombre` VARCHAR(45) NULL COMMENT 'Nombre de la persona',
+  PRIMARY KEY (`idpersona`)
+) ENGINE = InnoDB COMMENT='Tabla que almacena las personas';
 
 
 -- -----------------------------------------------------
 -- Table `mydb`.`producto_has_persona`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mydb`.`producto_has_persona` (
-  `producto_idproducto` INT NOT NULL,
-  `producto_productocol` VARCHAR(45) NOT NULL,
-  `persona_idpersona` INT NOT NULL,
+  `producto_idproducto` INT NOT NULL COMMENT 'ID del producto relacionado',
+  `producto_productocol` VARCHAR(45) NOT NULL COMMENT 'Columna clave adicional del producto relacionado',
+  `persona_idpersona` INT NOT NULL COMMENT 'ID de la persona relacionada',
   PRIMARY KEY (`producto_idproducto`, `producto_productocol`, `persona_idpersona`),
   INDEX `fk_producto_has_persona_persona1_idx` (`persona_idpersona` ASC) VISIBLE,
   INDEX `fk_producto_has_persona_producto_idx` (`producto_idproducto` ASC, `producto_productocol` ASC) VISIBLE,
@@ -61,35 +61,36 @@ CREATE TABLE IF NOT EXISTS `mydb`.`producto_has_persona` (
     FOREIGN KEY (`persona_idpersona`)
     REFERENCES `mydb`.`persona` (`idpersona`)
     ON DELETE NO ACTION
-    ON UPDATE NO ACTION)
-ENGINE = InnoDB;
+    ON UPDATE NO ACTION
+) ENGINE = InnoDB COMMENT='Relación entre productos y personas';
 
 
 -- -----------------------------------------------------
 -- Table `mydb`.`category`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mydb`.`category` (
-  `category_id` INT NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(255) NOT NULL,
-  PRIMARY KEY (`category_id`));
+  `category_id` INT NOT NULL AUTO_INCREMENT COMMENT 'Identificador único de la categoría',
+  `name` VARCHAR(255) NOT NULL COMMENT 'Nombre de la categoría',
+  PRIMARY KEY (`category_id`)
+) COMMENT='Tabla de categorías de movimientos';
 
 
 -- -----------------------------------------------------
 -- Table `mydb`.`movimientos`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mydb`.`movimientos` (
-  `id_movimiento` INT NOT NULL AUTO_INCREMENT,
-  `codigo_movimiento` VARCHAR(45) NULL,
-  `beneficiario` VARCHAR(45) NULL,
-  `categoria` VARCHAR(45) NULL,
-  `monto` DECIMAL(10,2) NULL,
-  `tipo` VARCHAR(45) NULL,
-  `producto_has_persona_producto_idproducto` INT NOT NULL,
-  `producto_has_persona_producto_productocol` VARCHAR(45) NOT NULL,
-  `producto_has_persona_persona_idpersona` INT NOT NULL,
-  `category_category_id` INT NOT NULL,
-  `coutas` VARCHAR(45) NULL,
-  `estado` VARCHAR(45) NULL,
+  `id_movimiento` INT NOT NULL AUTO_INCREMENT COMMENT 'Identificador único del movimiento',
+  `codigo_movimiento` VARCHAR(45) NULL COMMENT 'Código del movimiento',
+  `beneficiario` VARCHAR(45) NULL COMMENT 'Nombre del beneficiario',
+  `categoria` VARCHAR(45) NULL COMMENT 'Nombre de la categoría',
+  `monto` DECIMAL(10,2) NULL COMMENT 'Monto del movimiento',
+  `tipo` VARCHAR(45) NULL COMMENT 'Tipo de movimiento',
+  `producto_has_persona_producto_idproducto` INT NOT NULL COMMENT 'ID del producto relacionado',
+  `producto_has_persona_producto_productocol` VARCHAR(45) NOT NULL COMMENT 'Columna clave adicional del producto relacionado',
+  `producto_has_persona_persona_idpersona` INT NOT NULL COMMENT 'ID de la persona relacionada',
+  `category_category_id` INT NOT NULL COMMENT 'ID de la categoría relacionada',
+  `coutas` VARCHAR(45) NULL COMMENT 'Cantidad de cuotas',
+  `estado` VARCHAR(45) NULL COMMENT 'Estado del movimiento',
   PRIMARY KEY (`id_movimiento`, `producto_has_persona_producto_idproducto`, `producto_has_persona_producto_productocol`, `producto_has_persona_persona_idpersona`, `category_category_id`),
   INDEX `fk_movimientos_producto_has_persona1_idx` (`producto_has_persona_producto_idproducto` ASC, `producto_has_persona_producto_productocol` ASC, `producto_has_persona_persona_idpersona` ASC) VISIBLE,
   INDEX `fk_movimientos_category1_idx` (`category_category_id` ASC) VISIBLE,
@@ -102,19 +103,38 @@ CREATE TABLE IF NOT EXISTS `mydb`.`movimientos` (
     FOREIGN KEY (`category_category_id`)
     REFERENCES `mydb`.`category` (`category_id`)
     ON DELETE NO ACTION
-    ON UPDATE NO ACTION)
-ENGINE = InnoDB;
+    ON UPDATE NO ACTION
+) ENGINE = InnoDB COMMENT='Tabla que almacena los movimientos financieros';
 
 
 -- -----------------------------------------------------
 -- Table `mydb`.`beneficiario`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mydb`.`beneficiario` (
-  `idbeneficiario` INT NOT NULL AUTO_INCREMENT,
-  `nombre` VARCHAR(45) NULL,
-  PRIMARY KEY (`idbeneficiario`))
-ENGINE = InnoDB;
+  `idbeneficiario` INT NOT NULL AUTO_INCREMENT COMMENT 'Identificador único del beneficiario',
+  `nombre` VARCHAR(45) NULL COMMENT 'Nombre del beneficiario',
+  PRIMARY KEY (`idbeneficiario`)
+) ENGINE = InnoDB COMMENT='Tabla que almacena los beneficiarios';
 
+CREATE TABLE trasacion_programada (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    fecha DATE NOT NULL,
+    categoria VARCHAR(100) NOT NULL,
+    etiqueta VARCHAR(100),
+    tipo VARCHAR(50) NOT NULL,
+    monto DECIMAL(10,2) NOT NULL,
+    frecuencia VARCHAR(50) NOT NULL,
+    repeticion INT NOT NULL
+);
+
+CREATE TABLE prestamos (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    fecha DATE NOT NULL,
+    estado VARCHAR(50) NOT NULL,
+    moneda VARCHAR(10) NOT NULL,
+    saldo_inicial DECIMAL(15,2) NOT NULL,
+    limite_credito DECIMAL(15,2) NOT NULL
+);
 
 SET SQL_MODE=@OLD_SQL_MODE;
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
