@@ -196,23 +196,25 @@ COMMENT = 'Activos de las personas';
 -- -----------------------------------------------------
 -- Table `mydb`.`presupuesto`
 -- -----------------------------------------------------
-DROP TABLE IF EXISTS `mydb`.`presupuesto` ;
+-- La tabla 'presupuesto' almacena los presupuestos definidos por los usuarios.
+-- Cada registro representa un presupuesto individual, con información relevante
+-- como nombre, descripción, monto total, fechas de vigencia y la persona asociada.
 
 CREATE TABLE IF NOT EXISTS `mydb`.`presupuesto` (
-  `id_presupuesto` INT NOT NULL AUTO_INCREMENT,
-  `nombre` VARCHAR(100) NOT NULL,
-  `descripcion` TEXT NULL DEFAULT NULL,
-  `monto_total` DECIMAL(15,2) NOT NULL,
-  `fecha_inicio` DATE NOT NULL,
-  `fecha_fin` DATE NOT NULL,
-  `id_persona` INT NOT NULL,
+  `id_presupuesto` INT NOT NULL AUTO_INCREMENT COMMENT 'Identificador único del presupuesto. Clave primaria.',
+  `nombre` VARCHAR(100) NOT NULL COMMENT 'Nombre del presupuesto. Ejemplo: "Presupuesto Familiar 2025".',
+  `descripcion` TEXT NULL DEFAULT NULL COMMENT 'Descripción detallada del presupuesto. Puede incluir objetivos, notas, etc.',
+  `monto_total` DECIMAL(15,2) NOT NULL COMMENT 'Monto total asignado al presupuesto. Representa el límite de gasto o inversión.',
+  `fecha_inicio` DATE NOT NULL COMMENT 'Fecha de inicio de vigencia del presupuesto.',
+  `fecha_fin` DATE NOT NULL COMMENT 'Fecha de fin de vigencia del presupuesto.',
+  `id_persona` INT NOT NULL COMMENT 'Referencia a la persona propietaria del presupuesto. Llave foránea a persona(id_persona).',
   PRIMARY KEY (`id_presupuesto`),
   INDEX `fk_presupuesto_persona` (`id_persona` ASC) VISIBLE,
   CONSTRAINT `fk_presupuesto_persona`
     FOREIGN KEY (`id_persona`)
-    REFERENCES `mydb`.`persona` (`id_persona`))
-ENGINE = InnoDB
-COMMENT = 'Presupuestos definidos por los usuarios';
+    REFERENCES `mydb`.`persona` (`id_persona`)
+) ENGINE = InnoDB
+COMMENT = 'Presupuestos definidos por los usuarios. Permite organizar y controlar los recursos financieros de una persona en un periodo determinado.';
 
 
 -- -----------------------------------------------------
