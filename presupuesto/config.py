@@ -1,9 +1,13 @@
-import mysql.connector
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
 
-def get_connection():
-    return mysql.connector.connect(
-        host="localhost",      # Cambia por tu host
-        user="root",           # Cambia por tu usuario
-        password="tu_password",# Cambia por tu password
-        database="mydb"        # Cambia por tu base de datos
-    )
+db = SQLAlchemy()
+
+def create_app():
+    app = Flask(__name__)
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://usuario:password@localhost/mydb'
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+    db.init_app(app)
+
+    return app
