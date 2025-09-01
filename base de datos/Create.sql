@@ -21,12 +21,12 @@ USE `mydb` ;
 -- Table `mydb`.`producto`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mydb`.`producto` (
-  `idproducto` INT NOT NULL,
-  `nombre del producto` VARCHAR(45) NULL,
-  `monto maxio` VARCHAR(45) NULL,
-  `monto minimo` VARCHAR(45) NULL,
-  `porcentaje de interes` VARCHAR(45) NULL,
-  `idproductocol` VARCHAR(45) NULL,
+  `idproducto` INT NOT NULL AUTO_INCREMENT,
+  `nombre_del_producto` VARCHAR(45) NULL,
+  `monto_maximo` DECIMAL(10,2) NULL,
+  `monto_minimo` DECIMAL(10,2) NULL,
+  `porcentaje_de_interes` DECIMAL(5,2) NULL,
+  `idproductocol` INT NULL,
   `productocol` VARCHAR(45) NOT NULL,
   PRIMARY KEY (`idproducto`, `productocol`))
 ENGINE = InnoDB;
@@ -36,7 +36,7 @@ ENGINE = InnoDB;
 -- Table `mydb`.`persona`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mydb`.`persona` (
-  `idpersona` INT NOT NULL,
+  `idpersona` INT NOT NULL AUTO_INCREMENT,
   `nombre` VARCHAR(45) NULL,
   PRIMARY KEY (`idpersona`))
 ENGINE = InnoDB;
@@ -69,7 +69,7 @@ ENGINE = InnoDB;
 -- Table `mydb`.`category`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mydb`.`category` (
-  `category_id` INT NOT NULL,
+  `category_id` INT NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(255) NOT NULL,
   PRIMARY KEY (`category_id`));
 
@@ -78,11 +78,11 @@ CREATE TABLE IF NOT EXISTS `mydb`.`category` (
 -- Table `mydb`.`movimientos`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mydb`.`movimientos` (
-  `id movimiento` INT NOT NULL,
-  `codigo movimiento` VARCHAR(45) NULL,
+  `id_movimiento` INT NOT NULL AUTO_INCREMENT,
+  `codigo_movimiento` VARCHAR(45) NULL,
   `beneficiario` VARCHAR(45) NULL,
-  `cageoria` VARCHAR(45) NULL,
-  `monto` VARCHAR(45) NULL,
+  `categoria` VARCHAR(45) NULL,
+  `monto` DECIMAL(10,2) NULL,
   `tipo` VARCHAR(45) NULL,
   `producto_has_persona_producto_idproducto` INT NOT NULL,
   `producto_has_persona_producto_productocol` VARCHAR(45) NOT NULL,
@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS `mydb`.`movimientos` (
   `category_category_id` INT NOT NULL,
   `coutas` VARCHAR(45) NULL,
   `estado` VARCHAR(45) NULL,
-  PRIMARY KEY (`id movimiento`, `producto_has_persona_producto_idproducto`, `producto_has_persona_producto_productocol`, `producto_has_persona_persona_idpersona`, `category_category_id`),
+  PRIMARY KEY (`id_movimiento`, `producto_has_persona_producto_idproducto`, `producto_has_persona_producto_productocol`, `producto_has_persona_persona_idpersona`, `category_category_id`),
   INDEX `fk_movimientos_producto_has_persona1_idx` (`producto_has_persona_producto_idproducto` ASC, `producto_has_persona_producto_productocol` ASC, `producto_has_persona_persona_idpersona` ASC) VISIBLE,
   INDEX `fk_movimientos_category1_idx` (`category_category_id` ASC) VISIBLE,
   CONSTRAINT `fk_movimientos_producto_has_persona1`
@@ -110,8 +110,9 @@ ENGINE = InnoDB;
 -- Table `mydb`.`beneficiario`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mydb`.`beneficiario` (
-  `idbeneficiario` INT NOT NULL,
-  `nombre` VARCHAR(45) NULL)
+  `idbeneficiario` INT NOT NULL AUTO_INCREMENT,
+  `nombre` VARCHAR(45) NULL,
+  PRIMARY KEY (`idbeneficiario`))
 ENGINE = InnoDB;
 
 
