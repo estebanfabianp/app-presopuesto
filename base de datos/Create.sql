@@ -34,10 +34,11 @@ CREATE TABLE IF NOT EXISTS `mydb`.`persona` (
   `contrasena` VARCHAR(255) NOT NULL COMMENT 'Contraseña encriptada del usuario',
   `fecha_creacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Fecha de registro',
   `fecha_actualizacion` DATETIME NULL DEFAULT NULL COMMENT 'Fecha de última actualización',
-  `activo` TINYINT NOT NULL DEFAULT TRUE COMMENT 'Indica si la persona está activa',
+  `activo` TINYINT NOT NULL DEFAULT 1 COMMENT 'Indica si la persona está activa',
   PRIMARY KEY (`id_persona`),
-  UNIQUE INDEX `idx_usuario_unico` (`usuario` ASC) VISIBLE,
-  UNIQUE INDEX `idx_correo_unico` (`correo_electronico` ASC) VISIBLE)
+  UNIQUE INDEX `idx_usuario_unico` (`usuario` ASC),
+  UNIQUE INDEX `idx_correo_unico` (`correo_electronico` ASC)
+)
 ENGINE = InnoDB
 COMMENT = 'Personas registradas en el sistema';
 
@@ -55,7 +56,8 @@ CREATE TABLE IF NOT EXISTS `mydb`.`producto` (
   `porcentaje_interes` DECIMAL(5,2) NULL DEFAULT NULL COMMENT 'Porcentaje de interés aplicado',
   `tipo_producto` ENUM('TARJETA', 'PRESTAMO', 'OTRO') NOT NULL DEFAULT 'OTRO' COMMENT 'Tipo de producto financiero',
   PRIMARY KEY (`id_producto`),
-  UNIQUE INDEX `idx_nombre_producto_unico` (`nombre` ASC) VISIBLE)
+  UNIQUE INDEX `idx_nombre_producto_unico` (`nombre` ASC)
+)
 ENGINE = InnoDB
 COMMENT = 'Productos financieros (tarjeta, préstamo, etc.)';
 
@@ -68,7 +70,8 @@ DROP TABLE IF EXISTS `mydb`.`categoria` ;
 CREATE TABLE IF NOT EXISTS `mydb`.`categoria` (
   `id_categoria` INT NOT NULL AUTO_INCREMENT,
   `nombre` VARCHAR(100) NOT NULL,
-  PRIMARY KEY (`id_categoria`))
+  PRIMARY KEY (`id_categoria`)
+)
 ENGINE = InnoDB
 COMMENT = 'Categorías de movimientos financieros';
 
@@ -81,7 +84,8 @@ DROP TABLE IF EXISTS `mydb`.`beneficiario` ;
 CREATE TABLE IF NOT EXISTS `mydb`.`beneficiario` (
   `id_beneficiario` INT NOT NULL AUTO_INCREMENT,
   `nombre` VARCHAR(100) NOT NULL,
-  PRIMARY KEY (`id_beneficiario`))
+  PRIMARY KEY (`id_beneficiario`)
+)
 ENGINE = InnoDB
 COMMENT = 'Beneficiarios de movimientos o transacciones';
 
@@ -103,10 +107,10 @@ CREATE TABLE IF NOT EXISTS `mydb`.`movimiento` (
   `id_categoria` INT NOT NULL,
   `id_beneficiario` INT NOT NULL,
   PRIMARY KEY (`id_movimiento`),
-  INDEX `idx_mov_producto_persona` (`id_producto` ASC, `id_persona` ASC) VISIBLE,
-  INDEX `fk_mov_persona` (`id_persona` ASC) VISIBLE,
-  INDEX `fk_mov_categoria` (`id_categoria` ASC) VISIBLE,
-  INDEX `fk_mov_beneficiario` (`id_beneficiario` ASC) VISIBLE,
+  INDEX `idx_mov_producto_persona` (`id_producto` ASC, `id_persona` ASC),
+  INDEX `fk_mov_persona` (`id_persona` ASC),
+  INDEX `fk_mov_categoria` (`id_categoria` ASC),
+  INDEX `fk_mov_beneficiario` (`id_beneficiario` ASC),
   CONSTRAINT `fk_mov_producto`
     FOREIGN KEY (`id_producto`)
     REFERENCES `mydb`.`producto` (`id_producto`),
@@ -118,7 +122,8 @@ CREATE TABLE IF NOT EXISTS `mydb`.`movimiento` (
     REFERENCES `mydb`.`categoria` (`id_categoria`),
   CONSTRAINT `fk_mov_beneficiario`
     FOREIGN KEY (`id_beneficiario`)
-    REFERENCES `mydb`.`beneficiario` (`id_beneficiario`))
+    REFERENCES `mydb`.`beneficiario` (`id_beneficiario`)
+)
 ENGINE = InnoDB
 COMMENT = 'Movimientos financieros asociados a productos';
 
@@ -138,14 +143,15 @@ CREATE TABLE IF NOT EXISTS `mydb`.`transaccion_programada` (
   `id_categoria` INT NOT NULL,
   `id_beneficiario` INT NOT NULL,
   PRIMARY KEY (`id_transaccion`),
-  INDEX `fk_tp_categoria` (`id_categoria` ASC) VISIBLE,
-  INDEX `fk_tp_beneficiario` (`id_beneficiario` ASC) VISIBLE,
+  INDEX `fk_tp_categoria` (`id_categoria` ASC),
+  INDEX `fk_tp_beneficiario` (`id_beneficiario` ASC),
   CONSTRAINT `fk_tp_categoria`
     FOREIGN KEY (`id_categoria`)
     REFERENCES `mydb`.`categoria` (`id_categoria`),
   CONSTRAINT `fk_tp_beneficiario`
     FOREIGN KEY (`id_beneficiario`)
-    REFERENCES `mydb`.`beneficiario` (`id_beneficiario`))
+    REFERENCES `mydb`.`beneficiario` (`id_beneficiario`)
+)
 ENGINE = InnoDB
 COMMENT = 'Transacciones programadas';
 
@@ -164,10 +170,11 @@ CREATE TABLE IF NOT EXISTS `mydb`.`prestamo` (
   `limite_credito` DECIMAL(15,2) NOT NULL,
   `id_persona` INT NOT NULL,
   PRIMARY KEY (`id_prestamo`),
-  INDEX `fk_prestamo_persona` (`id_persona` ASC) VISIBLE,
+  INDEX `fk_prestamo_persona` (`id_persona` ASC),
   CONSTRAINT `fk_prestamo_persona`
     FOREIGN KEY (`id_persona`)
-    REFERENCES `mydb`.`persona` (`id_persona`))
+    REFERENCES `mydb`.`persona` (`id_persona`)
+)
 ENGINE = InnoDB
 COMMENT = 'Préstamos asociados a personas';
 
@@ -185,10 +192,11 @@ CREATE TABLE IF NOT EXISTS `mydb`.`activo` (
   `id_persona` INT NOT NULL,
   `fecha_creacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id_activo`),
-  INDEX `fk_activo_persona` (`id_persona` ASC) VISIBLE,
+  INDEX `fk_activo_persona` (`id_persona` ASC),
   CONSTRAINT `fk_activo_persona`
     FOREIGN KEY (`id_persona`)
-    REFERENCES `mydb`.`persona` (`id_persona`))
+    REFERENCES `mydb`.`persona` (`id_persona`)
+)
 ENGINE = InnoDB
 COMMENT = 'Activos de las personas';
 
@@ -196,25 +204,24 @@ COMMENT = 'Activos de las personas';
 -- -----------------------------------------------------
 -- Table `mydb`.`presupuesto`
 -- -----------------------------------------------------
--- La tabla 'presupuesto' almacena los presupuestos definidos por los usuarios.
--- Cada registro representa un presupuesto individual, con información relevante
--- como nombre, descripción, monto total, fechas de vigencia y la persona asociada.
+DROP TABLE IF EXISTS `mydb`.`presupuesto` ;
 
 CREATE TABLE IF NOT EXISTS `mydb`.`presupuesto` (
-  `id_presupuesto` INT NOT NULL AUTO_INCREMENT COMMENT 'Identificador único del presupuesto. Clave primaria.',
-  `nombre` VARCHAR(100) NOT NULL COMMENT 'Nombre del presupuesto. Ejemplo: "Presupuesto Familiar 2025".',
-  `descripcion` TEXT NULL DEFAULT NULL COMMENT 'Descripción detallada del presupuesto. Puede incluir objetivos, notas, etc.',
-  `monto_total` DECIMAL(15,2) NOT NULL COMMENT 'Monto total asignado al presupuesto. Representa el límite de gasto o inversión.',
-  `fecha_inicio` DATE NOT NULL COMMENT 'Fecha de inicio de vigencia del presupuesto.',
-  `fecha_fin` DATE NOT NULL COMMENT 'Fecha de fin de vigencia del presupuesto.',
-  `id_persona` INT NOT NULL COMMENT 'Referencia a la persona propietaria del presupuesto. Llave foránea a persona(id_persona).',
+  `id_presupuesto` INT NOT NULL AUTO_INCREMENT,
+  `nombre` VARCHAR(100) NOT NULL,
+  `descripcion` TEXT NULL DEFAULT NULL,
+  `monto_total` DECIMAL(15,2) NOT NULL,
+  `fecha_inicio` DATE NOT NULL,
+  `fecha_fin` DATE NOT NULL,
+  `id_persona` INT NOT NULL,
   PRIMARY KEY (`id_presupuesto`),
-  INDEX `fk_presupuesto_persona` (`id_persona` ASC) VISIBLE,
+  INDEX `fk_presupuesto_persona` (`id_persona` ASC),
   CONSTRAINT `fk_presupuesto_persona`
     FOREIGN KEY (`id_persona`)
     REFERENCES `mydb`.`persona` (`id_persona`)
-) ENGINE = InnoDB
-COMMENT = 'Presupuestos definidos por los usuarios. Permite organizar y controlar los recursos financieros de una persona en un periodo determinado.';
+)
+ENGINE = InnoDB
+COMMENT = 'Presupuestos definidos por los usuarios';
 
 
 -- -----------------------------------------------------
@@ -233,10 +240,11 @@ CREATE TABLE IF NOT EXISTS `mydb`.`tarjeta_credito` (
   `fecha_creacion` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Fecha de registro de la tarjeta',
   `estado` ENUM('ACTIVA', 'INACTIVA', 'CANCELADA') NOT NULL DEFAULT 'ACTIVA' COMMENT 'Estado de la tarjeta',
   PRIMARY KEY (`id_tarjeta`),
-  INDEX `fk_tc_producto` (`id_producto` ASC) VISIBLE,
+  INDEX `fk_tc_producto` (`id_producto` ASC),
   CONSTRAINT `fk_tc_producto`
     FOREIGN KEY (`id_producto`)
-    REFERENCES `mydb`.`producto` (`id_producto`))
+    REFERENCES `mydb`.`producto` (`id_producto`)
+)
 ENGINE = InnoDB
 COMMENT = 'Tarjetas de crédito asociadas a productos';
 
@@ -254,14 +262,15 @@ CREATE TABLE IF NOT EXISTS `mydb`.`pago_tarjeta` (
   `referencia` VARCHAR(100) NULL DEFAULT NULL COMMENT 'Referencia o descripción del pago',
   `id_persona` INT NULL DEFAULT NULL COMMENT 'Persona que realizó el pago',
   PRIMARY KEY (`id_pago`),
-  INDEX `fk_pt_tarjeta` (`id_tarjeta` ASC) VISIBLE,
-  INDEX `fk_pt_persona` (`id_persona` ASC) VISIBLE,
+  INDEX `fk_pt_tarjeta` (`id_tarjeta` ASC),
+  INDEX `fk_pt_persona` (`id_persona` ASC),
   CONSTRAINT `fk_pt_tarjeta`
     FOREIGN KEY (`id_tarjeta`)
     REFERENCES `mydb`.`tarjeta_credito` (`id_tarjeta`),
   CONSTRAINT `fk_pt_persona`
     FOREIGN KEY (`id_persona`)
-    REFERENCES `mydb`.`persona` (`id_persona`))
+    REFERENCES `mydb`.`persona` (`id_persona`)
+)
 ENGINE = InnoDB
 COMMENT = 'Pagos realizados a tarjetas de crédito';
 
