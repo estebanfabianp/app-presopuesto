@@ -48,7 +48,7 @@ VALUES
 ('Laptop', 15000.00, 2000.00, 1, NOW()),
 ('Bicicleta', 3000.00, 500.00, 2, NOW());
 
--- Datos de prueba para presupuesto
+-- Datos de prueba para presupuesto 
 INSERT INTO `mydb`.`presupuesto` (`nombre`, `descripcion`, `monto_total`, `fecha_inicio`, `fecha_fin`, `id_persona`)
 VALUES
 ('Presupuesto Mensual', 'Gastos y ahorros mensuales', 10000.00, '2025-09-01', '2025-09-30', 1),
