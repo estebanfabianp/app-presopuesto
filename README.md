@@ -1,38 +1,43 @@
 # Sistema de Gestión de Presupuestos
 
-Una aplicación personal de finanzas que integra inteligencia artificial para aprender y mejorar tu manejo del dinero. Está diseñada para ayudarte a gestionar tus ingresos, gastos, deudas, inversiones y ahorro de forma más inteligente.
+Aplicación personal de finanzas que integra inteligencia artificial para ayudarte a gestionar ingresos, gastos, deudas, inversiones y ahorro de forma inteligente y automatizada.
 
 ---
 
 ## 📖 Descripción
 
-Este proyecto consiste en el desarrollo de una aplicación para la **gestión personal de finanzas**, centrada en facilitar el control de tus movimientos bancarios, presupuestos y deudas.
+Este proyecto consiste en el desarrollo de una aplicación para la **gestión personal de finanzas**, centrada en facilitar el control de movimientos bancarios, presupuestos, deudas e inversiones.
 
-Principales funcionalidades:
-
-- Cargar y categorizar automáticamente transacciones bancarias.
-- Administrar cuentas, préstamos, tarjetas de crédito y activos financieros.
-- Controlar deudas y pagos recurrentes (pagos, consultas médicas, etc.).
-- Gestionar inversiones en acciones y fondos.
-- Crear presupuestos y comparar el gasto real por categoría.
-- Presentar reportes visuales: flujo de caja, resumen mensual, gastos por categoría, desempeño del presupuesto, informes anuales, entre otros.
-- Proponer estrategias de pago, como el método de la bola de nieve.
+**Principales funcionalidades:**
+- Carga y categorización automática de transacciones bancarias (reglas e IA).
+- Administración de cuentas, préstamos, tarjetas de crédito y activos financieros.
+- Control de deudas y pagos recurrentes.
+- Gestión de inversiones en acciones y fondos.
+- Creación y seguimiento de presupuestos, con comparación de gasto real por categoría.
+- Reportes visuales: flujo de caja, resumen mensual, gastos por categoría, desempeño presupuestal, informes anuales, etc.
+- Estrategias de pago (ejemplo: método de la bola de nieve).
 - Futuras versiones: recomendaciones personalizadas de ahorro, inversión y reducción de deuda.
 
 ---
 
 ## 🗺️ Roadmap
 
-A continuación, el plan de desarrollo del proyecto:
+El desarrollo del proyecto se organiza en fases:
 
-![Roadmap del Proyecto](roadmap_app_presopuesto.png)
+1. **MVP:** CRUD de usuarios, cuentas, movimientos y presupuestos; reportes simples.
+2. **Categorización automática:** Reglas simples y modelos de machine learning para clasificar gastos.
+3. **Visualización avanzada:** Dashboards interactivos, estrategias financieras y recomendaciones.
+4. **Expansión a inversiones:** Gestión de acciones, fondos y portafolios.
+5. **Integración Forex y mercados:** APIs de divisas, análisis predictivo y reportes avanzados.
+
+Más detalles en [`documentacion/roadmap.md`](documentacion/roadmap.md).
 
 ---
 
 ## 📂 Estructura del Proyecto
 
 ```
-/base de datos/              — Scripts SQL (create, foreign keys, vistas, funciones, SP, jobs, datos iniciales)
+/base de datos/              — Scripts SQL (tablas, llaves foráneas, vistas, funciones, SP, jobs, datos iniciales)
 ├── 01_create_tables.sql
 ├── 02_create_foreign_keys.sql
 ├── 03_create_views.sql
@@ -42,11 +47,16 @@ A continuación, el plan de desarrollo del proyecto:
 └── 07_insert_data.sql
 
 /presupuesto/                — Backend (API Flask y modelos SQLAlchemy)
-controllers/                 — Lógica de negocio y endpoints
-models/                      — Modelos de datos
-views/                       — Rutas Flask
+├── controllers/             — Lógica de negocio y endpoints
+├── models/                  — Modelos de datos
+├── views/                   — Rutas Flask
+
+/documentacion/              — Documentos técnicos y sugerencias
+├── roadmap.md
+├── sugerencia_IA.md
+
 app-presopuesto.code‑workspace — Configuración del editor
-README.md                    — Documentación del proyecto
+README.md                    — Documentación principal
 venv/                        — Entorno virtual (excluido de producción)
 ```
 
@@ -61,7 +71,7 @@ venv/                        — Entorno virtual (excluido de producción)
    cd app-presopuesto
    ```
 
-2. Crea y activa el entorno virtual (opcional pero recomendado):
+2. (Opcional) Crea y activa el entorno virtual:
 
    ```bash
    python3 -m venv venv
@@ -77,9 +87,9 @@ venv/                        — Entorno virtual (excluido de producción)
 4. Inicializa la base de datos:
 
    ```bash
-   mysql -u usuario -p < /base\ de\ datos/01_create_tables.sql
-   mysql -u usuario -p < /base\ de\ datos/02_create_foreign_keys.sql
-   mysql -u usuario -p < /base\ de\ datos/07_insert_data.sql
+   mysql -u usuario -p < base\ de\ datos/01_create_tables.sql
+   mysql -u usuario -p < base\ de\ datos/02_create_foreign_keys.sql
+   mysql -u usuario -p < base\ de\ datos/07_insert_data.sql
    ```
 
 5. Ejecuta la API:
@@ -93,24 +103,27 @@ venv/                        — Entorno virtual (excluido de producción)
 ## 🚀 Uso
 
 Accede a los endpoints para realizar operaciones como:
-- Registro de transacciones
-- Consulta de presupuestos y movimientos
-- Visualización de resúmenes financieros
+- Registro y consulta de transacciones
+- Gestión de presupuestos y movimientos
+- Visualización de resúmenes y reportes financieros
 
 ---
 
 ## 📝 Buenas Prácticas Implementadas
 
 - Integridad referencial con claves primarias y foráneas.
-- Tablas de catálogo en lugar de ENUMs para flexibilidad futura.
-- Comentarios claros para tablas y columnas.
+- Tablas de catálogo en lugar de ENUMs para mayor flexibilidad.
+- Comentarios descriptivos en tablas y columnas.
 - Restricciones `CHECK` para asegurar datos válidos.
-- Almacenamiento seguro con hash para contraseñas.
+- Contraseñas almacenadas de forma segura (hash + salt).
 - Automatización con procedimientos y jobs (event scheduler de MySQL).
+- Separación de lógica de negocio, modelos y vistas en el backend.
+- Uso de sentencias preparadas para prevenir inyección SQL.
+- Validación robusta de entradas de usuario.
 
 ---
 
-## 📊 Ejemplo de Consulta
+## 📊 Ejemplo de Consulta SQL
 
 ```sql
 -- Resumen de gastos por categoría para un usuario:
@@ -123,6 +136,13 @@ GROUP BY m.categoria;
 
 ---
 
+## 📚 Documentación y Sugerencias
+
+- [Roadmap del proyecto](documentacion/roadmap.md)
+- [Sugerencias de IA y mejoras](documentacion/sugerencia_IA.md)
+
+---
+
 ## 👨‍💻 Autor
 
 Desarrollado por **Esteban Fabián Patiño Montealegre**
@@ -131,4 +151,4 @@ Desarrollado por **Esteban Fabián Patiño Montealegre**
 
 ## ℹ Acerca del proyecto
 
-Una app personal basada en IA para aprender Python mientras gestiono mis finanzas.
+Aplicación personal basada en IA para aprender Python y mejorar la gestión financiera personal.
