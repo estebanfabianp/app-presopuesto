@@ -1,0 +1,10 @@
+Flask
+Flask-SQLAlchemy
+PyMySQL
+Flask-Migrate
+python-dotenv
+bcrypt
+pandas
+scikit-learn
+# Opcional para futuras visualizaciones o IA
+matplotlib

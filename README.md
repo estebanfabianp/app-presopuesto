@@ -20,6 +20,20 @@ Este proyecto consiste en el desarrollo de una aplicación para la **gestión pe
 
 ---
 
+## 🛠️ Tecnologías y dependencias
+
+- **Backend:** Python, Flask, Flask-SQLAlchemy, Flask-Migrate
+- **Base de datos:** MySQL/MariaDB
+- **ORM:** SQLAlchemy
+- **Conector:** PyMySQL
+- **Seguridad:** bcrypt
+- **IA y análisis:** pandas, scikit-learn, matplotlib (para futuras versiones)
+- **Entorno:** python-dotenv, venv
+
+Ver dependencias completas en [`requirements.txt`](requirements.txt).
+
+---
+
 ## 🗺️ Roadmap
 
 El desarrollo del proyecto se organiza en fases:
@@ -55,6 +69,7 @@ Más detalles en [`documentacion/roadmap.md`](documentacion/roadmap.md).
 ├── roadmap.md
 ├── sugerencia_IA.md
 
+requirements.txt             — Dependencias del proyecto
 app-presopuesto.code‑workspace — Configuración del editor
 README.md                    — Documentación principal
 venv/                        — Entorno virtual (excluido de producción)
