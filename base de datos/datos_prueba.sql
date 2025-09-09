@@ -79,3 +79,15 @@ INSERT INTO pago_tarjeta (id_tarjeta, fecha_pago, monto_pago, referencia, id_per
 VALUES
 (1, '2025-09-20', 1000.00, 'Pago septiembre', 1, NOW()),
 (2, '2025-09-21', 500.00, 'Pago parcial', 2, NOW());
+
+-- UVT para 2025
+INSERT INTO parametro_dian (anio, concepto, valor, unidad, descripcion)
+VALUES (2025, 'UVT', 47065, 'COP', 'Unidad de Valor Tributario para el año 2025');
+
+-- Tope ingresos para declarar renta 2025
+INSERT INTO parametro_dian (anio, concepto, valor, unidad, descripcion)
+VALUES (2025, 'Tope ingresos brutos anuales', 174000000, 'COP', 'Valor mínimo de ingresos para estar obligado a declarar renta');
+
+-- Porcentaje de retención en la fuente
+INSERT INTO parametro_dian (anio, concepto, valor, unidad, descripcion)
+VALUES (2025, 'Retención en la fuente por compras', 2.50, '%', 'Aplicable a compras sujetas a retención');
