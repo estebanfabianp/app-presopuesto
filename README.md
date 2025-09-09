@@ -1,83 +1,134 @@
 # Sistema de Gestión de Presupuestos
 
-Este proyecto consiste en el desarrollo de una aplicación para la **gestión de finanzas personales**.  
-La aplicación permite cargar información de **extractos bancarios** y, mediante un modelo de categorización, clasificar automáticamente los movimientos financieros.  
-
-Además, incluye un módulo visual que muestra las **deudas vigentes de tarjetas de crédito**, como avances bancarios, número de cuotas pendientes y montos por pagar.  
-
-En futuras versiones, se espera que la aplicación sugiera **estrategias de pago** (como el método de la bola de nieve) y que compare el **presupuesto planificado** con el **gasto real por categoría**, identificando patrones de consumo. De esta forma, el usuario podrá mejorar sus hábitos financieros, cumplir con su presupuesto y fomentar el ahorro.  
-
-El sistema implementa una **base de datos** y una **API** para la gestión de:  
-- Presupuestos personales  
-- Movimientos financieros  
-- Préstamos  
-- Tarjetas de crédito  
-- Activos  
+Una aplicación personal de finanzas que integra inteligencia artificial para aprender y mejorar tu manejo del dinero. Está diseñada para ayudarte a gestionar tus ingresos, gastos, deudas, inversiones y ahorro de forma más inteligente.
 
 ---
 
-## 📂 Estructura del Proyecto  
+## 📖 Descripción
 
-- **base de datos/**: Scripts SQL para crear y poblar la base de datos.  
-- **presupuesto/**: Código fuente de la API y modelos SQLAlchemy.  
-- **controllers/**: Controladores para operaciones CRUD de cada entidad.  
-- **models/**: Modelos SQLAlchemy para cada tabla.  
-- **views/**: Vistas Flask que exponen endpoints REST.  
+Este proyecto consiste en el desarrollo de una aplicación para la **gestión personal de finanzas**, centrada en facilitar el control de tus movimientos bancarios, presupuestos y deudas.
+
+Principales funcionalidades:
+
+- Cargar y categorizar automáticamente transacciones bancarias.
+- Administrar cuentas, préstamos, tarjetas de crédito y activos financieros.
+- Controlar deudas y pagos recurrentes (pagos, consultas médicas, etc.).
+- Gestionar inversiones en acciones y fondos.
+- Crear presupuestos y comparar el gasto real por categoría.
+- Presentar reportes visuales: flujo de caja, resumen mensual, gastos por categoría, desempeño del presupuesto, informes anuales, entre otros.
+- Proponer estrategias de pago, como el método de la bola de nieve.
+- Futuras versiones: recomendaciones personalizadas de ahorro, inversión y reducción de deuda.
 
 ---
 
-## ⚙️ Instalación  
+## 🗺️ Roadmap
 
-1. Clona el repositorio.  
-2. Instala las dependencias del backend (Flask, SQLAlchemy, PyMySQL, etc.):  
+A continuación, el plan de desarrollo del proyecto:
+
+![Roadmap del Proyecto](roadmap_app_presopuesto.png)
+
+---
+
+## 📂 Estructura del Proyecto
+
+```
+/base de datos/              — Scripts SQL (create, foreign keys, vistas, funciones, SP, jobs, datos iniciales)
+├── 01_create_tables.sql
+├── 02_create_foreign_keys.sql
+├── 03_create_views.sql
+├── 04_create_functions.sql
+├── 05_create_procedures.sql
+├── 06_create_jobs.sql
+└── 07_insert_data.sql
+
+/presupuesto/                — Backend (API Flask y modelos SQLAlchemy)
+controllers/                 — Lógica de negocio y endpoints
+models/                      — Modelos de datos
+views/                       — Rutas Flask
+app-presopuesto.code‑workspace — Configuración del editor
+README.md                    — Documentación del proyecto
+venv/                        — Entorno virtual (excluido de producción)
+```
+
+---
+
+## ⚙️ Instalación
+
+1. Clona el repositorio:
+
+   ```bash
+   git clone https://github.com/estebanfabianp/app-presopuesto.git
+   cd app-presopuesto
+   ```
+
+2. Crea y activa el entorno virtual (opcional pero recomendado):
+
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
+
+3. Instala las dependencias:
+
    ```bash
    pip install -r requirements.txt
    ```
-3. Crea la base de datos ejecutando:  
+
+4. Inicializa la base de datos:
+
    ```bash
-   mysql -u usuario -p < base de datos/Create.sql
-   ```
-4. Inserta datos de prueba:  
-   ```bash
-   mysql -u usuario -p mydb < base de datos/datos_prueba.sql
+   mysql -u usuario -p < /base\ de\ datos/01_create_tables.sql
+   mysql -u usuario -p < /base\ de\ datos/02_create_foreign_keys.sql
+   mysql -u usuario -p < /base\ de\ datos/07_insert_data.sql
    ```
 
----
+5. Ejecuta la API:
 
-## 🚀 Uso  
-
-1. Ejecuta la API Flask:  
    ```bash
    flask run
    ```
-2. Accede a los endpoints para realizar operaciones **CRUD** sobre personas, productos, movimientos, presupuestos, etc.  
 
 ---
 
-## 📝 Buenas Prácticas Implementadas  
+## 🚀 Uso
 
-- Uso de claves primarias y foráneas para asegurar integridad referencial.  
-- Tablas de catálogo en lugar de ENUMs para mayor flexibilidad.  
-- Comentarios descriptivos en tablas y columnas.  
-- Restricciones `CHECK` para garantizar valores válidos.  
-- Relación muchos a muchos entre presupuesto y categoría.  
-- Contraseñas almacenadas mediante **hash** para mayor seguridad.  
+Accede a los endpoints para realizar operaciones como:
+- Registro de transacciones
+- Consulta de presupuestos y movimientos
+- Visualización de resúmenes financieros
 
 ---
 
-## 📊 Ejemplo de Consulta SQL  
+## 📝 Buenas Prácticas Implementadas
+
+- Integridad referencial con claves primarias y foráneas.
+- Tablas de catálogo en lugar de ENUMs para flexibilidad futura.
+- Comentarios claros para tablas y columnas.
+- Restricciones `CHECK` para asegurar datos válidos.
+- Almacenamiento seguro con hash para contraseñas.
+- Automatización con procedimientos y jobs (event scheduler de MySQL).
+
+---
+
+## 📊 Ejemplo de Consulta
 
 ```sql
--- Obtener movimientos de una persona
-SELECT m.*, c.nombre AS categoria, b.nombre AS beneficiario
+-- Resumen de gastos por categoría para un usuario:
+SELECT m.categoria, SUM(m.monto) AS total_gastado
 FROM movimiento m
-JOIN categoria c ON m.id_categoria = c.id_categoria
-JOIN beneficiario b ON m.id_beneficiario = b.id_beneficiario
-WHERE m.id_persona = 1;
+JOIN cuenta c ON m.cuenta_id = c.id_cuenta
+WHERE c.usuario_id = 1 AND m.tipo = 'gasto'
+GROUP BY m.categoria;
 ```
 
 ---
 
 ## 👨‍💻 Autor
 
-Desarrollado por Esteban Fabian Patiño Montealegre
+Desarrollado por **Esteban Fabián Patiño Montealegre**
+
+---
+
+## ℹ Acerca del proyecto
+
+Una app personal basada en IA para aprender Python mientras gestiono mis finanzas.
