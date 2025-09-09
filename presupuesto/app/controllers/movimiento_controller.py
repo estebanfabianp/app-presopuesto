@@ -3,7 +3,7 @@ Controlador para operaciones relacionadas con movimientos.
 Incluye funciones para listar, obtener, crear, actualizar y eliminar movimientos.
 """
 
-from app.models.models import db
+from app.models.movimiento import db
 
 def listar():
     """

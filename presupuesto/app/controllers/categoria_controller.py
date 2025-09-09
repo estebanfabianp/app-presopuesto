@@ -3,7 +3,7 @@ Controlador para operaciones relacionadas con categorías.
 Incluye funciones para listar, obtener, crear, actualizar y eliminar categorías.
 """
 
-from app.models.models import db
+from app.models.categoria import db
 
 def listar():
     """

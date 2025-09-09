@@ -3,7 +3,7 @@ Controlador para operaciones relacionadas con presupuestos.
 Incluye funciones para listar, obtener, crear, actualizar y eliminar presupuestos.
 """
 
-from app.models.models import db
+from app.models.presupuesto import db
 
 def listar():
     """

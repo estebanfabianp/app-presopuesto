@@ -3,7 +3,7 @@ Controlador para operaciones relacionadas con tarjetas.
 Incluye funciones para listar, obtener, crear, actualizar y eliminar tarjetas.
 """
 
-from app.models.models import db
+from app.models.tarjeta_credito import db
 
 def listar():
     """

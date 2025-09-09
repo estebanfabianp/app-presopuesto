@@ -8,4 +8,4 @@ BEGIN
     RETURN IFNULL(total, 0);
 END $$
 
-DELIMITER ;
+DELIMITER;

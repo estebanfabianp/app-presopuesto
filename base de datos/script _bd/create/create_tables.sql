@@ -44,9 +44,9 @@ CREATE TABLE persona (
 CREATE TABLE producto (
     id_producto INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL UNIQUE,
-    monto_maximo DECIMAL(15,2) DEFAULT NULL,
-    monto_minimo DECIMAL(15,2) DEFAULT NULL,
-    porcentaje_interes DECIMAL(5,2) DEFAULT NULL,
+    monto_maximo DECIMAL(15, 2) DEFAULT NULL,
+    monto_minimo DECIMAL(15, 2) DEFAULT NULL,
+    porcentaje_interes DECIMAL(5, 2) DEFAULT NULL,
     id_tipo INT NOT NULL
 );
 
@@ -63,7 +63,7 @@ CREATE TABLE beneficiario (
 CREATE TABLE movimiento (
     id_movimiento INT AUTO_INCREMENT PRIMARY KEY,
     codigo VARCHAR(45) DEFAULT NULL,
-    monto DECIMAL(15,2) NOT NULL,
+    monto DECIMAL(15, 2) NOT NULL,
     id_tipo INT NOT NULL,
     cuotas INT DEFAULT NULL,
     id_estado INT NOT NULL,
@@ -79,7 +79,7 @@ CREATE TABLE transaccion_programada (
     id_transaccion INT AUTO_INCREMENT PRIMARY KEY,
     fecha DATE NOT NULL,
     id_tipo INT NOT NULL,
-    monto DECIMAL(15,2) NOT NULL,
+    monto DECIMAL(15, 2) NOT NULL,
     id_frecuencia INT NOT NULL,
     repeticion INT DEFAULT NULL,
     id_categoria INT NOT NULL,
@@ -92,8 +92,8 @@ CREATE TABLE prestamo (
     fecha DATE NOT NULL,
     id_estado INT NOT NULL,
     moneda VARCHAR(10) NOT NULL,
-    saldo_inicial DECIMAL(15,2) NOT NULL,
-    limite_credito DECIMAL(15,2) NOT NULL,
+    saldo_inicial DECIMAL(15, 2) NOT NULL,
+    limite_credito DECIMAL(15, 2) NOT NULL,
     id_persona INT NOT NULL,
     fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -101,8 +101,8 @@ CREATE TABLE prestamo (
 CREATE TABLE activo (
     id_activo INT AUTO_INCREMENT PRIMARY KEY,
     nombre_activo VARCHAR(100) NOT NULL,
-    valor DECIMAL(15,2) NOT NULL,
-    depreciacion DECIMAL(15,2) DEFAULT NULL,
+    valor DECIMAL(15, 2) NOT NULL,
+    depreciacion DECIMAL(15, 2) DEFAULT NULL,
     id_persona INT NOT NULL,
     fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -111,7 +111,7 @@ CREATE TABLE presupuesto (
     id_presupuesto INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
     descripcion TEXT DEFAULT NULL,
-    monto_total DECIMAL(15,2) NOT NULL,
+    monto_total DECIMAL(15, 2) NOT NULL,
     fecha_inicio DATE NOT NULL,
     fecha_fin DATE NOT NULL,
     id_persona INT NOT NULL,
@@ -128,8 +128,8 @@ CREATE TABLE tarjeta_credito (
     id_tarjeta INT AUTO_INCREMENT PRIMARY KEY,
     id_producto INT NOT NULL,
     numero_tarjeta CHAR(16) NOT NULL UNIQUE,
-    limite_credito DECIMAL(15,2) NOT NULL,
-    saldo_actual DECIMAL(15,2) NOT NULL,
+    limite_credito DECIMAL(15, 2) NOT NULL,
+    saldo_actual DECIMAL(15, 2) NOT NULL,
     fecha_corte DATE NOT NULL,
     fecha_pago DATE NOT NULL,
     fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -140,7 +140,7 @@ CREATE TABLE pago_tarjeta (
     id_pago INT AUTO_INCREMENT PRIMARY KEY,
     id_tarjeta INT NOT NULL,
     fecha_pago DATE NOT NULL,
-    monto_pago DECIMAL(15,2) NOT NULL,
+    monto_pago DECIMAL(15, 2) NOT NULL,
     referencia VARCHAR(100) DEFAULT NULL,
     id_persona INT NOT NULL,
     fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -150,7 +150,7 @@ CREATE TABLE parametro_dian (
     id_parametro INT AUTO_INCREMENT PRIMARY KEY,
     anio INT NOT NULL,
     concepto VARCHAR(150) NOT NULL,
-    valor DECIMAL(15,2) NOT NULL,
+    valor DECIMAL(15, 2) NOT NULL,
     unidad VARCHAR(50) DEFAULT 'COP',
     descripcion TEXT
 );
@@ -160,9 +160,9 @@ CREATE TABLE accion (
     simbolo VARCHAR(10) NOT NULL,
     empresa VARCHAR(100) NOT NULL,
     cantidad INT NOT NULL,
-    precio_compra DECIMAL(15,2) NOT NULL,
+    precio_compra DECIMAL(15, 2) NOT NULL,
     fecha_compra DATE NOT NULL,
-    precio_actual DECIMAL(15,2),
+    precio_actual DECIMAL(15, 2),
     mercado VARCHAR(50) DEFAULT 'BVC',
     id_persona INT
 );
@@ -170,11 +170,16 @@ CREATE TABLE accion (
 CREATE TABLE fondo (
     id_fondo INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(150) NOT NULL,
-    tipo ENUM('Mutuo','ETF','Pensión','Otro') NOT NULL,
+    tipo ENUM(
+        'Mutuo',
+        'ETF',
+        'Pensión',
+        'Otro'
+    ) NOT NULL,
     entidad VARCHAR(100) NOT NULL,
-    monto_invertido DECIMAL(15,2) NOT NULL,
+    monto_invertido DECIMAL(15, 2) NOT NULL,
     fecha_inversion DATE NOT NULL,
-    valor_actual DECIMAL(15,2),
-    rentabilidad DECIMAL(6,2),
+    valor_actual DECIMAL(15, 2),
+    rentabilidad DECIMAL(6, 2),
     id_persona INT
 );

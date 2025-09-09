@@ -3,7 +3,7 @@ Controlador para operaciones relacionadas con beneficiarios.
 Incluye funciones para listar, obtener, crear, actualizar y eliminar beneficiarios.
 """
 
-from app.models.models import db
+from app.models.beneficiario import db
 
 def listar():
     """

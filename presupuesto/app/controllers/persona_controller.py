@@ -3,7 +3,7 @@ Controlador para operaciones relacionadas con personas.
 Incluye funciones para listar, obtener, crear, actualizar y eliminar personas.
 """
 
-from app.models.models import db
+from app.models.persona import db
 
 def listar():
     """

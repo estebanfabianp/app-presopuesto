@@ -3,7 +3,7 @@ Controlador para operaciones relacionadas con productos.
 Incluye funciones para listar, obtener, crear, actualizar y eliminar productos.
 """
 
-from app.models.models import db
+from app.models.producto import db
 
 def listar():
     """

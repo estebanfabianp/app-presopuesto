@@ -9,7 +9,7 @@ from sklearn.metrics import accuracy_score, classification_report
 
 # 1. Conexión a la BD
 # ⚠️ Cambia usuario, password, host y base
-engine = create_engine("mysql+pymysql://usuario:password@localhost/mydb")
+engine = create_engine("mysql+pymysql://root:@localhost/mydb")
 
 # 2. Leer datos de la tabla movimiento (ajusta nombres de columnas si difieren)
 query = """

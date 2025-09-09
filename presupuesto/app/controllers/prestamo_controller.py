@@ -3,7 +3,7 @@ Controlador para operaciones relacionadas con préstamos.
 Incluye funciones para listar, obtener, crear, actualizar y eliminar préstamos.
 """
 
-from app.models.models import db
+from app.models.prestamo import db
 
 def listar(): 
     """

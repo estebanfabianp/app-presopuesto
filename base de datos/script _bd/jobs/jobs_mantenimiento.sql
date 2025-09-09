@@ -11,6 +11,6 @@ BEGIN
     DELETE FROM movimiento WHERE fecha_creacion < DATE_SUB(NOW(), INTERVAL 5 YEAR);
 END $$
 
-DELIMITER ;
+DELIMITER;
 
 -- Agrega aquí otros eventos de mantenimiento según sea necesario.

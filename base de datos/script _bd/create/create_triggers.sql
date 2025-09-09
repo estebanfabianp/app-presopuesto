@@ -7,4 +7,4 @@ BEGIN
     SET NEW.fecha_actualizacion = CURRENT_TIMESTAMP;
 END $$
 
-DELIMITER ;
+DELIMITER;

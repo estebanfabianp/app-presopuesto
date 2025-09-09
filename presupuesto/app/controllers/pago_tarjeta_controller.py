@@ -3,7 +3,7 @@ Controlador para operaciones relacionadas con pagos de tarjeta.
 Incluye funciones para listar, obtener, crear, actualizar y eliminar pagos de tarjeta.
 """
 
-from app.models.models import db
+from app.models.pago_tarjeta import db
 
 def listar():
     """

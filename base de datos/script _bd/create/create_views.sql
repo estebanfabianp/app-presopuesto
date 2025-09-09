@@ -13,10 +13,11 @@ SELECT
     b.nombre AS beneficiario,
     tm.nombre AS tipo_movimiento,
     em.nombre AS estado
-FROM movimiento m
-JOIN persona p ON m.id_persona = p.id_persona
-JOIN producto pr ON m.id_producto = pr.id_producto
-JOIN categoria c ON m.id_categoria = c.id_categoria
-JOIN beneficiario b ON m.id_beneficiario = b.id_beneficiario
-JOIN tipo_movimiento tm ON m.id_tipo = tm.id_tipo
-JOIN estado_movimiento em ON m.id_estado = em.id_estado;
+FROM
+    movimiento m
+    JOIN persona p ON m.id_persona = p.id_persona
+    JOIN producto pr ON m.id_producto = pr.id_producto
+    JOIN categoria c ON m.id_categoria = c.id_categoria
+    JOIN beneficiario b ON m.id_beneficiario = b.id_beneficiario
+    JOIN tipo_movimiento tm ON m.id_tipo = tm.id_tipo
+    JOIN estado_movimiento em ON m.id_estado = em.id_estado;

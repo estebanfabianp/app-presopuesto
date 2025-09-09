@@ -5,4 +5,4 @@ BEGIN
     SELECT * FROM movimiento WHERE id_persona = p_id_persona;
 END $$
 
-DELIMITER ;
+DELIMITER;

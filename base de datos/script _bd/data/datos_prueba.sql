@@ -91,3 +91,20 @@ VALUES (2025, 'Tope ingresos brutos anuales', 174000000, 'COP', 'Valor mínimo d
 -- Porcentaje de retención en la fuente
 INSERT INTO parametro_dian (anio, concepto, valor, unidad, descripcion)
 VALUES (2025, 'Retención en la fuente por compras', 2.50, '%', 'Aplicable a compras sujetas a retención');
+
+
+-- Comprar 50 acciones de Ecopetrol
+INSERT INTO accion (simbolo, empresa, cantidad, precio_compra, fecha_compra, precio_actual, mercado, usuario_id)
+VALUES ('ECOPETROL', 'Ecopetrol S.A.', 50, 2800, '2025-09-07', 2900, 'BVC', 1);
+
+-- Comprar 10 acciones de Apple
+INSERT INTO accion (simbolo, empresa, cantidad, precio_compra, fecha_compra, precio_actual, mercado, usuario_id)
+VALUES ('AAPL', 'Apple Inc.', 10, 175.50, '2025-09-07', 180.25, 'NASDAQ', 1);
+
+-- Fondo mutuo de renta fija
+INSERT INTO fondo (nombre, tipo, entidad, monto_invertido, fecha_inversion, valor_actual, rentabilidad, usuario_id)
+VALUES ('Fondo Renta Fija Bancolombia', 'Mutuo', 'Bancolombia', 5000000, '2025-09-07', 5200000, 4.00, 1);
+
+-- ETF en S&P500
+INSERT INTO fondo (nombre, tipo, entidad, monto_invertido, fecha_inversion, valor_actual, rentabilidad, usuario_id)
+VALUES ('ETF Vanguard S&P500', 'ETF', 'Vanguard', 2000, '2025-09-07', 2100, 5.00, 1);

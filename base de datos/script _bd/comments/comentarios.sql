@@ -261,7 +261,12 @@ ALTER TABLE `fondo`
 MODIFY `nombre` VARCHAR(150) COMMENT 'Nombre del fondo de inversión';
 
 ALTER TABLE `fondo`
-MODIFY `tipo` ENUM('Mutuo','ETF','Pensión','Otro') COMMENT 'Tipo de fondo de inversión';
+MODIFY `tipo` ENUM(
+    'Mutuo',
+    'ETF',
+    'Pensión',
+    'Otro'
+) COMMENT 'Tipo de fondo de inversión';
 
 ALTER TABLE `fondo`
 MODIFY `entidad` VARCHAR(100) COMMENT 'Entidad gestora o banco administrador del fondo';
