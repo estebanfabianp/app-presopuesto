@@ -151,10 +151,33 @@ GROUP BY m.categoria;
 
 ---
 
+## 📁 Archivos clave del proyecto
+
+- [`README.md`](README.md): Introducción y guía general del proyecto.
+- [`ARCHITECTURE.md`](ARCHITECTURE.md): Arquitectura y componentes principales.
+- [`USER_GUIDE.md`](USER_GUIDE.md): Guía de usuario paso a paso.
+- [`API_REFERENCE.md`](API_REFERENCE.md): Referencia de los endpoints de la API.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md): Cómo contribuir al proyecto.
+- [`CHANGELOG.md`](CHANGELOG.md): Registro de cambios y versiones.
+- [`SECURITY.md`](SECURITY.md): Políticas y recomendaciones de seguridad.
+- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md): Código de conducta para la comunidad.
+- [`FAQ.md`](FAQ.md): Preguntas frecuentes.
+- [`DATA_MODEL.md`](DATA_MODEL.md): Modelo de datos y relaciones.
+- [`requirements.txt`](requirements.txt): Dependencias del proyecto.
+- Carpeta [`/documentacion/`](documentacion/): Roadmap, sugerencias y documentación técnica.
+- Carpeta [`/base de datos/`](base%20de%20datos/): Scripts SQL para la base de datos.
+- Carpeta [`/presupuesto/`](presupuesto/): Código fuente del backend.
+
+---
+
 ## 📚 Documentación y Sugerencias
 
 - [Roadmap del proyecto](documentacion/roadmap.md)
 - [Sugerencias de IA y mejoras](documentacion/sugerencia_IA.md)
+- [Arquitectura del sistema](ARCHITECTURE.md)
+- [Guía de usuario](USER_GUIDE.md)
+- [Referencia de la API](API_REFERENCE.md)
+- [Guía de contribución](CONTRIBUTING.md)
 
 ---
 
