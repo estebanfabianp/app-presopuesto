@@ -178,6 +178,11 @@ GROUP BY m.categoria;
 - [Guía de usuario](USER_GUIDE.md)
 - [Referencia de la API](API_REFERENCE.md)
 - [Guía de contribución](CONTRIBUTING.md)
+- [Registro de cambios](CHANGELOG.md)
+- [Política de seguridad](SECURITY.md)
+- [Código de conducta](CODE_OF_CONDUCT.md)
+- [Preguntas frecuentes](FAQ.md)
+- [Modelo de datos](DATA_MODEL.md)
 
 ---
 
