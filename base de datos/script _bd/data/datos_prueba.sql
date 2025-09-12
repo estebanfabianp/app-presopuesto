@@ -1,110 +1,89 @@
--- Datos de prueba para catálogos
-INSERT INTO tipo_producto (nombre) VALUES ('TARJETA'), ('PRESTAMO'), ('OTRO');
-INSERT INTO tipo_movimiento (nombre) VALUES ('CARGO'), ('ABONO');
-INSERT INTO estado_movimiento (nombre) VALUES ('PENDIENTE'), ('PAGADO'), ('CANCELADO');
-INSERT INTO frecuencia_transaccion (nombre) VALUES ('DIARIA'), ('SEMANAL'), ('MENSUAL'), ('ANUAL');
-INSERT INTO estado_prestamo (nombre) VALUES ('ACTIVO'), ('CANCELADO'), ('MORA');
-INSERT INTO estado_tarjeta (nombre) VALUES ('ACTIVA'), ('INACTIVA'), ('CANCELADA');
 
--- Datos de prueba para persona
+-- ===========================
+-- DATOS DE PRUEBA (INSERTS)
+-- ===========================
+
+-- Monedas
+INSERT INTO moneda (codigo, nombre) VALUES
+  ('COP', 'Peso Colombiano'),
+  ('USD', 'Dólar Estadounidense'),
+  ('EUR', 'Euro');
+
+-- Estados
+INSERT INTO estado_movimiento (nombre) VALUES ('pendiente'), ('realizado'), ('anulado');
+INSERT INTO estado_prestamo (nombre) VALUES ('activo'), ('pagado'), ('vencido');
+INSERT INTO estado_tarjeta (nombre) VALUES ('activa'), ('bloqueada'), ('cancelada');
+
+-- Personas
 INSERT INTO persona (nombre, correo_electronico, usuario, hash_contrasena, fecha_creacion, activo)
 VALUES
-('Juan Pérez', 'juan.perez@email.com', 'juanp', 'hash123456', NOW(), 1),
-('Ana Gómez', 'ana.gomez@email.com', 'anag', 'hashabcdef', NOW(), 1);
+  ('Juan Pérez', 'juan@example.com', 'juanp', 'hash1', NOW(), 1),
+  ('Ana Gómez', 'ana@example.com', 'anag', 'hash2', NOW(), 1);
 
--- Datos de prueba para producto
-INSERT INTO producto (nombre, monto_maximo, monto_minimo, porcentaje_interes, id_tipo)
+-- Cuentas
+INSERT INTO cuenta (id_persona, nombre, tipo, saldo_inicial, moneda, fecha_creacion)
 VALUES
-('Tarjeta Visa', 10000, 500, 15.5, 1),
-('Préstamo Personal', 50000, 1000, 12.0, 2);
+  (1, 'Cuenta Ahorros', 'ahorro', 1000000, 'COP', NOW()),
+  (2, 'Cuenta Corriente', 'corriente', 500000, 'COP', NOW());
 
--- Datos de prueba para categoria
-INSERT INTO categoria (nombre)
+-- Categorías
+INSERT INTO categoria (nombre) VALUES ('Alimentación'), ('Transporte'), ('Salud'), ('Entretenimiento');
+
+-- Beneficiarios
+INSERT INTO beneficiario (nombre) VALUES ('Supermercado XYZ'), ('Clínica ABC'), ('Cine 123');
+
+-- Tipos de movimiento
+INSERT INTO tipo_movimiento (nombre) VALUES ('ingreso'), ('gasto');
+
+-- Movimientos
+INSERT INTO movimiento (codigo, monto, id_tipo, id_estado, id_categoria, id_beneficiario, fecha_creacion, id_cuenta, nota)
 VALUES
-('Alimentación'),
-('Transporte'),
-('Educación');
+  ('M001', 200000, 2, 2, 1, 1, NOW(), 1, 'Compra supermercado'),
+  ('M002', 150000, 2, 2, 2, NULL, NOW(), 1, 'Taxi'),
+  ('M003', 50000, 1, 2, 1, NULL, NOW(), 2, 'Ingreso extra');
 
--- Datos de prueba para beneficiario
-INSERT INTO beneficiario (nombre)
-VALUES
-('Supermercado ABC'),
-('Universidad XYZ');
-
--- Datos de prueba para movimiento
-INSERT INTO movimiento (codigo, monto, id_tipo, cuotas, id_estado, id_producto, id_persona, id_categoria, id_beneficiario, nota, fecha_creacion)
-VALUES
-('MOV001', 150.00, 1, NULL, 1, 1, 1, 1, 1, 'Compra supermercado', NOW()),
-('MOV002', 2000.00, 2, 12, 2, 2, 2, 3, 2, 'Pago colegiatura', NOW());
-
--- Datos de prueba para transaccion_programada
-INSERT INTO transaccion_programada (fecha, id_tipo, monto, id_frecuencia, repeticion, id_categoria, id_beneficiario, fecha_creacion)
-VALUES
-('2025-09-01', 1, 100.00, 3, 12, 1, 1, NOW()),
-('2025-09-05', 2, 500.00, 4, 1, 3, 2, NOW());
-
--- Datos de prueba para prestamo
-INSERT INTO prestamo (fecha, id_estado, moneda, saldo_inicial, limite_credito, id_persona, fecha_creacion)
-VALUES
-('2025-08-01', 1, 'MXN', 10000.00, 50000.00, 1, NOW()),
-('2025-08-15', 2, 'USD', 2000.00, 10000.00, 2, NOW());
-
--- Datos de prueba para activo
-INSERT INTO activo (nombre_activo, valor, depreciacion, id_persona, fecha_creacion)
-VALUES
-('Laptop', 15000.00, 2000.00, 1, NOW()),
-('Bicicleta', 3000.00, 500.00, 2, NOW());
-
--- Datos de prueba para presupuesto
+-- Presupuestos
 INSERT INTO presupuesto (nombre, descripcion, monto_total, fecha_inicio, fecha_fin, id_persona, fecha_creacion)
 VALUES
-('Presupuesto Mensual', 'Gastos y ahorros mensuales', 10000.00, '2025-09-01', '2025-09-30', 1, NOW()),
-('Presupuesto Escolar', 'Gastos educativos', 5000.00, '2025-09-01', '2025-12-31', 2, NOW());
+  ('Presupuesto Mensual Juan', 'Presupuesto de gastos mensuales', 1200000, '2024-06-01', '2024-06-30', 1, NOW());
 
--- Datos de prueba para presupuesto_categoria
-INSERT INTO presupuesto_categoria (id_presupuesto, id_categoria)
+-- Presupuesto-Categoría
+INSERT INTO presupuesto_categoria (id_presupuesto, id_categoria) VALUES (1, 1), (1, 2);
+
+-- Préstamos
+INSERT INTO prestamo (fecha, id_estado, moneda, saldo_inicial, limite_credito, fecha_creacion, id_persona)
 VALUES
-(1, 1),
-(1, 2),
-(2, 3);
+  ('2024-01-01', 1, 'COP', 500000, 500000, NOW(), 1);
 
--- Datos de prueba para tarjeta_credito
+-- Préstamo-Movimiento
+INSERT INTO prestamo_movimiento (persona_id_persona, prestamo_id_prestamo, valor, interes, numero_transaccion, seguro, saldo)
+VALUES
+  (1, 1, 100000, 2.5, 'TRX001', 1000, 400000);
+
+-- Tarjetas de crédito
 INSERT INTO tarjeta_credito (id_producto, numero_tarjeta, limite_credito, saldo_actual, fecha_corte, fecha_pago, fecha_creacion, id_estado)
 VALUES
-(1, '4111111111111111', 10000.00, 5000.00, '2025-09-15', '2025-09-25', NOW(), 1),
-(1, '4222222222222222', 8000.00, 2000.00, '2025-09-10', '2025-09-20', NOW(), 1);
+  (NULL, '1234567890123456', 2000000, 500000, '2024-06-20', '2024-07-05', NOW(), 1);
 
--- Datos de prueba para pago_tarjeta
-INSERT INTO pago_tarjeta (id_tarjeta, fecha_pago, monto_pago, referencia, id_persona, fecha_creacion)
+-- Movimiento Tarjeta
+INSERT INTO movimiento_tarjeta (id_tarjeta, id_persona, fecha, valor, estado, nota, numero_transaccion, id_categoria, id_beneficiario, saldo, cuotas)
 VALUES
-(1, '2025-09-20', 1000.00, 'Pago septiembre', 1, NOW()),
-(2, '2025-09-21', 500.00, 'Pago parcial', 2, NOW());
+  (1, 1, NOW(), 100000, 'compra', 'Compra en tienda', 'MT001', 1, 1, 400000, 1),
+  (1, 1, NOW(), 50000, 'abono', 'Pago tarjeta', 'MT002', NULL, NULL, 350000, 1);
 
--- UVT para 2025
-INSERT INTO parametro_dian (anio, concepto, valor, unidad, descripcion)
-VALUES (2025, 'UVT', 47065, 'COP', 'Unidad de Valor Tributario para el año 2025');
+-- Activos
+INSERT INTO activo (nombre_activo, valor, depreciacion, id_persona, fecha_creacion)
+VALUES
+  ('Laptop', 3000000, 500000, 1, NOW()),
+  ('Bicicleta', 800000, 100000, 2, NOW());
 
--- Tope ingresos para declarar renta 2025
-INSERT INTO parametro_dian (anio, concepto, valor, unidad, descripcion)
-VALUES (2025, 'Tope ingresos brutos anuales', 174000000, 'COP', 'Valor mínimo de ingresos para estar obligado a declarar renta');
+-- Acciones
+INSERT INTO accion (simbolo, empresa, cantidad, precio_compra, fecha_compra, precio_actual, mercado, id_persona)
+VALUES
+  ('AAPL', 'Apple Inc.', 10, 150, '2024-01-15', 180, 'NASDAQ', 1),
+  ('ECOPETROL', 'Ecopetrol S.A.', 50, 2500, '2024-02-10', 2700, 'BVC', 2);
 
--- Porcentaje de retención en la fuente
-INSERT INTO parametro_dian (anio, concepto, valor, unidad, descripcion)
-VALUES (2025, 'Retención en la fuente por compras', 2.50, '%', 'Aplicable a compras sujetas a retención');
-
-
--- Comprar 50 acciones de Ecopetrol
-INSERT INTO accion (simbolo, empresa, cantidad, precio_compra, fecha_compra, precio_actual, mercado, usuario_id)
-VALUES ('ECOPETROL', 'Ecopetrol S.A.', 50, 2800, '2025-09-07', 2900, 'BVC', 1);
-
--- Comprar 10 acciones de Apple
-INSERT INTO accion (simbolo, empresa, cantidad, precio_compra, fecha_compra, precio_actual, mercado, usuario_id)
-VALUES ('AAPL', 'Apple Inc.', 10, 175.50, '2025-09-07', 180.25, 'NASDAQ', 1);
-
--- Fondo mutuo de renta fija
-INSERT INTO fondo (nombre, tipo, entidad, monto_invertido, fecha_inversion, valor_actual, rentabilidad, usuario_id)
-VALUES ('Fondo Renta Fija Bancolombia', 'Mutuo', 'Bancolombia', 5000000, '2025-09-07', 5200000, 4.00, 1);
-
--- ETF en S&P500
-INSERT INTO fondo (nombre, tipo, entidad, monto_invertido, fecha_inversion, valor_actual, rentabilidad, usuario_id)
-VALUES ('ETF Vanguard S&P500', 'ETF', 'Vanguard', 2000, '2025-09-07', 2100, 5.00, 1);
+-- Deuda financiada
+INSERT INTO deuda_financiada (entidad, monto_inicial, saldo_actual, numero_transaccion, tasa_interes, fecha_inicio, fecha_fin, id_persona)
+VALUES
+  ('Banco ABC', 1000000, 800000, 'DF001', 1.5, '2024-01-01', '2025-01-01', 1);

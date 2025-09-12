@@ -1,5 +1,7 @@
 DELIMITER $$
 
+-- Elimina la función si ya existe antes de crearla
+DROP FUNCTION IF EXISTS obtener_total_movimientos;
 CREATE FUNCTION obtener_total_movimientos(p_id_persona INT) RETURNS DECIMAL(15,2)
 DETERMINISTIC
 BEGIN
@@ -12,6 +14,7 @@ DELIMITER ;
 
 DELIMITER $$
 
+DROP FUNCTION IF EXISTS reclasificar_categoria_movimientos;
 CREATE FUNCTION reclasificar_categoria_movimientos(
     p_id_categoria_nueva INT,
     p_fecha_inicio DATE,
