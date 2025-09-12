@@ -1,54 +1,68 @@
--- Foreign keys para producto
-ALTER TABLE producto
-ADD CONSTRAINT fk_producto_tipo FOREIGN KEY (id_tipo) REFERENCES tipo_producto (id_tipo);
+ALTER TABLE `mydb`.`accion`
+ADD INDEX `fk_accion_persona` (`id_persona`),
+ADD CONSTRAINT `fk_accion_persona` FOREIGN KEY (`id_persona`) REFERENCES `mydb`.`persona` (`id_persona`);
 
--- Foreign keys para movimiento
-ALTER TABLE movimiento
-ADD CONSTRAINT fk_movimiento_producto FOREIGN KEY (id_producto) REFERENCES producto (id_producto),
-ADD CONSTRAINT fk_movimiento_persona FOREIGN KEY (id_persona) REFERENCES persona (id_persona),
-ADD CONSTRAINT fk_movimiento_categoria FOREIGN KEY (id_categoria) REFERENCES categoria (id_categoria),
-ADD CONSTRAINT fk_movimiento_beneficiario FOREIGN KEY (id_beneficiario) REFERENCES beneficiario (id_beneficiario),
-ADD CONSTRAINT fk_movimiento_tipo FOREIGN KEY (id_tipo) REFERENCES tipo_movimiento (id_tipo),
-ADD CONSTRAINT fk_movimiento_estado FOREIGN KEY (id_estado) REFERENCES estado_movimiento (id_estado);
+ALTER TABLE `mydb`.`activo`
+ADD INDEX `idx_activo_persona` (`id_persona`),
+ADD CONSTRAINT `fk_activo_persona` FOREIGN KEY (`id_persona`) REFERENCES `mydb`.`persona` (`id_persona`);
 
--- Foreign keys para transaccion_programada
-ALTER TABLE transaccion_programada
-ADD CONSTRAINT fk_tp_categoria FOREIGN KEY (id_categoria) REFERENCES categoria (id_categoria),
-ADD CONSTRAINT fk_tp_beneficiario FOREIGN KEY (id_beneficiario) REFERENCES beneficiario (id_beneficiario),
-ADD CONSTRAINT fk_tp_tipo FOREIGN KEY (id_tipo) REFERENCES tipo_movimiento (id_tipo),
-ADD CONSTRAINT fk_tp_frecuencia FOREIGN KEY (id_frecuencia) REFERENCES frecuencia_transaccion (id_frecuencia);
+ALTER TABLE `mydb`.`beneficiario`
+ADD INDEX `idx_beneficiario` (`id_beneficiario`);
 
--- Foreign keys para prestamo
-ALTER TABLE prestamo
-ADD CONSTRAINT fk_prestamo_persona FOREIGN KEY (id_persona) REFERENCES persona (id_persona),
-ADD CONSTRAINT fk_prestamo_estado FOREIGN KEY (id_estado) REFERENCES estado_prestamo (id_estado);
+ALTER TABLE `mydb`.`categoria`
+ADD INDEX `idx_categoria` (`id_categoria`);
 
--- Foreign keys para activo
-ALTER TABLE activo
-ADD CONSTRAINT fk_activo_persona FOREIGN KEY (id_persona) REFERENCES persona (id_persona);
+ALTER TABLE `mydb`.`deuda_financiada`
+ADD INDEX `fk_deuda_persona` (`id_persona`),
+ADD CONSTRAINT `fk_deuda_persona` FOREIGN KEY (`id_persona`) REFERENCES `mydb`.`persona` (`id_persona`);
 
--- Foreign keys para presupuesto
-ALTER TABLE presupuesto
-ADD CONSTRAINT fk_presupuesto_persona FOREIGN KEY (id_persona) REFERENCES persona (id_persona);
+ALTER TABLE `mydb`.`tipo_movimiento` ADD INDEX `nombre` (`nombre`);
 
--- Foreign keys para presupuesto_categoria
-ALTER TABLE presupuesto_categoria
-ADD CONSTRAINT fk_presupuesto_categoria_presupuesto FOREIGN KEY (id_presupuesto) REFERENCES presupuesto (id_presupuesto),
-ADD CONSTRAINT fk_presupuesto_categoria_categoria FOREIGN KEY (id_categoria) REFERENCES categoria (id_categoria);
+ALTER TABLE `mydb`.`cuenta`
+ADD INDEX `fk_cuenta_persona` (`id_persona`),
+ADD CONSTRAINT `fk_cuenta_persona` FOREIGN KEY (`id_persona`) REFERENCES `mydb`.`persona` (`id_persona`);
 
--- Foreign keys para tarjeta_credito
-ALTER TABLE tarjeta_credito
-ADD CONSTRAINT fk_tc_producto FOREIGN KEY (id_producto) REFERENCES producto (id_producto),
-ADD CONSTRAINT fk_tc_estado FOREIGN KEY (id_estado) REFERENCES estado_tarjeta (id_estado);
+ALTER TABLE `mydb`.`movimiento`
+ADD INDEX `fk_movimiento_categoria` (`id_categoria`),
+ADD INDEX `fk_movimiento_beneficiario` (`id_beneficiario`),
+ADD INDEX `fk_movimiento_tipo` (`id_tipo`),
+ADD INDEX `fk_movimiento_estado` (`id_estado`),
+ADD INDEX `fk_movimiento_cuenta_idx` (`id_cuenta`),
+ADD CONSTRAINT `fk_movimiento_beneficiario` FOREIGN KEY (`id_beneficiario`) REFERENCES `mydb`.`beneficiario` (`id_beneficiario`),
+ADD CONSTRAINT `fk_movimiento_categoria` FOREIGN KEY (`id_categoria`) REFERENCES `mydb`.`categoria` (`id_categoria`),
+ADD CONSTRAINT `fk_movimiento_tipo` FOREIGN KEY (`id_tipo`) REFERENCES `mydb`.`tipo_movimiento` (`id_tipo`),
+ADD CONSTRAINT `fk_movimiento_estado` FOREIGN KEY (`id_estado`) REFERENCES `mydb`.`estado_movimiento` (`id_estado`),
+ADD CONSTRAINT `fk_movimiento_cuenta` FOREIGN KEY (`id_cuenta`) REFERENCES `mydb`.`cuenta` (`id_cuenta`) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
--- Foreign keys para pago_tarjeta
-ALTER TABLE pago_tarjeta
-ADD CONSTRAINT fk_pt_tarjeta FOREIGN KEY (id_tarjeta) REFERENCES tarjeta_credito (id_tarjeta),
-ADD CONSTRAINT fk_pt_persona FOREIGN KEY (id_persona) REFERENCES persona (id_persona);
+ALTER TABLE `mydb`.`prestamo`
+ADD INDEX `fk_prestamo_persona` (`id_persona`),
+ADD INDEX `fk_prestamo_estado` (`id_estado`),
+ADD CONSTRAINT `fk_prestamo_persona` FOREIGN KEY (`id_persona`) REFERENCES `mydb`.`persona` (`id_persona`),
+ADD CONSTRAINT `fk_prestamo_estado` FOREIGN KEY (`id_estado`) REFERENCES `mydb`.`estado_prestamo` (`id_estado`);
 
--- Foreign keys para accion y fondo
-ALTER TABLE accion
-ADD CONSTRAINT fk_accion_persona FOREIGN KEY (id_persona) REFERENCES persona (id_persona);
+ALTER TABLE `mydb`.`presupuesto`
+ADD INDEX `idx_presupuesto_persona` (`id_persona`),
+ADD CONSTRAINT `fk_presupuesto_persona` FOREIGN KEY (`id_persona`) REFERENCES `mydb`.`persona` (`id_persona`);
 
-ALTER TABLE fondo
-ADD CONSTRAINT fk_fondo_persona FOREIGN KEY (id_persona) REFERENCES persona (id_persona);
+ALTER TABLE `mydb`.`presupuesto_categoria`
+ADD INDEX `fk_presupuesto_categoria_categoria` (`id_categoria`),
+ADD CONSTRAINT `fk_presupuesto_categoria_categoria` FOREIGN KEY (`id_categoria`) REFERENCES `mydb`.`categoria` (`id_categoria`),
+ADD CONSTRAINT `fk_presupuesto_categoria_presupuesto` FOREIGN KEY (`id_presupuesto`) REFERENCES `mydb`.`presupuesto` (`id_presupuesto`);
+
+ALTER TABLE `mydb`.`tarjeta_credito`
+ADD INDEX `fk_tc_estado` (`id_estado`),
+ADD CONSTRAINT `fk_tc_estado` FOREIGN KEY (`id_estado`) REFERENCES `mydb`.`estado_tarjeta` (`id_estado`);
+
+ALTER TABLE `mydb`.`transaccion_programada`
+ADD INDEX `fk_tp_categoria` (`id_categoria`),
+ADD INDEX `fk_tp_beneficiario` (`id_beneficiario`),
+ADD INDEX `fk_tp_tipo` (`id_tipo`),
+ADD CONSTRAINT `fk_tp_beneficiario` FOREIGN KEY (`id_beneficiario`) REFERENCES `mydb`.`beneficiario` (`id_beneficiario`),
+ADD CONSTRAINT `fk_tp_categoria` FOREIGN KEY (`id_categoria`) REFERENCES `mydb`.`categoria` (`id_categoria`),
+ADD CONSTRAINT `fk_tp_tipo` FOREIGN KEY (`id_tipo`) REFERENCES `mydb`.`tipo_movimiento` (`id_tipo`);
+
+ALTER TABLE `mydb`.`prestamo_movimiento`
+ADD INDEX `fk_persona_has_prestamo_prestamo1_idx` (`prestamo_id_prestamo`),
+ADD INDEX `fk_persona_has_prestamo_persona1_idx` (`persona_id_persona`),
+ADD CONSTRAINT `fk_persona_has_prestamo_persona1` FOREIGN KEY (`persona_id_persona`) REFERENCES `mydb`.`persona` (`id_persona`) ON DELETE NO ACTION ON UPDATE NO ACTION,
+ADD CONSTRAINT `fk_persona_has_prestamo_prestamo1` FOREIGN KEY (`prestamo_id_prestamo`) REFERENCES `mydb`.`prestamo` (`id_prestamo`) ON DELETE NO ACTION ON UPDATE NO ACTION;

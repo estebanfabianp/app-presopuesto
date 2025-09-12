@@ -21,12 +21,15 @@ El sistema está diseñado como una aplicación modular para la gestión de fina
 
 ### 2. Base de Datos (MySQL/MariaDB)
 - **Scripts SQL:**  
-  - Creación de tablas, llaves foráneas, vistas, funciones, procedimientos almacenados y jobs.
+  - Creación de tablas, llaves foráneas, vistas, funciones, procedimientos almacenados y triggers.
 - **Modelo relacional:**  
-  - Tablas normalizadas para usuarios, cuentas, movimientos, presupuestos, préstamos, tarjetas, activos, categorías, etc.
+  - Tablas normalizadas para personas, cuentas, movimientos, presupuestos, préstamos, tarjetas, activos, categorías, etc.
   - Uso de claves primarias y foráneas para integridad referencial.
   - Tablas de catálogo para mayor flexibilidad.
-  - Restricciones `CHECK` y comentarios descriptivos.
+  - Restricciones y comentarios descriptivos.
+  - Automatización de saldos mediante triggers y procedimientos.
+  - Vistas para reportes y análisis.
+  - Datos de prueba incluidos.
 
 ### 3. Lógica de Negocio
 - **Controladores:** Encapsulan la lógica de operaciones CRUD y reglas de negocio.
@@ -34,7 +37,7 @@ El sistema está diseñado como una aplicación modular para la gestión de fina
 - **Validaciones:** Validación robusta de datos y manejo de errores.
 
 ### 4. Automatización y Seguridad
-- **Procedimientos y jobs:** Automatización de tareas recurrentes (ej. recálculo de saldos, alertas).
+- **Procedimientos y triggers:** Automatización de tareas recurrentes (ej. recálculo de saldos, reclasificación de categorías).
 - **Hash de contraseñas:** Almacenamiento seguro usando bcrypt.
 - **Prevención de ataques:** Uso de sentencias preparadas y validación de entradas.
 

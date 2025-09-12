@@ -1,10 +1,24 @@
+# Requerimientos para el proyecto de gestión financiera personal
+
+# Backend y API
 Flask
+Flask-Migrate
 Flask-SQLAlchemy
 PyMySQL
-Flask-Migrate
-python-dotenv
 bcrypt
+
+# Análisis de datos y utilidades
 pandas
-scikit-learn
-# Opcional para futuras visualizaciones o IA
+openpyxl
+xlrd
 matplotlib
+scikit-learn
+
+# Seguridad y validación
+python-dotenv
+
+# (Opcional) Para desarrollo y pruebas
+pytest
+ipython
+
+# ...agrega aquí otros paquetes según tus necesidades...

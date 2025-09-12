@@ -1,43 +1,39 @@
--- Elimina todas las tablas en orden de dependencias (primero las que tienen FKs a otras)
+DROP TABLE IF EXISTS `mydb`.`movimiento_tarjeta`;
 
-DROP TABLE IF EXISTS fondo;
+DROP TABLE IF EXISTS `mydb`.`prestamo_movimiento`;
 
-DROP TABLE IF EXISTS accion;
+DROP TABLE IF EXISTS `mydb`.`transaccion_programada`;
 
-DROP TABLE IF EXISTS parametro_dian;
+DROP TABLE IF EXISTS `mydb`.`tarjeta_credito`;
 
-DROP TABLE IF EXISTS pago_tarjeta;
+DROP TABLE IF EXISTS `mydb`.`presupuesto_categoria`;
 
-DROP TABLE IF EXISTS tarjeta_credito;
+DROP TABLE IF EXISTS `mydb`.`presupuesto`;
 
-DROP TABLE IF EXISTS presupuesto_categoria;
+DROP TABLE IF EXISTS `mydb`.`prestamo`;
 
-DROP TABLE IF EXISTS presupuesto;
+DROP TABLE IF EXISTS `mydb`.`movimiento`;
 
-DROP TABLE IF EXISTS activo;
+DROP TABLE IF EXISTS `mydb`.`cuenta`;
 
-DROP TABLE IF EXISTS prestamo;
+DROP TABLE IF EXISTS `mydb`.`tipo_movimiento`;
 
-DROP TABLE IF EXISTS transaccion_programada;
+DROP TABLE IF EXISTS `mydb`.`deuda_financiada`;
 
-DROP TABLE IF EXISTS movimiento;
+DROP TABLE IF EXISTS `mydb`.`categoria`;
 
-DROP TABLE IF EXISTS beneficiario;
+DROP TABLE IF EXISTS `mydb`.`beneficiario`;
 
-DROP TABLE IF EXISTS categoria;
+DROP TABLE IF EXISTS `mydb`.`activo`;
 
-DROP TABLE IF EXISTS producto;
+DROP TABLE IF EXISTS `mydb`.`accion`;
 
-DROP TABLE IF EXISTS persona;
+DROP TABLE IF EXISTS `mydb`.`persona`;
 
-DROP TABLE IF EXISTS tipo_movimiento;
+DROP TABLE IF EXISTS `mydb`.`moneda`;
 
-DROP TABLE IF EXISTS tipo_producto;
+DROP TABLE IF EXISTS `mydb`.`estado_movimiento`;
 
-DROP TABLE IF EXISTS estado_movimiento;
+DROP TABLE IF EXISTS `mydb`.`estado_prestamo`;
 
-DROP TABLE IF EXISTS estado_prestamo;
-
-DROP TABLE IF EXISTS estado_tarjeta;
-
-DROP TABLE IF EXISTS frecuencia_transaccion;
+DROP TABLE IF EXISTS `mydb`.`estado_tarjeta`;

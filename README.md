@@ -1,114 +1,114 @@
-# Sistema de Gestión de Presupuestos
+# Sistema de Gestión Financiera Personal
 
-Aplicación personal de finanzas que integra inteligencia artificial para ayudarte a gestionar ingresos, gastos, deudas, inversiones y ahorro de forma inteligente y automatizada.
-
----
-
-## 📖 Descripción
-
-Este proyecto consiste en el desarrollo de una aplicación para la **gestión personal de finanzas**, centrada en facilitar el control de movimientos bancarios, presupuestos, deudas e inversiones.
-
-**Principales funcionalidades:**
-- Carga y categorización automática de transacciones bancarias (reglas e IA).
-- Administración de cuentas, préstamos, tarjetas de crédito y activos financieros.
-- Control de deudas y pagos recurrentes.
-- Gestión de inversiones en acciones y fondos.
-- Creación y seguimiento de presupuestos, con comparación de gasto real por categoría.
-- Reportes visuales: flujo de caja, resumen mensual, gastos por categoría, desempeño presupuestal, informes anuales, etc.
-- Estrategias de pago (ejemplo: método de la bola de nieve).
-- Futuras versiones: recomendaciones personalizadas de ahorro, inversión y reducción de deuda.
+Este proyecto es una aplicación para la gestión de finanzas personales, permitiendo el control de cuentas, movimientos, presupuestos, préstamos, tarjetas de crédito, inversiones y más. Incluye automatización de saldos mediante triggers y procedimientos, así como vistas para reportes y análisis.
 
 ---
 
-## 🛠️ Tecnologías y dependencias
-
-- **Backend:** Python, Flask, Flask-SQLAlchemy, Flask-Migrate
-- **Base de datos:** MySQL/MariaDB
-- **ORM:** SQLAlchemy
-- **Conector:** PyMySQL
-- **Seguridad:** bcrypt
-- **IA y análisis:** pandas, scikit-learn, matplotlib (para futuras versiones)
-- **Entorno:** python-dotenv, venv
-
-Ver dependencias completas en [`requirements.txt`](requirements.txt).
-
----
-
-## 🗺️ Roadmap
-
-El desarrollo del proyecto se organiza en fases:
-
-1. **MVP:** CRUD de usuarios, cuentas, movimientos y presupuestos; reportes simples.
-2. **Categorización automática:** Reglas simples y modelos de machine learning para clasificar gastos.
-3. **Visualización avanzada:** Dashboards interactivos, estrategias financieras y recomendaciones.
-4. **Expansión a inversiones:** Gestión de acciones, fondos y portafolios.
-5. **Integración Forex y mercados:** APIs de divisas, análisis predictivo y reportes avanzados.
-
-Más detalles en [`documentacion/roadmap.md`](documentacion/roadmap.md).
-
----
-
-## 📂 Estructura del Proyecto
+## 📦 Estructura del Proyecto
 
 ```
-/base de datos/              — Scripts SQL (tablas, llaves foráneas, vistas, funciones, SP, jobs, datos iniciales)
-├── 01_create_tables.sql
-├── 02_create_foreign_keys.sql
-├── 03_create_views.sql
-├── 04_create_functions.sql
-├── 05_create_procedures.sql
-├── 06_create_jobs.sql
-└── 07_insert_data.sql
-
-/presupuesto/                — Backend (API Flask y modelos SQLAlchemy)
-├── controllers/             — Lógica de negocio y endpoints
-├── models/                  — Modelos de datos
-├── views/                   — Rutas Flask
-
-/documentacion/              — Documentos técnicos y sugerencias
-├── roadmap.md
-├── sugerencia_IA.md
-
-requirements.txt             — Dependencias del proyecto
-app-presopuesto.code‑workspace — Configuración del editor
-README.md                    — Documentación principal
-venv/                        — Entorno virtual (excluido de producción)
+/base de datos/
+  └── script_bd/
+      └── create/
+          ├── create_tables.sql      # Definición de tablas principales (estructura y relaciones)
+          ├── create_triggers.sql    # Triggers para actualización automática de saldos
+          ├── create_views.sql       # Vistas para reportes y consultas
+          ├── create_functions.sql   # Funciones y procedimientos almacenados
+/presupuesto/                        # Backend/API (Flask, modelos, controladores)
+documentacion/                       # Documentación técnica y sugerencias
+README.md                            # Este archivo
 ```
 
 ---
 
-## ⚙️ Instalación
+## 🗄️ Base de Datos
 
-1. Clona el repositorio:
+- **Tablas principales:** moneda, estado_movimiento, estado_prestamo, estado_tarjeta, persona, accion, activo, beneficiario, categoria, deuda_financiada, tipo_movimiento, cuenta, movimiento, prestamo, presupuesto, presupuesto_categoria, tarjeta_credito, transaccion_programada, prestamo_movimiento, movimiento_tarjeta.
+- **Llaves foráneas:** Integridad referencial entre movimientos, cuentas, personas, tarjetas, préstamos, etc.
+- **Triggers:** Actualización automática de saldos en cuenta, tarjeta_credito y prestamo tras operaciones en sus movimientos asociados.
+- **Procedimientos y funciones:** Recalculo y reclasificación de saldos y categorías.
+- **Vistas:** Resúmenes y detalles de saldos y movimientos para facilitar reportes y análisis.
+- **Datos de prueba:** Incluidos en los scripts para facilitar pruebas y desarrollo.
 
+---
+
+## 📝 Funcionalidades implementadas
+
+- **Gestión de cuentas y movimientos:** Registro y actualización automática de saldos.
+- **Gestión de tarjetas de crédito:** Movimientos y saldo actualizado automáticamente.
+- **Gestión de préstamos:** Movimientos y saldo actualizado automáticamente.
+- **Catálogos:** Monedas y estados normalizados.
+- **Presupuestos y categorías:** Relación y control de presupuestos por categoría.
+- **Triggers y procedimientos:** Automatización de lógica de negocio en la base de datos.
+- **Vistas SQL:** Consultas para reportes de saldos y movimientos detallados.
+- **Funciones:** Reclasificación de categorías de movimientos por rango de fecha.
+
+---
+
+## ⚙️ Automatización y lógica en SQL
+
+- **Triggers:**  
+  - `tr_update_saldo_cuenta_after_insert/update/delete`  
+  - `tr_update_saldo_tarjeta_after_insert/update/delete`  
+  - `tr_update_saldo_prestamo_after_insert/update/delete`  
+  Actualizan los saldos automáticamente tras cambios en movimientos.
+
+- **Procedimientos y funciones:**  
+  - `sp_recalcular_saldo_cuenta`
+  - `sp_recalcular_saldo_tarjeta`
+  - `sp_recalcular_saldo_prestamo`
+  - `reclasificar_categoria_movimientos`
+  Permiten recalcular manualmente los saldos y reclasificar categorías de movimientos.
+
+- **Vistas:**  
+  - `v_cuenta_saldos`: Resumen de saldos por cuenta.
+  - `v_movimientos_detalle`: Detalle de movimientos con información relacionada.
+  - `v_tarjeta_saldos`: Resumen de saldos de tarjetas de crédito.
+  - `v_prestamo_saldos`: Resumen de préstamos y su saldo.
+
+---
+
+## 🚀 Instalación rápida
+
+1. Crea la base de datos y ejecuta los scripts en este orden:
    ```bash
-   git clone https://github.com/estebanfabianp/app-presopuesto.git
-   cd app-presopuesto
+   mysql -u usuario -p < base\ de\ datos\script_bd\create\create_tables.sql
+   mysql -u usuario -p < base\ de\ datos\script_bd\create\create_triggers.sql
+   mysql -u usuario -p < base\ de\ datos\script_bd\create\create_views.sql
    ```
+2. (Opcional) Agrega datos iniciales según tus necesidades (ya incluidos algunos datos de prueba).
 
-2. (Opcional) Crea y activa el entorno virtual:
+---
 
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
+## 📊 Ejemplo de consulta
 
-3. Instala las dependencias:
+```sql
+-- Consulta de saldo actual de todas las cuentas:
+SELECT * FROM v_cuenta_saldos;
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+-- Consulta de movimientos detallados:
+SELECT * FROM v_movimientos_detalle WHERE id_cuenta = 1;
+```
 
-4. Inicializa la base de datos:
+---
 
-   ```bash
-   mysql -u usuario -p < base\ de\ datos/01_create_tables.sql
-   mysql -u usuario -p < base\ de\ datos/02_create_foreign_keys.sql
-   mysql -u usuario -p < base\ de\ datos/07_insert_data.sql
-   ```
+## 📚 Documentación adicional
 
-5. Ejecuta la API:
+- Los scripts están comentados y organizados por funcionalidad.
+- Puedes modificar los triggers, procedimientos y funciones para adaptarlos a tus reglas de negocio.
+- Para más detalles sobre la estructura, revisa los archivos SQL en `/base de datos/script_bd/create/`.
 
+---
+
+## 👨‍💻 Autor
+
+Desarrollado por Esteban Fabián Patiño Montealegre
+
+---
+
+## ℹ Acerca del proyecto
+
+Aplicación personal basada en IA para aprender Python y mejorar la gestión financiera personal.
    ```bash
    flask run
    ```
