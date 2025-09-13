@@ -6,6 +6,7 @@ Flask-Migrate
 Flask-SQLAlchemy
 PyMySQL
 bcrypt
+Flask-JWT-Extended
 
 # Análisis de datos y utilidades
 pandas
@@ -16,9 +17,17 @@ scikit-learn
 
 # Seguridad y validación
 python-dotenv
+marshmallow
 
 # (Opcional) Para desarrollo y pruebas
 pytest
 ipython
+pytest-cov
+requests
+
+# Otros paquetes útiles
+gunicorn
+flask-cors
 
 # ...agrega aquí otros paquetes según tus necesidades...
+#archivoMD

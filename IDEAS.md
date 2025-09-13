@@ -6,37 +6,47 @@ Se organiza por prioridad y estado de avance para facilitar el seguimiento.
 ---
 
 ## 🚀 Alta prioridad
-- [ ] Crear un **trigger** que, al registrar un movimiento con número de cuotas mayor a 1, lo envíe a la tabla *deudas financiadas*, donde se pueda visualizar el avance de la deuda y el saldo pendiente.  
-- [ ] Al agregar un movimiento, tener en cuenta el **producto asociado** para actualizar automáticamente el saldo actual.  
-- [ ] Implementar un **procedimiento almacenado** para recalcular saldos cuando sea necesario ejecutarlo manualmente.  
-- [ ] Investigar e implementar un mecanismo para **proteger las contraseñas** de los usuarios.  
+- [ ] Crear un **trigger** que, al registrar un movimiento con número de cuotas mayor a 1, lo envíe a la tabla *deudas financiadas*, donde se pueda visualizar el avance de la deuda y el saldo pendiente.
+- [ ] Al agregar un movimiento, tener en cuenta el **producto asociado** para actualizar automáticamente el saldo currente.
+- [ ] Implementar un **procedimiento almacenado** para recalcular saldos cuando sea necesario ejecutarlo manualmente.
+- [ ] Mejorar la **seguridad de contraseñas** usando bcrypt y autenticación JWT.
+- [ ] Añadir endpoints para **exportación de datos** y reportes avanzados.
+- [ ] Implementar control de acceso por **roles** (usuario, admin) en todos los endpoints.
+- [ ] Documentar y versionar la API para facilitar futuras integraciones.
 
 ---
 
 ## 📊 Media prioridad
-- [ ] Definir y gestionar **estados** como “conciliado” y estados del producto.  
-- [ ] Probar la **extensión Jupyter** en VS Code para validar modelos iniciales de categorización de gastos.  
-- [ ] Generar un **modelo entidad–relación (MER)** y guardarlo como imagen dentro de la documentación.  
-- [ ] Permitir que los usuarios configuren **gastos recurrentes**, con opción de añadirlos fácilmente mediante un botón.  
-- [ ] Analizar la **frecuencia de gastos** para generar sugerencias automáticas de gastos recurrentes y añadirlos a la lista de pendientes.  
-- [ ] Implementar comparación **presupuesto vs. gastos reales** para identificar desviaciones.  
-- [ ] Permitir la creación de **presupuestos mensuales y anuales**, similar a aplicaciones de referencia.  
+- [ ] Definir y gestionar **estados** como “conciliado” y estados del producto.
+- [ ] Probar la **extensión Jupyter** en VS Code para validar modelos iniciales de categorización de gastos.
+- [ ] Generar un **modelo entidad–relación (MER)** y guardarlo como imagen dentro de la documentación.
+- [ ] Permitir que los usuarios configuren **gastos recurrentes**, con opción de añadirlos fácilmente mediante un botón.
+- [ ] Analizar la **frecuencia de gastos** para generar sugerencias automáticas de gastos recurrentes y añadirlos a la lista de pendientes.
+- [ ] Implementar comparación **presupuesto vs. gastos reales** para identificar desviaciones.
+- [ ] Permitir la creación de **presupuestos mensuales y anuales**, similar a aplicaciones de referencia.
+- [ ] Añadir soporte para **notificaciones** y preferencias/configuración de usuario.
+- [ ] Mejorar la gestión de **sesiones** y expiración de tokens.
 
 ---
 
 ## 💡 Baja prioridad / Futuro
-- [ ] Habilitar que una **categoría pueda tener subcategorías**.  
-- [ ] Asociar un **beneficiario** con una categoría o subcategoría sugerida, si aplica.  
-- [ ] Ofrecer diferentes formas de **visualizar la información**, adaptables según las preferencias del usuario.  
-- [ ] Implementar **notificaciones de pagos programados**, para recordar vencimientos.  
-- [ ] Para los pagos programados, permitir configurar un **rango de fechas** y mostrar un botón en la pantalla principal para marcar el pago como realizado.  
+- [ ] Habilitar que una **categoría pueda tener subcategorías**.
+- [ ] Asociar un **beneficiario** con una categoría o subcategoría sugerida, si aplica.
+- [ ] Ofrecer diferentes formas de **visualizar la información**, adaptables según las preferencias del usuario.
+- [ ] Implementar **notificaciones de pagos programados**, para recordar vencimientos.
+- [ ] Para los pagos programados, permitir configurar un **rango de fechas** y mostrar un botón en la pantalla principal para marcar el pago como realizado.
+- [ ] Soporte para **internacionalización** y múltiples monedas.
+- [ ] Integrar pruebas automáticas para endpoints críticos y lógica de negocio.
+- [ ] Mejorar la modularización y estructura de carpetas del proyecto.
 
 ---
 
 ## 🤖 Ideas para IA y Analítica
-- [ ] Implementar categorización automática de gastos con un modelo de **Machine Learning**.  
-- [ ] Analizar patrones de gasto para generar recomendaciones personalizadas de ahorro.  
-- [ ] Explorar predicciones de flujo de caja mensual usando modelos de series temporales.  
+- [ ] Implementar categorización automática de gastos con un modelo de **Machine Learning**.
+- [ ] Analizar patrones de gasto para generar recomendaciones personalizadas de ahorro.
+- [ ] Explorar predicciones de flujo de caja mensual usando modelos de series temporales.
+- [ ] Generar alertas inteligentes basadas en patrones de gasto y presupuesto.
+- [ ] Visualización avanzada de datos con gráficos y reportes personalizados.
 
 ---
 
@@ -45,3 +55,4 @@ Se organiza por prioridad y estado de avance para facilitar el seguimiento.
 - [Artículo: Clasificación de transacciones bancarias con ML](https://towardsdatascience.com/)  
 - [Documentación oficial de MySQL Triggers](https://dev.mysql.com/doc/refman/8.0/en/triggers.html)  
 
+#archivoMD

@@ -1,0 +1,263 @@
+import pandas as pd
+import numpy as np
+import random
+from datetime import datetime, timedelta
+
+# -----------------------------------------------------------
+# Script para generar un archivo CSV con movimientos simulados
+# de tarjeta de crédito para pruebas en el sistema de gestión
+# de presupuestos.
+# -----------------------------------------------------------
+
+# Rango de fechas: 2020 hasta hoy
+fecha_inicio = datetime(2020, 1, 1)
+fecha_fin = datetime.today()
+dias = (fecha_fin - fecha_inicio).days
+
+# Lista de posibles descripciones de transacciones
+descripciones = [
+'SUPERMERCADO',
+
+'Restaurante',
+
+'Gasolina',
+
+'Cine',
+
+'Tienda de Ropa',
+
+'Zapatería',
+
+'Joyería',
+
+'Librería',
+
+'Electrónica',
+
+'Farmacia',
+
+'Panadería',
+
+'Heladería',
+
+'Veterinaria',
+
+'Mueblería',
+
+'Tienda de Mascotas',
+
+'Ferretería',
+
+'Tienda de Deportes',
+
+'Gimnasio',
+
+'Tienda de Juguetes',
+
+'Floristería',
+
+'Pastelería',
+
+'Transporte Público',
+
+'Taxi',
+
+'Uber/Didi/Cabify',
+
+'Estacionamiento',
+
+'Hotel',
+
+'Aerolínea',
+
+'Agencia de Viajes',
+
+'Museo',
+
+'Parque de Diversiones',
+
+'Conciertos/Eventos',
+
+'Streaming (Netflix, Spotify)',
+
+'Videojuegos',
+
+'Consolas',
+
+'Software',
+
+'Cursos Online',
+
+'Universidad',
+
+'Colegio',
+
+'Guardería',
+
+'Clínicas',
+
+'Laboratorios Médicos',
+
+'Dentista',
+
+'Psicólogo',
+
+'Seguros de Salud',
+
+'Seguros de Auto',
+
+'Seguros de Vida',
+
+'Pago de Servicios (Agua)',
+
+'Pago de Servicios (Luz)',
+
+'Pago de Servicios (Gas)',
+
+'Pago de Servicios (Internet)',
+
+'Pago de Servicios (Teléfono)',
+
+'Celulares',
+
+'Accesorios de Celulares',
+
+'Cafetería',
+
+'Bar',
+
+'Discoteca',
+
+'Licorería',
+
+'Estilista / Peluquería',
+
+'Spa',
+
+'Barbería',
+
+'Centro de Estética',
+
+'Cosméticos',
+
+'Perfumería',
+
+'Tienda de Moda',
+
+'Accesorios',
+
+'Relojería',
+
+'Bolsos y Carteras',
+
+'Papelería',
+
+'Tienda de Manualidades',
+
+'Fotografía',
+
+'Imprenta',
+
+'Florería Online',
+
+'Marketplace (Amazon, eBay)',
+
+'Marketplace Local',
+
+'Tienda de Electrodomésticos',
+
+'Reparaciones del Hogar',
+
+'Plomería',
+
+'Electricista',
+
+'Pinturas',
+
+'Decoración',
+
+'Alquiler de Vivienda',
+
+'Créditos Hipotecarios',
+
+'Créditos Personales',
+
+'Avance en Efectivo',
+
+'Cambio de Tarjeta',
+
+'Ajuste Banco',
+
+'Tienda de Instrumentos Musicales',
+
+'Clases de Música',
+
+'Escuelas de Baile',
+
+'Escuelas de Idiomas',
+
+'Libros Digitales',
+
+'Revistas',
+
+'Periódicos',
+
+'Suscripción Apps',
+
+'Apps de Productividad',
+
+'Apps de Salud',
+
+'Gimnasio Virtual',
+
+'Nutricionista',
+
+'Dietas Online',
+
+'Entrenador Personal'
+]
+
+# Simulación de movimientos
+movimientos = []
+for i in range(50000):  # 50,000 transacciones simuladas
+    # Fecha aleatoria dentro del rango
+    fecha = fecha_inicio + timedelta(days=random.randint(0, dias))
+    descripcion = random.choice(descripciones)
+    valor = round(random.uniform(20000, 500000), 2)
+
+    # Definir cuotas: si es compra diferida, asignar cuotas aleatorias
+    if descripcion == "COMPRA DIFERIDA":
+        cuotas_total = random.choice([3, 6, 12])
+        cuota_actual = random.randint(1, cuotas_total)
+        cuotas = f"{cuota_actual}/{cuotas_total}"
+    else:
+        cuotas = "1/1"
+
+    # Número de autorización ficticio
+    autorizacion = random.randint(10000, 99999)
+
+    # Agregar movimiento simulado a la lista
+    movimientos.append([
+        autorizacion,
+        fecha.strftime("%Y-%m-%d"),
+        descripcion,
+        valor,
+        random.uniform(0, 0.03),   # tasa pactada (ejemplo)
+        random.uniform(0, 0.04),   # tasa facturada
+        valor,
+        0 if "AJUSTE" not in descripcion else -valor, # ajuste puede ser reverso
+        cuotas
+    ])
+
+# Crear DataFrame con los movimientos simulados
+cols = [
+    "Número de Autorización", "Fecha de Transacción", "Descripción",
+    "Valor Original", "Tasa Pactada", "Tasa EA Facturada",
+    "Cargos y Abonos", "Saldo a Diferir", "Cuotas"
+]
+df = pd.DataFrame(movimientos, columns=cols)
+
+# Guardar los datos simulados a un archivo CSV
+df.to_csv("movimientos_simulados.csv", index=False, sep=";")
+print("Archivo 'movimientos_simulados.csv' generado con éxito.")
+print(df.head())

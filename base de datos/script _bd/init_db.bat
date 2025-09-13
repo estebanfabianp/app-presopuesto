@@ -23,7 +23,7 @@ mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% %DB_NAME% < "base de datos\script _b
 mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% %DB_NAME% < "base de datos\script _bd\create\create_functions.sql"
 mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% %DB_NAME% < "base de datos\script _bd\create\create_procedures.sql"
 mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% %DB_NAME% < "base de datos\script _bd\create\create_jobs.sql"
-mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% %DB_NAME% < "base de datos\script _bd\data\datos_prueba.sql
+mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% %DB_NAME% < "base de datos\script _bd\create\create_data.sql"
 
 echo ============================================
 echo  ✅ Base de datos inicializada correctamente en %DB_NAME%

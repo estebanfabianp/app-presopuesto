@@ -1,6 +1,6 @@
 # Sistema de Gestión Financiera Personal
 
-Este proyecto es una aplicación para la gestión de finanzas personales, permitiendo el control de cuentas, movimientos, presupuestos, préstamos, tarjetas de crédito, inversiones y más. Incluye automatización de saldos mediante triggers y procedimientos, así como vistas para reportes y análisis.
+Este proyecto es una aplicación para la gestión de finanzas personales, permitiendo el control de cuentas, movimientos, presupuestos, préstamos, tarjetas de crédito, inversiones y más. Incluye automatización de saldos mediante triggers y procedimientos, así como vistas para reportes y análisis. Además, cuenta con un módulo de análisis y visualización de movimientos financieros en Python.
 
 ---
 
@@ -14,9 +14,10 @@ Este proyecto es una aplicación para la gestión de finanzas personales, permit
           ├── create_triggers.sql    # Triggers para actualización automática de saldos
           ├── create_views.sql       # Vistas para reportes y consultas
           ├── create_functions.sql   # Funciones y procedimientos almacenados
-/presupuesto/                        # Backend/API (Flask, modelos, controladores)
+/presupuesto/                        # Backend/API (Flask, modelos, controladores, análisis Python)
 documentacion/                       # Documentación técnica y sugerencias
 README.md                            # Este archivo
+requirements.txt                     # Dependencias del proyecto
 ```
 
 ---
@@ -42,6 +43,7 @@ README.md                            # Este archivo
 - **Triggers y procedimientos:** Automatización de lógica de negocio en la base de datos.
 - **Vistas SQL:** Consultas para reportes de saldos y movimientos detallados.
 - **Funciones:** Reclasificación de categorías de movimientos por rango de fecha.
+- **Módulo de análisis en Python:** Limpieza, agrupación y visualización de movimientos financieros.
 
 ---
 
@@ -186,6 +188,88 @@ GROUP BY m.categoria;
 
 ---
 
+# Análisis y Visualización de Movimientos Financieros
+
+Este módulo permite analizar y visualizar movimientos financieros a partir de un archivo CSV, realizando limpieza de datos, agrupaciones y generación de gráficos para el análisis de gastos.
+
+## Requisitos
+
+- Python 3.8+
+- pandas
+- matplotlib
+
+Se recomienda usar un entorno virtual y un archivo `requirements.txt` para instalar dependencias:
+
+```bash
+pip install pandas matplotlib
+```
+
+## Uso
+
+1. Coloca tu archivo `movimientos_simulados.csv` en la carpeta raíz del proyecto o define la variable de entorno `PRESUPUESTO_CSV_PATH` con la ruta al archivo.
+2. Ejecuta el script principal:
+
+```bash
+python presupuesto/excel_csv_analysis.py
+```
+
+## Funcionalidades principales
+
+- Limpieza de caracteres especiales en columnas y datos.
+- Conversión y limpieza de columnas numéricas.
+- Conversión de fechas y creación de columnas auxiliares (año, mes, trimestre, día de la semana, día del mes).
+- Agrupaciones y resúmenes por:
+  - Año, mes, trimestre, día de la semana, día del mes.
+  - Categoría (descripción).
+  - Combinaciones de las anteriores.
+- Cálculo de totales, promedios, máximos, mínimos, conteos, desviaciones estándar, medianas y porcentajes.
+- Resultados exportables a CSV.
+- Visualizaciones automáticas:
+  - Barras, barras apiladas, líneas, boxplot, pie chart, histograma, dispersión, heatmap.
+- Modularización del código en funciones.
+- Uso de logging para mensajes informativos.
+- Manejo de errores en la carga y procesamiento de datos.
+- Uso de rutas relativas o variables de entorno.
+- Guardado de resultados en archivos CSV.
+
+## Ejemplo de gráficos generados
+
+- Total por año, mes, categoría.
+- Top 5 categorías por año.
+- Evolución mensual por categoría.
+- Distribución de gastos por categoría (boxplot).
+- Participación por categoría (pie chart).
+- Histograma de montos de gastos.
+- Dispersión entre valor original y cargos/abonos.
+- Heatmap año/mes vs categoría.
+
+## Buenas prácticas aplicadas
+
+- Modularización del código en funciones.
+- Uso de logging en vez de print.
+- Manejo de errores en la carga y procesamiento de datos.
+- Uso de rutas relativas o variables de entorno.
+- Guardado de resultados en archivos CSV.
+- Documentación clara en el código.
+- Corrección de nombres de columnas inconsistentes.
+- Separación de lógica de limpieza, análisis y visualización.
+
+## Estructura recomendada
+
+```
+presupuesto/
+    excel_csv_analysis.py
+movimientos_simulados.csv
+README.md
+requirements.txt
+```
+
+## Personalización
+
+Puedes modificar el script para agregar nuevas agrupaciones, cambiar los gráficos o exportar resultados adicionales según tus necesidades.
+
+---
+
 ## 👨‍💻 Autor
 
 Desarrollado por **Esteban Fabián Patiño Montealegre**
@@ -195,3 +279,4 @@ Desarrollado por **Esteban Fabián Patiño Montealegre**
 ## ℹ Acerca del proyecto
 
 Aplicación personal basada en IA para aprender Python y mejorar la gestión financiera personal.
+#archivoMD

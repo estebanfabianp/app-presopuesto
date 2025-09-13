@@ -1,4 +1,3 @@
--- Elimina la clave foránea si existe antes de crearla para evitar duplicados
 ALTER TABLE `app_presupuesto`.`accion`
   DROP FOREIGN KEY IF EXISTS `fk_accion_persona`;
 ALTER TABLE `app_presupuesto`.`accion`
