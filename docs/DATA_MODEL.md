@@ -1,12 +1,10 @@
 # Modelo de Datos
 
-Este documento describe las principales tablas y relaciones del sistema, alineadas con la estructura real de la base de datos.
+Describe las tablas principales, relaciones y automatización del sistema.
 
----
+## Diagrama ER
 
-## Diagrama Entidad-Relación (ER)
-
-![Diagrama ER](../base_de_datos/modelo_ENR.png)
+![Diagrama ER](../base_de_datos/script_bd/modelo_ENR.png)
 
 ```
 Persona ──< Cuenta ──< Movimiento >── Categoría

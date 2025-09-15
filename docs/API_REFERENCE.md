@@ -1,131 +1,43 @@
 # Referencia de la API — Sistema de Gestión de Presupuestos
 
-Esta referencia describe los principales endpoints REST disponibles en la API del sistema de gestión de presupuestos personales y familiares.
-
----
+Esta referencia describe los principales endpoints REST disponibles en la API.
 
 ## Autenticación
 
-### POST `/api/login`
-Inicia sesión de usuario.
-- **Body:** `{ "email": "usuario@correo.com", "password": "..." }`
-- **Respuesta:** `{ "token": "JWT...", "usuario": { ... } }` o error.
-
-### POST `/api/register`
-Registra un nuevo usuario.
-- **Body:** `{ "nombre": "...", "email": "...", "password": "..." }`
-- **Respuesta:** Usuario creado o error.
-
-### POST `/api/logout`
-Cierra la sesión del usuario autenticado.
-- **Header:** `Authorization: Bearer <token>`
-
----
+- `/api/login`, `/api/register`, `/api/logout`
 
 ## Usuarios
 
-### GET `/api/usuarios`
-Lista todos los usuarios (requiere permisos de admin).
-- **Soporta paginación:** `?page=1&limit=20`
-
-### GET `/api/usuarios/<id>`
-Obtiene los datos de un usuario específico.
-
-### PUT `/api/usuarios/<id>`
-Actualiza los datos de un usuario.
-
-### DELETE `/api/usuarios/<id>`
-Elimina un usuario.
-
----
+- `/api/usuarios`, `/api/usuarios/<id>`
 
 ## Cuentas
 
-### GET `/api/cuentas`
-Lista todas las cuentas del usuario autenticado.
-
-### POST `/api/cuentas`
-Crea una nueva cuenta.
-- **Body:** `{ "nombre": "...", "tipo": "...", "saldo_inicial": 0 }`
-
-### PUT `/api/cuentas/<id>`
-Actualiza una cuenta existente.
-
-### DELETE `/api/cuentas/<id>`
-Elimina una cuenta.
-
----
+- `/api/cuentas`, `/api/cuentas/<id>`
 
 ## Movimientos
 
-### GET `/api/movimientos`
-Lista movimientos filtrados (por cuenta, fecha, categoría, etc.).
-- **Filtros:** `?cuenta_id=1&fecha_inicio=YYYY-MM-DD&fecha_fin=YYYY-MM-DD&categoria=...`
-- **Soporta paginación:** `?page=1&limit=50`
-
-### POST `/api/movimientos`
-Registra un nuevo movimiento.
-- **Body:** `{ "cuenta_id": 1, "monto": 100, "tipo": "gasto", "categoria": "...", "descripcion": "...", "fecha": "YYYY-MM-DD" }`
-
-### PUT `/api/movimientos/<id>`
-Actualiza un movimiento.
-
-### DELETE `/api/movimientos/<id>`
-Elimina un movimiento.
-
----
+- `/api/movimientos`, `/api/movimientos/<id>`
 
 ## Presupuestos
 
-### GET `/api/presupuestos`
-Lista los presupuestos del usuario.
-
-### POST `/api/presupuestos`
-Crea un nuevo presupuesto.
-- **Body:** `{ "categoria": "...", "monto": 500, "periodo": "2024-06" }`
-
-### PUT `/api/presupuestos/<id>`
-Actualiza un presupuesto.
-
-### DELETE `/api/presupuestos/<id>`
-Elimina un presupuesto.
-
----
+- `/api/presupuestos`, `/api/presupuestos/<id>`
 
 ## Reportes
 
-### GET `/api/reportes/resumen`
-Devuelve un resumen financiero (ingresos, gastos, saldo, etc.).
-
-### GET `/api/reportes/categorias`
-Devuelve el total de gastos por categoría.
-
-### GET `/api/reportes/periodos`
-Devuelve reportes agrupados por periodo (mensual, anual).
-
-### GET `/api/reportes/exportar`
-Exporta reportes en formato CSV, Excel o PDF.
-
----
+- `/api/reportes/resumen`, `/api/reportes/categorias`, `/api/reportes/periodos`, `/api/reportes/exportar`
 
 ## Otros recursos
 
-- **Préstamos:** `/api/prestamos`
-- **Tarjetas de crédito:** `/api/tarjetas`
-- **Inversiones:** `/api/inversiones`
-- **Activos:** `/api/activos`
-- **Notificaciones:** `/api/notificaciones`
-- **Configuración de usuario:** `/api/configuracion`
-- **Logs y auditoría:** `/api/logs` (nuevo)
-
----
+- Préstamos: `/api/prestamos`
+- Tarjetas: `/api/tarjetas`
+- Inversiones: `/api/inversiones`
+- Activos: `/api/activos`
+- Notificaciones: `/api/notificaciones`
+- Configuración: `/api/configuracion`
+- Logs y auditoría: `/api/logs`
 
 ## Notas
 
-- Todos los endpoints requieren autenticación (token JWT) salvo `/api/login` y `/api/register`.
-- Los endpoints pueden variar según la versión y configuración del backend.
-- Para detalles sobre parámetros y respuestas, consulta la documentación técnica o el código fuente.
-- La API soporta paginación y filtrado en la mayoría de los listados.
-- El sistema implementa control de acceso por roles (usuario, admin).
-
----
+- Todos los endpoints requieren autenticación JWT salvo login y registro.
+- Soporte para paginación y filtrado.
+- Control de acceso por roles.
