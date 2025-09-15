@@ -103,6 +103,9 @@ Devuelve el total de gastos por categoría.
 ### GET `/api/reportes/periodos`
 Devuelve reportes agrupados por periodo (mensual, anual).
 
+### GET `/api/reportes/exportar`
+Exporta reportes en formato CSV, Excel o PDF.
+
 ---
 
 ## Otros recursos
@@ -113,6 +116,7 @@ Devuelve reportes agrupados por periodo (mensual, anual).
 - **Activos:** `/api/activos`
 - **Notificaciones:** `/api/notificaciones`
 - **Configuración de usuario:** `/api/configuracion`
+- **Logs y auditoría:** `/api/logs` (nuevo)
 
 ---
 

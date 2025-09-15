@@ -28,10 +28,10 @@ En [API_REFERENCE.md](API_REFERENCE.md) y en los archivos de documentación téc
 Sí, hay control de acceso por roles (usuario, admin) y endpoints protegidos según permisos.
 
 ## ¿Se pueden exportar datos o generar reportes?
-Sí, existen endpoints para reportes avanzados y exportación de datos en diferentes formatos.
+Sí, existen endpoints para reportes avanzados y exportación de datos en diferentes formatos (CSV, Excel, PDF).
 
 ## ¿Hay soporte para notificaciones y configuración de usuario?
-Sí, el sistema incluye módulos para notificaciones y preferencias/configuración personalizada.
+Sí, el sistema incluye módulos para notificaciones, preferencias/configuración personalizada y auditoría de acciones.
 
 ## ¿Cómo actualizo la base de datos si hay cambios?
 Utiliza los scripts de migración y sigue las instrucciones en la documentación técnica para mantener la base de datos actualizada.

@@ -28,7 +28,8 @@
 - Escribe código limpio y documentado.
 - Añade comentarios donde sea necesario.
 - Si agregas nuevas dependencias, actualiza `requirements.txt`.
-- Si modificas la base de datos, actualiza los scripts SQL correspondientes y documenta los cambios.
+- Si modificas la base de datos, actualiza los scripts SQL correspondientes y documenta los cambios en `DATA_MODEL.md`.
+- Si agregas nuevos módulos (notificaciones, inversiones, auditoría), actualiza la documentación técnica y los archivos de referencia.
 - Incluye ejemplos o documentación si tu cambio lo requiere.
 - Añade o actualiza pruebas automáticas si es posible.
 - Verifica que tu código pase los linters y pruebas antes de enviar el Pull Request.

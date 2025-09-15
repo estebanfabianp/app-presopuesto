@@ -6,7 +6,9 @@ Todas las modificaciones importantes del proyecto se documentarán en este archi
 - Mejoras en la documentación de la API y arquitectura.
 - Soporte para autenticación JWT y cierre de sesión (`/api/logout`).
 - Paginación y filtrado en endpoints de listados.
-- Nuevos módulos: notificaciones y configuración de usuario.
+- Nuevos módulos: inversiones, activos, auditoría y exportación de reportes.
+- Endpoints para exportación de datos en CSV, Excel y PDF.
+- Mejoras en la gestión de notificaciones y configuración de usuario.
 - Control de acceso por roles (usuario, admin).
 - Refactorización de controladores y servicios.
 - Actualización de scripts SQL y triggers para automatización de saldos.

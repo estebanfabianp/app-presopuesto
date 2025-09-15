@@ -210,11 +210,24 @@ Persona ──< Cuenta ──< Movimiento >── Categoría
 - `detalle`
 - `fecha`
 
+### inversion
+- `id_inversion` (PK)
+- `tipo_inversion`
+- `valor_inicial`
+- `valor_actual`
+- `fecha_inicio`
+- `fecha_fin`
+- `id_persona` (FK)
+- `descripcion`
+- `rentabilidad`
+- `fecha_creacion`
+- `fecha_actualizacion`
+
 --- 
 
 ## Relaciones
 
-- Una **persona** puede tener varias **cuentas**, **presupuestos**, **préstamos**, **tarjetas de crédito**, **activos** y **movimientos**.
+- Una **persona** puede tener varias **cuentas**, **presupuestos**, **préstamos**, **tarjetas de crédito**, **activos**, **inversiones** y **movimientos**.
 - Una **cuenta** puede tener muchos **movimientos**.
 - Un **movimiento** pertenece a una **cuenta**, una **categoría**, un **beneficiario**, un **tipo** y un **estado**.
 - Un **presupuesto** puede estar asociado a varias **categorías** (tabla intermedia).

@@ -11,10 +11,10 @@ app:
 # Configuración de base de datos
 # =========================================
 database:
-  type: "oracle"               # oracle | mysql | postgres
+  type: "mysql"               # mysql | postgres | oracle
   host: "localhost"
-  port: 1521
-  service_name: "ORCLPDB1"
+  port: 3306
+  name: "presupuesto_db"
   user: "presupuesto_user"
   password: "super_seguro_123"
 
@@ -22,24 +22,28 @@ database:
 # Rutas de datos
 # =========================================
 paths:
-  raw_data: "data/raw/"          # datos crudos
-  processed_data: "data/processed/" # datos limpios
-  models: "src/ml/models/"       # modelos entrenados
-  features: "src/ml/features/"   # features generadas
-  logs: "logs/"                  # logs de ejecución
-  reports: "reports/"            # reportes generados
+  raw_data: "data/raw/"
+  processed_data: "data/processed/"
+  models: "src/ml/models/"
+  features: "src/ml/features/"
+  logs: "logs/"
+  reports: "reports/"
+  exports: "exports/"           # exportación de reportes y datos
 
 # =========================================
 # Parámetros de negocio
 # =========================================
 business:
   moneda: "COP"
-  max_gasto_mensual: 500000    # límite para alertas
+  max_gasto_mensual: 500000
   categorias:
     - "Ingresos"
     - "Gastos fijos"
     - "Gastos variables"
     - "Ahorro"
+    - "Inversiones"
+    - "Deudas"
+    - "Tarjetas"
 
 # =========================================
 # Parámetros de Machine Learning

@@ -19,6 +19,10 @@ El sistema está diseñado como una aplicación modular para la gestión de fina
   - `/presupuesto/models/`: Modelos de datos (ORM).
   - `/presupuesto/views/`: Definición de rutas y vistas Flask.
   - `/presupuesto/services/`: Servicios auxiliares y utilidades.
+  - `/presupuesto/api/`: Endpoints RESTful.
+  - `/presupuesto/notificaciones/`: Módulo de notificaciones.
+  - `/presupuesto/auditoria/`: Logs y auditoría de acciones.
+  - `/presupuesto/inversiones/`: Gestión de inversiones y activos.
 - **Características adicionales:**
   - Soporte para paginación y filtrado en endpoints de listados.
   - Control de acceso por roles (usuario, admin).

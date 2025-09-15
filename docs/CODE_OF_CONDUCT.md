@@ -20,6 +20,6 @@ Juntos podemos construir una comunidad positiva y colaborativa.
 
 ---
 
-Este código de conducta aplica a todas las interacciones en los canales oficiales del proyecto, incluyendo issues, pull requests, foros y cualquier otro espacio gestionado por el equipo.
+Este código de conducta aplica a todas las interacciones en los canales oficiales del proyecto, incluyendo issues, pull requests, foros, módulos de notificaciones y auditoría, y cualquier otro espacio gestionado por el equipo.
 
 ---
