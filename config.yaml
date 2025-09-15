@@ -1,0 +1,68 @@
+# =========================================
+# Configuración general del proyecto
+# =========================================
+app:
+  name: "app-presupuesto"
+  version: "1.0.0"
+  environment: "development"   # development | staging | production
+  log_level: "INFO"
+
+# =========================================
+# Configuración de base de datos
+# =========================================
+database:
+  type: "oracle"               # oracle | mysql | postgres
+  host: "localhost"
+  port: 1521
+  service_name: "ORCLPDB1"
+  user: "presupuesto_user"
+  password: "super_seguro_123"
+
+# =========================================
+# Rutas de datos
+# =========================================
+paths:
+  raw_data: "data/raw/"          # datos crudos
+  processed_data: "data/processed/" # datos limpios
+  models: "src/ml/models/"       # modelos entrenados
+  features: "src/ml/features/"   # features generadas
+  logs: "logs/"                  # logs de ejecución
+  reports: "reports/"            # reportes generados
+
+# =========================================
+# Parámetros de negocio
+# =========================================
+business:
+  moneda: "COP"
+  max_gasto_mensual: 500000    # límite para alertas
+  categorias:
+    - "Ingresos"
+    - "Gastos fijos"
+    - "Gastos variables"
+    - "Ahorro"
+
+# =========================================
+# Parámetros de Machine Learning
+# =========================================
+ml:
+  model_type: "random_forest"  # random_forest | xgboost | logistic_regression
+  test_size: 0.2
+  random_state: 42
+  classification_labels:
+    - "Ingreso"
+    - "Gasto fijo"
+    - "Gasto variable"
+    - "Otro"
+  features:
+    - "monto"
+    - "descripcion"
+    - "fecha"
+
+# =========================================
+# Automatización de procesos
+# =========================================
+scheduler:
+  enabled: true
+  interval: "daily"             # hourly | daily | weekly
+  retrain_model: true           # volver a entrenar el modelo periódicamente
+  generate_report: true
