@@ -32,7 +32,11 @@ El sistema está diseñado como una aplicación modular para la gestión de fina
 
 ### 2. Base de Datos (MySQL/MariaDB)
 - **Scripts SQL:**  
-  - Creación de tablas, llaves foráneas, vistas, funciones, procedimientos almacenados y triggers.
+  - `/base_de_datos/script_bd/create/create_tables.sql`         # Definición de tablas principales
+  - `/base_de_datos/script_bd/create/create_triggers.sql`       # Triggers para automatización de saldos
+  - `/base_de_datos/script_bd/create/create_views.sql`          # Vistas para reportes y consultas
+  - `/base_de_datos/script_bd/create/create_functions.sql`      # Funciones y procedimientos almacenados
+  - `/base_de_datos/script_bd/create/create_investments.sql`    # Tablas y lógica para inversiones
 - **Modelo relacional:**  
   - Tablas normalizadas para personas, cuentas, movimientos, presupuestos, préstamos, tarjetas, activos, categorías, notificaciones, configuración de usuario, etc.
   - Uso de claves primarias y foráneas para integridad referencial.

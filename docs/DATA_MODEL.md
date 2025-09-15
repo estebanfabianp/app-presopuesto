@@ -6,7 +6,7 @@ Este documento describe las principales tablas y relaciones del sistema, alinead
 
 ## Diagrama Entidad-Relación (ER)
 
-![Diagrama ER](base%20de%20datos/modelo%20ENR.png)
+![Diagrama ER](../base_de_datos/modelo_ENR.png)
 
 ```
 Persona ──< Cuenta ──< Movimiento >── Categoría
