@@ -1,0 +1,80 @@
+import pandas as pd
+import numpy as np
+from datetime import datetime, timedelta
+import random
+
+# -----------------------------------------------------------
+# Script para generar un archivo CSV con el cronograma simulado
+# de pagos de un préstamo (sistema francés) para pruebas en el
+# sistema de gestión de presupuestos.
+# -----------------------------------------------------------
+
+# -------------------------
+# Parámetros del préstamo
+# -------------------------
+monto_prestamo = 200_000_000   # valor del préstamo (ej: 200 millones)
+tasa_interes_anual = 0.12      # 12% anual
+plazo_meses = 24               # 2 años
+seguro_mensual = 50_000        # seguro fijo mensual
+tasa_mora_diaria = 0.0005      # 0.05% diario de mora sobre saldo
+
+# -------------------------
+# Cálculo de cuota fija (sistema francés)
+# -------------------------
+tasa_mensual = tasa_interes_anual / 12
+cuota_fija = monto_prestamo * (tasa_mensual / (1 - (1 + tasa_mensual) ** -plazo_meses))
+
+# -------------------------
+# Generar movimientos de pago simulados
+# -------------------------
+movimientos = []
+saldo = monto_prestamo
+fecha_inicio = datetime(2023, 1, 1)
+
+for mes in range(1, plazo_meses + 1):
+    # Fecha programada de pago
+    fecha_pago = fecha_inicio + timedelta(days=30 * mes)
+
+    # Interés corriente del mes
+    interes = saldo * tasa_mensual
+
+    # Amortización a capital
+    capital = cuota_fija - interes
+
+    # Reducir saldo pendiente
+    saldo -= capital
+
+    # Seguro fijo mensual
+    seguro = seguro_mensual
+
+    # Simular mora aleatoria (algunos pagos retrasados)
+    dias_mora = random.choice([0, 0, 0, 5, 10])  # la mayoría sin mora
+    interes_mora = (saldo * tasa_mora_diaria * dias_mora) if dias_mora > 0 else 0
+    fecha_real_pago = fecha_pago + timedelta(days=dias_mora)
+
+    # Agregar movimiento simulado a la lista
+    movimientos.append([
+        mes,
+        fecha_pago.date(),
+        fecha_real_pago.date(),
+        round(capital, 2),
+        round(interes, 2),
+        round(seguro, 2),
+        round(interes_mora, 2),
+        round(capital + interes + seguro + interes_mora, 2),
+        round(saldo, 2)
+    ])
+
+# -------------------------
+# Crear DataFrame y guardar a CSV
+# -------------------------
+cols = ["Cuota Nº", "Fecha Programada", "Fecha Pago Real", 
+        "Capital", "Interés", "Seguro", "Interés de Mora", 
+        "Total a Pagar", "Saldo Restante"]
+
+df = pd.DataFrame(movimientos, columns=cols)
+
+# Guardar en CSV
+df.to_csv("prestamo_inmobiliario_simulado.csv", index=False, sep=";")
+print("Archivo 'prestamo_inmobiliario_simulado.csv' generado con éxito")
+print(df.head(10))

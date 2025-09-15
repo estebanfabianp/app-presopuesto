@@ -1,0 +1,73 @@
+import pandas as pd
+import random
+from datetime import datetime, timedelta
+
+# -----------------------------------------------------------
+# Script para generar un archivo CSV con movimientos simulados
+# de una cuenta de ahorros/corriente para pruebas en el sistema
+# de gestión de presupuestos.
+# -----------------------------------------------------------
+
+# -------------------------
+# Parámetros de simulación
+# -------------------------
+saldo_inicial = 5_000_000   # saldo inicial en pesos
+num_movimientos = 100       # cantidad de registros a simular
+fecha_inicio = datetime(2023, 1, 1)
+
+# Lista de posibles tipos de movimientos bancarios
+tipos_movimiento = [
+    "Consignación en cajero",
+    "Retiro en cajero",
+    "Transferencia recibida",
+    "Transferencia enviada",
+    "Pago de servicio",
+    "Compra con tarjeta débito",
+    "Interés abonado",
+    "Cuota manejo descontada"
+]
+
+# -------------------------
+# Generación de movimientos simulados
+# -------------------------
+movimientos = []
+saldo = saldo_inicial
+
+for i in range(num_movimientos):
+    # Fecha aleatoria dentro del año
+    fecha = fecha_inicio + timedelta(days=random.randint(0, 365))
+    tipo = random.choice(tipos_movimiento)
+
+    # Definir valor y signo según tipo de movimiento
+    if tipo in ["Consignación en cajero", "Transferencia recibida", "Interés abonado"]:
+        valor = round(random.uniform(50_000, 500_000), 2)
+        saldo += valor
+        signo = "+"
+    else:
+        valor = round(random.uniform(20_000, 400_000), 2)
+        saldo -= valor
+        signo = "-"
+
+    # Evitar que el saldo quede negativo (simulación simple)
+    if saldo < 0:
+        saldo = 0
+
+    # Agregar movimiento simulado a la lista
+    movimientos.append([
+        i + 1,
+        fecha.strftime("%Y-%m-%d"),
+        tipo,
+        signo + str(valor),
+        round(saldo, 2)
+    ])
+
+# -------------------------
+# Crear DataFrame y guardar a CSV
+# -------------------------
+cols = ["ID Movimiento", "Fecha", "Tipo de Movimiento", "Valor", "Saldo Final"]
+df = pd.DataFrame(movimientos, columns=cols)
+
+# Guardar los datos simulados a un archivo CSV
+df.to_csv("movimientos_cuenta_ahorros.csv", index=False, sep=";")
+print("Archivo 'movimientos_cuenta_ahorros.csv' generado con éxito")
+print(df.head(10))

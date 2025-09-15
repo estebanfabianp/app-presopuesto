@@ -1,6 +1,6 @@
 # Referencia de la API — Sistema de Gestión de Presupuestos
 
-Esta referencia describe los principales endpoints REST disponibles en la API.
+Esta referencia describe los principales endpoints REST disponibles en la API del sistema de gestión de presupuestos personales y familiares.
 
 ---
 
@@ -9,12 +9,16 @@ Esta referencia describe los principales endpoints REST disponibles en la API.
 ### POST `/api/login`
 Inicia sesión de usuario.
 - **Body:** `{ "email": "usuario@correo.com", "password": "..." }`
-- **Respuesta:** Token de autenticación o error.
+- **Respuesta:** `{ "token": "JWT...", "usuario": { ... } }` o error.
 
 ### POST `/api/register`
 Registra un nuevo usuario.
 - **Body:** `{ "nombre": "...", "email": "...", "password": "..." }`
 - **Respuesta:** Usuario creado o error.
+
+### POST `/api/logout`
+Cierra la sesión del usuario autenticado.
+- **Header:** `Authorization: Bearer <token>`
 
 ---
 
@@ -22,6 +26,7 @@ Registra un nuevo usuario.
 
 ### GET `/api/usuarios`
 Lista todos los usuarios (requiere permisos de admin).
+- **Soporta paginación:** `?page=1&limit=20`
 
 ### GET `/api/usuarios/<id>`
 Obtiene los datos de un usuario específico.
@@ -55,6 +60,8 @@ Elimina una cuenta.
 
 ### GET `/api/movimientos`
 Lista movimientos filtrados (por cuenta, fecha, categoría, etc.).
+- **Filtros:** `?cuenta_id=1&fecha_inicio=YYYY-MM-DD&fecha_fin=YYYY-MM-DD&categoria=...`
+- **Soporta paginación:** `?page=1&limit=50`
 
 ### POST `/api/movimientos`
 Registra un nuevo movimiento.
@@ -93,6 +100,12 @@ Devuelve un resumen financiero (ingresos, gastos, saldo, etc.).
 ### GET `/api/reportes/categorias`
 Devuelve el total de gastos por categoría.
 
+### GET `/api/reportes/periodos`
+Devuelve reportes agrupados por periodo (mensual, anual).
+
+### GET `/api/reportes/exportar`
+Exporta reportes en formato CSV, Excel o PDF.
+
 ---
 
 ## Otros recursos
@@ -101,6 +114,9 @@ Devuelve el total de gastos por categoría.
 - **Tarjetas de crédito:** `/api/tarjetas`
 - **Inversiones:** `/api/inversiones`
 - **Activos:** `/api/activos`
+- **Notificaciones:** `/api/notificaciones`
+- **Configuración de usuario:** `/api/configuracion`
+- **Logs y auditoría:** `/api/logs` (nuevo)
 
 ---
 
@@ -109,5 +125,7 @@ Devuelve el total de gastos por categoría.
 - Todos los endpoints requieren autenticación (token JWT) salvo `/api/login` y `/api/register`.
 - Los endpoints pueden variar según la versión y configuración del backend.
 - Para detalles sobre parámetros y respuestas, consulta la documentación técnica o el código fuente.
+- La API soporta paginación y filtrado en la mayoría de los listados.
+- El sistema implementa control de acceso por roles (usuario, admin).
 
 ---

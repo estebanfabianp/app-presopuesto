@@ -110,3 +110,7 @@ Ya tienes una base sólida. El siguiente gran paso es hacer la aplicación más 
 - **Gráficos y visualización de datos:** Integra bibliotecas de gráficos (como Chart.js o D3.js) para mostrar la evolución de gastos, ingresos y ahorros.
 - **Notificaciones:** Agrega un sistema de notificaciones para recordar pagos próximos (basado en `fecha_pago` y `fecha_corte` en `tarjeta_credito`) o transacciones programadas.
 - **Soporte de múltiples monedas:** El campo `moneda` en la tabla `prestamo` es un buen inicio. Puedes extender esta funcionalidad para manejar la conversión de monedas en movimientos y presupuestos, útil para usuarios con diferentes divisas.
+
+Que los datos de prueba contengan casos extremos: movimientos con error, movimientos vencidos, préstamos parcialmente pagados, pagos adelantados, ajustes, devoluciones.
+
+Que abarque periodos largos para probar la escalabilidad.

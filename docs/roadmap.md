@@ -65,7 +65,7 @@
 
 **Objetivo:** Ampliar el sistema más allá de los presupuestos.
 
-- **Tablas:** acciones, fondos, portafolios.
+- **Tablas:** acciones, fondos, portafolios, inversiones.
 - **Cálculos:** rentabilidad, valor actual, ganancia/pérdida.
 - **Reportes:** evolución del portafolio y diversificación.
 

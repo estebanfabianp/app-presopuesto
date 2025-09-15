@@ -1,0 +1,131 @@
+import pandas as pd
+import numpy as np
+import random
+from datetime import datetime, timedelta
+
+def generar_movimientos_tarjeta(num_movimientos=50000, fecha_inicio=datetime(2020, 1, 1)):
+    fecha_fin = datetime.today()
+    dias = (fecha_fin - fecha_inicio).days
+    descripciones = [
+        # ...existing code: lista de descripciones...
+        'SUPERMERCADO', 'Restaurante', 'Gasolina', 'Cine', 'Tienda de Ropa', 'Zapatería', 'Joyería', 'Librería',
+        'Electrónica', 'Farmacia', 'Panadería', 'Heladería', 'Veterinaria', 'Mueblería', 'Tienda de Mascotas',
+        'Ferretería', 'Tienda de Deportes', 'Gimnasio', 'Tienda de Juguetes', 'Floristería', 'Pastelería',
+        'Transporte Público', 'Taxi', 'Uber/Didi/Cabify', 'Estacionamiento', 'Hotel', 'Aerolínea', 'Agencia de Viajes',
+        'Museo', 'Parque de Diversiones', 'Conciertos/Eventos', 'Streaming (Netflix, Spotify)', 'Videojuegos',
+        'Consolas', 'Software', 'Cursos Online', 'Universidad', 'Colegio', 'Guardería', 'Clínicas',
+        'Laboratorios Médicos', 'Dentista', 'Psicólogo', 'Seguros de Salud', 'Seguros de Auto', 'Seguros de Vida',
+        'Pago de Servicios (Agua)', 'Pago de Servicios (Luz)', 'Pago de Servicios (Gas)', 'Pago de Servicios (Internet)',
+        'Pago de Servicios (Teléfono)', 'Celulares', 'Accesorios de Celulares', 'Cafetería', 'Bar', 'Discoteca',
+        'Licorería', 'Estilista / Peluquería', 'Spa', 'Barbería', 'Centro de Estética', 'Cosméticos', 'Perfumería',
+        'Tienda de Moda', 'Accesorios', 'Relojería', 'Bolsos y Carteras', 'Papelería', 'Tienda de Manualidades',
+        'Fotografía', 'Imprenta', 'Florería Online', 'Marketplace (Amazon, eBay)', 'Marketplace Local',
+        'Tienda de Electrodomésticos', 'Reparaciones del Hogar', 'Plomería', 'Electricista', 'Pinturas', 'Decoración',
+        'Alquiler de Vivienda', 'Créditos Hipotecarios', 'Créditos Personales', 'Avance en Efectivo', 'Cambio de Tarjeta',
+        'Ajuste Banco', 'Tienda de Instrumentos Musicales', 'Clases de Música', 'Escuelas de Baile', 'Escuelas de Idiomas',
+        'Libros Digitales', 'Revistas', 'Periódicos', 'Suscripción Apps', 'Apps de Productividad', 'Apps de Salud',
+        'Gimnasio Virtual', 'Nutricionista', 'Dietas Online', 'Entrenador Personal'
+    ]
+    movimientos = []
+    for i in range(num_movimientos):
+        fecha = fecha_inicio + timedelta(days=random.randint(0, dias))
+        descripcion = random.choice(descripciones)
+        valor = round(random.uniform(20000, 500000), 2)
+        if descripcion == "COMPRA DIFERIDA":
+            cuotas_total = random.choice([3, 6, 12])
+            cuota_actual = random.randint(1, cuotas_total)
+            cuotas = f"{cuota_actual}/{cuotas_total}"
+        else:
+            cuotas = "1/1"
+        autorizacion = random.randint(10000, 99999)
+        movimientos.append([
+            autorizacion,
+            fecha.strftime("%Y-%m-%d"),
+            descripcion,
+            valor,
+            random.uniform(0, 0.03),
+            random.uniform(0, 0.04),
+            valor,
+            0 if "AJUSTE" not in descripcion else -valor,
+            cuotas
+        ])
+    cols = [
+        "Número de Autorización", "Fecha de Transacción", "Descripción",
+        "Valor Original", "Tasa Pactada", "Tasa EA Facturada",
+        "Cargos y Abonos", "Saldo a Diferir", "Cuotas"
+    ]
+    df = pd.DataFrame(movimientos, columns=cols)
+    return df
+
+def generar_movimientos_extremos(num_movimientos=50, fecha_inicio=datetime(2022, 1, 1)):
+    dias = 365 * 2
+    tipos_movimiento = [
+        "Compra normal", "Pago cuota préstamo", "Pago parcial", "Pago adelantado",
+        "Movimiento con error", "Movimiento vencido", "Ajuste banco", "Devolución"
+    ]
+    movimientos = []
+    for i in range(num_movimientos):
+        fecha = fecha_inicio + timedelta(days=random.randint(0, dias))
+        tipo = random.choice(tipos_movimiento)
+        valor = round(random.uniform(100000, 2000000), 2)
+        saldo = round(random.uniform(0, 5000000), 2)
+        if tipo == "Movimiento con error":
+            valor = -abs(valor) if random.random() < 0.5 else valor
+            cuotas = f"{random.randint(5,1)}/12"
+        elif tipo == "Movimiento vencido":
+            fecha = fecha - timedelta(days=random.randint(1, 90))
+            cuotas = f"{random.randint(1,12)}/12"
+        elif tipo == "Pago parcial":
+            valor = valor * random.uniform(0.3, 0.8)
+            cuotas = f"{random.randint(1,12)}/12"
+        elif tipo == "Pago adelantado":
+            fecha = fecha - timedelta(days=random.randint(1, 30))
+            cuotas = f"{random.randint(1,12)}/12"
+        elif tipo == "Ajuste banco":
+            valor = round(random.uniform(-500000, 500000), 2)
+            cuotas = "1/1"
+        elif tipo == "Devolución":
+            valor = -valor
+            cuotas = "1/1"
+        else:
+            cuotas = f"{random.randint(1,12)}/12"
+        movimientos.append([
+            i + 1,
+            fecha.strftime("%Y-%m-%d"),
+            tipo,
+            valor,
+            cuotas,
+            saldo
+        ])
+    cols = ["ID", "Fecha", "Tipo Movimiento", "Valor", "Cuotas", "Saldo"]
+    df = pd.DataFrame(movimientos, columns=cols)
+    return df
+
+if __name__ == "__main__":
+    print("¿Qué tipo de movimientos desea generar?")
+    print("1. Movimientos de tarjeta de crédito")
+    print("2. Movimientos extremos/prueba")
+    print("3. Ambos")
+    opcion = input("Seleccione una opción (1/2/3): ").strip()
+    if opcion == "1":
+        df = generar_movimientos_tarjeta()
+        df.to_csv("movimientos_simulados.csv", index=False, sep=";")
+        print("Archivo 'movimientos_simulados.csv' generado con éxito.")
+        print(df.head())
+    elif opcion == "2":
+        df = generar_movimientos_extremos()
+        df.to_csv("movimientos_prueba_extremos.csv", index=False, sep=";")
+        print("Archivo 'movimientos_prueba_extremos.csv' generado con éxito.")
+        print(df.head())
+    elif opcion == "3":
+        df1 = generar_movimientos_tarjeta()
+        df2 = generar_movimientos_extremos()
+        df1.to_csv("movimientos_simulados.csv", index=False, sep=";")
+        df2.to_csv("movimientos_prueba_extremos.csv", index=False, sep=";")
+        print("Ambos archivos generados con éxito.")
+        print("Primeros movimientos de tarjeta de crédito:")
+        print(df1.head())
+        print("Primeros movimientos extremos:")
+        print(df2.head())
+    else:
+        print("Opción no válida.")
