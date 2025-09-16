@@ -2,10 +2,10 @@
 REM 🚀 Script para inicializar la base de datos del proyecto app-presopuesto
 REM Autor: Esteban Fabián Patiño Montealegre
 
-set DB_USER=root
-set DB_PASS=
-set DB_NAME=app_presupuesto
-set DB_HOST=localhost
+set DB_USER='root'
+set DB_PASS=''
+set DB_NAME='app_presupuesto'
+set DB_HOST='localhost'
 
 echo ============================================
 echo  📂 Iniciando configuración de la base de datos...
