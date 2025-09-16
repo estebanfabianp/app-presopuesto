@@ -4,8 +4,20 @@ Incluye endpoints para listar, obtener, crear, actualizar y eliminar préstamos.
 """
 
 from flask import Blueprint, jsonify, request
+from src.presupuesto.business.services.persona_controller import Persona
+from src.presupuesto.extensions import db
 
 bp = Blueprint('generic', __name__)
+
+def persona_existe(persona_id):
+    """
+    Valida si existe una persona en la tabla persona.
+    Args:
+        persona_id (int): Identificador de la persona.
+    Returns:
+        bool: True si existe, False si no.
+    """
+    return db.session.query(Persona.query.filter_by(id=persona_id).exists()).scalar()
 
 @bp.route('/', methods=['GET'])
 def listar():
