@@ -19,7 +19,7 @@ Este proyecto permite gestionar cuentas, movimientos, presupuestos, préstamos, 
 
 ```text
 📁 app-presopuesto/
-├── 📄 README.md
+├── 📄 README.md 
 ├── 📄 requirements.txt
 ├── 📄 config.yaml
 ├── 📁 src/
