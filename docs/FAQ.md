@@ -1,47 +1,39 @@
 # Preguntas Frecuentes (FAQ)
 
-## Instalación
+## ¿Cómo instalo el proyecto?
+Sigue los pasos detallados en el [README.md](../README.md) para clonar el repositorio, instalar dependencias, configurar variables de entorno y preparar la base de datos. Incluye migraciones automáticas y scripts de datos de prueba.
 
-Sigue los pasos en [README.md](README.md).
+## ¿Qué tecnologías utiliza?
+Python, Flask, SQLAlchemy, MySQL/MariaDB, PyMySQL, bcrypt, pandas, scikit-learn, JWT, Flask-Migrate, entre otras.
 
-## Tecnologías
+## ¿Puedo usar otra base de datos?
+El proyecto está optimizado para MySQL/MariaDB, pero puedes adaptar los modelos para otros motores compatibles con SQLAlchemy (ej. PostgreSQL, SQLite).
 
-Python, Flask, SQLAlchemy, MySQL/MariaDB, PyMySQL, bcrypt, pandas, scikit-learn, JWT, Flask-Migrate.
+## ¿Cómo reporto un bug o solicito una funcionalidad?
+Abre un issue en GitHub, contacta al autor por correo o utiliza los canales de soporte definidos en la documentación.
 
-## Base de datos
+## ¿Cómo contribuyo al proyecto?
+Consulta la [guía de contribución](CONTRIBUTING.md) y sigue las recomendaciones para pull requests, pruebas y documentación.
 
-Optimizado para MySQL/MariaDB, adaptable a otros motores compatibles con SQLAlchemy.
+## ¿Mis datos están seguros?
+Sí, las contraseñas se almacenan con hash seguro (bcrypt), la autenticación usa JWT y se aplican buenas prácticas de seguridad y validación de entradas.
 
-## Reporte de bugs y contribución
+## ¿Puedo usar la app en producción?
+Actualmente es un proyecto en desarrollo y aprendizaje. Úsalo bajo tu propio criterio, revisa la licencia y realiza pruebas antes de implementarlo en producción.
 
-Abre un issue en GitHub o contacta al autor. Consulta [CONTRIBUTING.md](CONTRIBUTING.md).
+## ¿Dónde encuentro la documentación de la API?
+En [API_REFERENCE.md](API_REFERENCE.md) y en los archivos de documentación técnica.
 
-## Seguridad
+## ¿El sistema soporta roles y permisos?
+Sí, hay control de acceso por roles (usuario, admin) y endpoints protegidos según permisos.
 
-Contraseñas con hash seguro, autenticación JWT, buenas prácticas y validación.
+## ¿Se pueden exportar datos o generar reportes?
+Sí, existen endpoints para reportes avanzados y exportación de datos en diferentes formatos (CSV, Excel, PDF).
 
-## Producción
+## ¿Hay soporte para notificaciones y configuración de usuario?
+Sí, el sistema incluye módulos para notificaciones, preferencias/configuración personalizada y auditoría de acciones.
 
-Proyecto en desarrollo y aprendizaje. Revisa la licencia y realiza pruebas antes de producción.
-
-## Documentación de la API
-
-En [API_REFERENCE.md](API_REFERENCE.md).
-
-## Roles y permisos
-
-Control de acceso por roles (usuario, admin).
-
-## Exportación y reportes
-
-Endpoints para reportes y exportación en CSV, Excel, PDF.
-
-## Notificaciones y configuración
-
-Módulos para notificaciones y configuración personalizada.
-
-## Actualización de base de datos
-
-Utiliza scripts de migración y sigue la documentación técnica.
+## ¿Cómo actualizo la base de datos si hay cambios?
+Utiliza los scripts de migración y sigue las instrucciones en la documentación técnica para mantener la base de datos actualizada.
 
 ---

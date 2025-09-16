@@ -10,43 +10,85 @@ Este proyecto permite gestionar cuentas, movimientos, presupuestos, préstamos, 
 - Paginación y filtrado en endpoints.
 - Automatización de saldos y auditoría con triggers y procedimientos SQL.
 - Pruebas automáticas y documentación técnica ampliada.
+- Rutas de archivos y documentación actualizadas y organizadas.
+- Script de inicialización automática de base de datos.
 
 ---
 
 ## 📦 Estructura del Proyecto
 
 ```text
-/base_de_datos/script_bd/create/
-    create_tables.sql
-    create_triggers.sql
-    create_views.sql
-    create_functions.sql
-    create_investments.sql
-/presupuesto/
-    excel_csv_analysis.py
-    api/
-    models/
-    controllers/
-    services/
-    notificaciones/
-    auditoria/
-    inversiones/
-/documentacion/
-    roadmap.md
-    sugerencia_IA.md
-/docs/
-    README.md
-    ARCHITECTURE.md
-    USER_GUIDE.md
-    API_REFERENCE.md
-    DATA_MODEL.md
-    CHANGELOG.md
-    SECURITY.md
-    CODE_OF_CONDUCT.md
-    FAQ.md
-requirements.txt
-config.yaml
+📁 app-presopuesto/
+├── 📄 README.md
+├── 📄 requirements.txt
+├── 📄 config.yaml
+├── 📁 src/
+│   └── 📁 presupuesto/
+│       ├── 📄 excel_csv_analysis.py
+│       ├── 📁 api/
+│       ├── 📁 models/
+│       ├── 📁 controllers/
+│       ├── 📁 services/
+│       ├── 📁 notificaciones/
+│       ├── 📁 auditoria/
+│       └── 📁 inversiones/
+├── 📁 base_de_datos/
+│   └── 📁 script_bd/
+│       ├── 📁 create/
+│       │   ├── create_tables.sql
+│       │   ├── create_triggers.sql
+│       │   ├── create_views.sql
+│       │   ├── create_functions.sql
+│       │   └── create_investments.sql
+│       └── 📁 comments/
+│           └── comentarios.sql
+├── 📁 docs/
+│   ├── 📄 USER_GUIDE.md
+│   ├── 📄 SECURITY.md
+│   ├── 📄 roadmap.md
+│   ├── 📄 FAQ.md
+│   ├── 📄 DATA_MODEL.md
+│   ├── 📄 CONTRIBUTING.md
+│   ├── 📄 CODE_OF_CONDUCT.md
+│   ├── 📄 CHANGELOG.md
+│   ├── 📄 ARCHITECTURE.md
+│   └── 📄 API_REFERENCE.md
+├── 📁 documentacion/
+│   ├── 📄 roadmap.md
+│   └── 📄 sugerencia_IA.md
+└── 📁 data/
+    └── 📁 db/
+        └── 📄 init_db.bat
 ```
+
+### 📋 Descripción de carpetas actuales:
+
+**📦 Código fuente (`src/`):**
+- `presupuesto/`: Aplicación principal del backend
+  - `excel_csv_analysis.py`: Análisis y visualización de datos CSV
+  - `api/`: Endpoints y rutas de la API RESTful
+  - `models/`: Modelos de datos y ORM
+  - `controllers/`: Lógica de negocio y controladores
+  - `services/`: Servicios auxiliares y utilidades
+  - `notificaciones/`: Módulo de notificaciones
+  - `auditoria/`: Sistema de auditoría y logs
+  - `inversiones/`: Gestión de inversiones y activos
+
+**🗄️ Base de datos (`base_de_datos/`):**
+- `script_bd/create/`: Scripts SQL de creación de tablas, triggers, vistas y funciones
+- `script_bd/comments/`: Documentación y comentarios de base de datos
+
+**📚 Documentación (`docs/`):**
+- Guías de usuario, arquitectura, API reference
+- Políticas de seguridad y contribución
+- FAQ y modelo de datos
+
+**📝 Documentación técnica (`documentacion/`):**
+- `roadmap.md`: Planificación del proyecto
+- `sugerencia_IA.md`: Sugerencias de IA y mejoras
+
+**💾 Datos (`data/`):**
+- `db/init_db.bat`: Script de inicialización de base de datos
 
 ---
 
@@ -63,15 +105,15 @@ config.yaml
 
 ## 📝 Funcionalidades y Procesos
 
-- **Gestión de cuentas, movimientos, activos, tarjetas, préstamos e inversiones:** CRUD completo vía API RESTful (`/presupuesto/api/`).
+- **Gestión de cuentas, movimientos, activos, tarjetas, préstamos e inversiones:** CRUD completo vía API RESTful (`/src/presupuesto/api/`).
 - **Automatización de saldos y auditoría:** Triggers y procedimientos en `/base_de_datos/script_bd/create/`.
-- **Categorización automática de movimientos:** Reglas y modelos IA en `/presupuesto/services/` y `/documentacion/sugerencia_IA.md`.
-- **Exportación de reportes:** Endpoints y procesos en `/presupuesto/controllers/` y `/presupuesto/services/`.
-- **Control de acceso y autenticación:** JWT y roles en `/presupuesto/api/usuarios/`.
-- **Notificaciones y configuración personalizada:** Módulos en `/presupuesto/notificaciones/` y `/presupuesto/configuracion/`.
+- **Categorización automática de movimientos:** Reglas y modelos IA en `/src/presupuesto/services/` y `/documentacion/sugerencia_IA.md`.
+- **Exportación de reportes:** Endpoints y procesos en `/src/presupuesto/controllers/` y `/src/presupuesto/services/`.
+- **Control de acceso y autenticación:** JWT y roles en `/src/presupuesto/api/usuarios/`.
+- **Notificaciones y configuración personalizada:** Módulos en `/src/presupuesto/notificaciones/`.
 - **Procesos automáticos:** Triggers para actualización de saldos, auditoría y notificaciones.
-- **Pruebas automáticas:** Scripts y ejemplos en `/presupuesto/tests/`.
-- **Visualización y análisis avanzado:** Script Python en `/presupuesto/excel_csv_analysis.py`.
+- **Inicialización de base de datos:** Script automatizado en `/data/db/init_db.bat`.
+- **Visualización y análisis avanzado:** Script Python en `/src/presupuesto/excel_csv_analysis.py`.
 
 ---
 
@@ -85,7 +127,12 @@ config.yaml
 
 ## 🚀 Instalación rápida
 
-1. Crea la base de datos y ejecuta los scripts en este orden:
+1. Ejecuta el script de inicialización automática:
+   ```bash
+   data\db\init_db.bat
+   ```
+   
+   O manualmente, crea la base de datos y ejecuta los scripts en este orden:
    ```bash
    mysql -u usuario -p < base_de_datos/script_bd/create/create_tables.sql
    mysql -u usuario -p < base_de_datos/script_bd/create/create_triggers.sql
@@ -138,7 +185,7 @@ flask run
 ## 🚀 Uso
 
 Accede a los endpoints para operaciones como:
-- Registro y consulta de transacciones (`/presupuesto/api/movimientos/`)
+- Registro y consulta de transacciones (`/src/presupuesto/api/movimientos/`)
 - Gestión de presupuestos, movimientos, préstamos, tarjetas e inversiones
 - Visualización de reportes financieros y exportación de datos
 
@@ -168,17 +215,17 @@ Accede a los endpoints para operaciones como:
 - [`FAQ.md`](docs/FAQ.md)
 - [`DATA_MODEL.md`](docs/DATA_MODEL.md)
 - [`requirements.txt`](requirements.txt)
-- Carpeta [`/docs/`](docs/)
-- Carpeta [`/documentacion/`](documentacion/)
-- Carpeta [`/base_de_datos/`](base_de_datos/)
-- Carpeta [`/presupuesto/`](presupuesto/)
-
----
+- [`init_db.bat`](data/db/init_db.bat)
+- Carpeta [`docs/`](docs/)
+- Carpeta [`documentacion/`](documentacion/)
+- Carpeta [`base_de_datos/`](base_de_datos/)
+- Carpeta [`presupuesto/`](presupuesto/)
+- Carpeta [`data/`](data/)
 
 ## 📚 Documentación y Sugerencias
 
-- [Roadmap](docs/roadmap.md)
-- [Sugerencias IA](docs/sugerencia_IA.md)
+- [Roadmap](documentacion/roadmap.md)
+- [Sugerencias IA](documentacion/sugerencia_IA.md)
 - [Arquitectura](docs/ARCHITECTURE.md)
 - [Guía de usuario](docs/USER_GUIDE.md)
 - [Referencia API](docs/API_REFERENCE.md)
@@ -188,6 +235,7 @@ Accede a los endpoints para operaciones como:
 - [Código de conducta](docs/CODE_OF_CONDUCT.md)
 - [Preguntas frecuentes](docs/FAQ.md)
 - [Modelo de datos](docs/DATA_MODEL.md)
+- [Script de inicialización DB](data/db/init_db.bat)
 
 ---
 
@@ -213,7 +261,7 @@ pip install pandas matplotlib
 2. Ejecuta el script principal:
 
 ```bash
-python presupuesto/excel_csv_analysis.py
+python src/presupuesto/excel_csv_analysis.py
 ```
 
 ## Funcionalidades principales
@@ -242,8 +290,9 @@ python presupuesto/excel_csv_analysis.py
 ## Estructura recomendada
 
 ```text
-presupuesto/
-    excel_csv_analysis.py
+src/
+    presupuesto/
+        excel_csv_analysis.py
 movimientos_simulados.csv
 README.md
 requirements.txt

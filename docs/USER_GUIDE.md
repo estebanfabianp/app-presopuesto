@@ -4,55 +4,55 @@ Esta guía te ayudará a comenzar a utilizar la aplicación para gestionar tus f
 
 ## Instalación y Primeros Pasos
 
-Sigue los pasos de instalación descritos en el [README.md](../README.md).
+Sigue los pasos de instalación descritos en el [README.md](../README.md) para preparar el entorno, configurar variables de entorno, ejecutar migraciones y lanzar la API. Puedes cargar datos de prueba para explorar las funcionalidades.
 
 ## Acceso y Autenticación
 
-- Registro y login con JWT.
-- Control de acceso por roles (usuario, admin).
+- Regístrate como usuario nuevo o inicia sesión si ya tienes una cuenta.
+- Autenticación JWT y control de acceso por roles (usuario, admin).
+- Cierre de sesión y gestión de sesiones seguras.
 
 ## Funcionalidades Principales
 
-- Registro de movimientos en `/presupuesto/api/movimientos/`.
-- Gestión de presupuestos en `/presupuesto/api/presupuestos/`.
-- Control de préstamos y tarjetas en `/presupuesto/api/prestamos/` y `/presupuesto/api/tarjetas/`.
-- Gestión de inversiones y activos en `/presupuesto/api/inversiones/` y `/presupuesto/api/activos/`.
-- Reportes y visualización en `/presupuesto/api/reportes/`.
-- Notificaciones y configuración en `/presupuesto/api/notificaciones/` y `/presupuesto/api/configuracion/`.
+### a) Registro de Movimientos
 
-## Automatización e Inteligencia
+- Ingresa ingresos, gastos y transferencias desde `/src/presupuesto/api/movimientos/`.
+- Asocia cada movimiento a una cuenta, categoría y beneficiario.
+- Carga extractos bancarios (CSV/Excel) para registrar múltiples movimientos automáticamente.
+- Soporte para movimientos recurrentes y cuotas.
+- Visualiza historial y detalles de cada movimiento.
 
-- Categorización automática de movimientos (reglas e IA).
-- Sugerencias y aprendizaje de hábitos.
+### b) Gestión de Presupuestos
 
-## Seguridad
+- Crea presupuestos mensuales, anuales o por categoría desde `/src/presupuesto/api/presupuestos/`.
+- Consulta el estado de tus presupuestos y compara el gasto real con lo planificado.
+- Recibe alertas cuando te acerques o superes el límite de un presupuesto.
 
-- Contraseñas seguras, cierre de sesión, actualización de dependencias.
-- Consulta la [política de seguridad](SECURITY.md).
+### c) Control de Deudas, Préstamos y Tarjetas
 
-## Soporte y Documentación
+- Registra préstamos, tarjetas de crédito y deudas financiadas en `/src/presupuesto/api/prestamos/` y `/src/presupuesto/api/tarjetas/`.
+- Control de pagos, cuotas pendientes y fechas de vencimiento.
+- Visualiza avance de pagos y saldo pendiente.
 
-- [Documentación técnica](../documentacion/roadmap.md)
-- [Preguntas Frecuentes (FAQ.md)](FAQ.md)
+### d) Inversiones y Activos
 
----
-
-¡Disfruta gestionando tus finanzas de manera inteligente!
+- Añade inversiones en acciones, fondos y otros activos desde `/src/presupuesto/api/inversiones/` y `/src/presupuesto/api/activos/`.
+- Consulta el valor actual y la rentabilidad de tu portafolio.
 - Gestiona activos físicos y su depreciación.
 
 ### e) Reportes y Visualización
 
-- Accede a reportes visuales: flujo de caja, resumen mensual, gastos por categoría, desempeño del presupuesto, evolución de inversiones, etc. desde `/presupuesto/api/reportes/`.
+- Accede a reportes visuales: flujo de caja, resumen mensual, gastos por categoría, desempeño del presupuesto, evolución de inversiones, etc. desde `/src/presupuesto/api/reportes/`.
 - Exporta reportes en diferentes formatos (Excel, PDF, CSV).
 
 ### f) Notificaciones y Configuración
 
-- Recibe notificaciones sobre vencimientos, alertas de presupuesto y recomendaciones en `/presupuesto/api/notificaciones/`.
-- Personaliza tus preferencias y configuración de usuario en `/presupuesto/api/configuracion/`.
+- Recibe notificaciones sobre vencimientos, alertas de presupuesto y recomendaciones en `/src/presupuesto/api/notificaciones/`.
+- Personaliza tus preferencias y configuración de usuario en `/src/presupuesto/api/configuracion/`.
 
 ## 4. Automatización e Inteligencia
 
-- Categorización automática de movimientos usando reglas e IA (ver `/presupuesto/services/` y [sugerencia_IA.md](../documentacion/sugerencia_IA.md)).
+- Categorización automática de movimientos usando reglas e IA (ver `/src/presupuesto/services/` y [sugerencia_IA.md](../documentacion/sugerencia_IA.md)).
 - Sugerencias para optimizar gastos y estrategias de pago.
 - Aprendizaje de hábitos para mejorar recomendaciones.
 
