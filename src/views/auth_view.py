@@ -5,6 +5,12 @@ auth_bp = Blueprint("auth", __name__)
 
 @auth_bp.route("/register", methods=["POST"])
 def register():
+    """
+    Endpoint para registrar un nuevo usuario.
+    Recibe nombre, correo y contraseña en formato JSON.
+    Returns:
+        JSON: Mensaje de éxito o error.
+    """
     data = request.json
     usuario, error = registrar_usuario(data["nombre"], data["correo"], data["password"])
     if error:
@@ -13,6 +19,12 @@ def register():
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
+    """
+    Endpoint para autenticar un usuario.
+    Recibe correo y contraseña en formato JSON.
+    Returns:
+        JSON: Mensaje de bienvenida o error de autenticación.
+    """
     data = request.json
     usuario = autenticar_usuario(data["correo"], data["password"])
     if usuario:
