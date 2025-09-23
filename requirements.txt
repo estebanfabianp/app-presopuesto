@@ -1,36 +1,164 @@
-# Requerimientos para el proyecto de gestión financiera personal
+# ===================================================================
+# Requerimientos para App Presupuesto - Sistema de Gestión Financiera
+# ===================================================================
+# Proyecto: Sistema integral de gestión de finanzas personales
+# Autor: Esteban Fabián Patiño Montealegre
+# Versión: 0.1.0
+# Python: 3.8+
+# ===================================================================
 
-# Backend y API
-Flask
-Flask-Migrate
-Flask-SQLAlchemy
-PyMySQL
-bcrypt
-Flask-JWT-Extended
-flask-cors
+# ===================================================================
+# FRAMEWORK WEB Y API
+# ===================================================================
+Flask==2.3.3                    # Framework web minimalista y potente
+Flask-SQLAlchemy==3.0.5        # ORM para manejo de base de datos
+Flask-Migrate==4.0.5           # Gestión de migraciones de BD
+Flask-JWT-Extended==4.5.3      # Autenticación JWT con refresh tokens
+Flask-CORS==4.0.0              # Configuración Cross-Origin Resource Sharing
+Flask-RESTful==0.3.10          # Extensión para APIs RESTful
+Flask-Marshmallow==0.15.0      # Serialización y validación de datos
 
-# Análisis de datos y utilidades
-pandas
-openpyxl
-xlrd
-matplotlib
-scikit-learn
+# ===================================================================
+# BASE DE DATOS Y CONECTIVIDAD
+# ===================================================================
+PyMySQL==1.1.0                 # Conector MySQL puro Python
+SQLAlchemy==2.0.23             # Toolkit SQL y ORM
+mysql-connector-python==8.2.0  # Conector oficial MySQL
+alembic==1.12.1                # Herramienta de migración de BD
 
-# Seguridad y validación
-python-dotenv
-marshmallow
+# ===================================================================
+# SEGURIDAD Y AUTENTICACIÓN
+# ===================================================================
+bcrypt==4.1.2                  # Hash seguro de contraseñas con salt
+cryptography==41.0.7           # Criptografía moderna para Python
+PyJWT==2.8.0                   # Tokens JWT para autenticación
+python-dotenv==1.0.0           # Gestión de variables de entorno
+Werkzeug==2.3.7                # Utilidades WSGI y seguridad
 
-# Notificaciones y configuración
-# (Agrega aquí si usas algún paquete específico para notificaciones)
+# ===================================================================
+# VALIDACIÓN Y SERIALIZACIÓN
+# ===================================================================
+marshmallow==3.20.1            # Serialización/deserialización de objetos
+marshmallow-sqlalchemy==0.29.0 # Integración Marshmallow con SQLAlchemy
+WTForms==3.1.1                 # Validación y renderizado de formularios
+email-validator==2.1.0         # Validación de direcciones de email
 
-# (Opcional) Para desarrollo y pruebas
-pytest
-ipython
-pytest-cov
-requests
+# ===================================================================
+# ANÁLISIS DE DATOS Y MACHINE LEARNING
+# ===================================================================
+pandas==2.1.4                  # Manipulación y análisis de datos
+numpy==1.24.4                  # Computación numérica fundamental
+scikit-learn==1.3.2           # Machine Learning y análisis predictivo
+matplotlib==3.8.2              # Visualización de datos estática
+seaborn==0.13.0                # Visualización estadística avanzada
+plotly==5.17.0                 # Gráficos interactivos y dashboards
 
-# Otros paquetes útiles
-gunicorn
+# ===================================================================
+# PROCESAMIENTO DE ARCHIVOS
+# ===================================================================
+openpyxl==3.1.2               # Lectura/escritura archivos Excel (.xlsx)
+xlrd==2.0.1                   # Lectura archivos Excel (.xls) antiguos
+xlsxwriter==3.1.9             # Escritura archivos Excel con formato
+python-docx==1.1.0            # Manipulación documentos Word
+PyPDF2==3.0.1                 # Procesamiento archivos PDF
 
-# ...agrega aquí otros paquetes según tus necesidades...
-#archivoMD
+# ===================================================================
+# FECHA, TIEMPO Y LOCALIZACIÓN
+# ===================================================================
+python-dateutil==2.8.2        # Extensiones para datetime
+pytz==2023.3                  # Zonas horarias mundiales
+babel==2.13.1                 # Internacionalización (i18n)
+
+# ===================================================================
+# COMUNICACIÓN Y NOTIFICACIONES
+# ===================================================================
+requests==2.31.0              # Cliente HTTP elegante y simple
+urllib3==2.1.0                # Cliente HTTP con funciones avanzadas
+smtplib                        # Envío de emails (biblioteca estándar)
+# celery==5.3.4                # Cola de tareas asíncronas (opcional)
+# redis==5.0.1                 # Base de datos in-memory para caché (opcional)
+
+# ===================================================================
+# CONFIGURACIÓN Y UTILIDADES
+# ===================================================================
+PyYAML==6.0.1                 # Parser y emisor YAML
+configparser                   # Análisis archivos configuración (estándar)
+click==8.1.7                  # Interface línea comandos elegante
+rich==13.7.0                  # Texto rico y hermoso en terminal
+colorama==0.4.6               # Colores ANSI multiplataforma
+
+# ===================================================================
+# DESARROLLO Y DEBUGGING
+# ===================================================================
+ipython==8.18.1               # Shell interactivo mejorado
+jupyter==1.0.0                # Notebooks interactivos para análisis
+notebook==7.0.6               # Servidor notebook Jupyter
+
+# ===================================================================
+# TESTING Y CALIDAD DE CÓDIGO
+# ===================================================================
+pytest==7.4.3                 # Framework de testing avanzado
+pytest-cov==4.1.0             # Coverage de código para pytest
+pytest-mock==3.12.0           # Mocking para pytest
+pytest-flask==1.3.0           # Testing específico para Flask
+coverage==7.3.2               # Medición cobertura de código
+factory-boy==3.3.0            # Factories para datos de prueba
+
+# ===================================================================
+# LINTING Y FORMATEO
+# ===================================================================
+flake8==6.1.0                 # Linting y verificación estilo código
+black==23.11.0                # Formateador automático de código
+isort==5.12.0                 # Organización automática de imports
+mypy==1.7.1                   # Verificación de tipos estática
+
+# ===================================================================
+# MONITOREO Y LOGGING
+# ===================================================================
+python-json-logger==2.0.7     # Logging estructurado en JSON
+psutil==5.9.6                 # Información del sistema y procesos
+sentry-sdk[flask]==1.38.0     # Monitoreo de errores y performance
+
+# ===================================================================
+# PRODUCCIÓN Y DEPLOYMENT
+# ===================================================================
+gunicorn==21.2.0              # Servidor WSGI para producción
+waitress==2.1.2               # Servidor WSGI puro Python
+supervisor==4.2.5             # Sistema control procesos
+
+# ===================================================================
+# ALMACENAMIENTO EN LA NUBE (OPCIONAL)
+# ===================================================================
+# boto3==1.34.0               # SDK AWS para Python
+# azure-storage-blob==12.19.0 # Cliente Azure Blob Storage
+# google-cloud-storage==2.10.0 # Cliente Google Cloud Storage
+
+# ===================================================================
+# INTEGRACIÓN CON APIs EXTERNAS (OPCIONAL)
+# ===================================================================
+# plaid-python==11.0.0        # API Plaid para datos bancarios
+# yfinance==0.2.24            # API Yahoo Finance para datos financieros
+# alpha-vantage==2.3.1        # API Alpha Vantage para mercados
+
+# ===================================================================
+# PROCESAMIENTO AVANZADO (OPCIONAL)
+# ===================================================================
+# tensorflow==2.15.0          # Machine Learning avanzado
+# torch==2.1.2                # PyTorch para deep learning
+# spacy==3.7.2                # Procesamiento de lenguaje natural
+
+# ===================================================================
+# NOTAS DE INSTALACIÓN
+# ===================================================================
+# 1. Crear entorno virtual: python -m venv venv
+# 2. Activar entorno: venv\Scripts\activate (Windows) o source venv/bin/activate (Unix)
+# 3. Actualizar pip: python -m pip install --upgrade pip
+# 4. Instalar dependencias: pip install -r requirements.txt
+# 5. Verificar instalación: pip list
+#
+# Para desarrollo adicional:
+# pip install -r requirements-dev.txt
+#
+# Para producción únicamente:
+# pip install -r requirements-prod.txt
+# ===================================================================

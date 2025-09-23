@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS `app_presupuesto`.`persona` (
     `hash_contrasena` VARCHAR(255) NULL DEFAULT NULL,
     `fecha_creacion` DATETIME NULL DEFAULT NULL,
     `fecha_actualizacion` DATETIME NULL DEFAULT NULL,
-    `activo` TINYINT(4) NULL DEFAULT NULL,
+    `estado` TINYINT(1) NULL DEFAULT NULL,
     PRIMARY KEY (`id_persona`),
     UNIQUE KEY `correo_electronico` (`correo_electronico`),
     UNIQUE KEY `usuario` (`usuario`)
