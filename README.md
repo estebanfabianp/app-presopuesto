@@ -1,35 +1,36 @@
 # App Presupuesto 💰
 
-Aplicación de gestión de presupuestos desarrollada con Flet y arquitectura MVC con integración de base de datos MySQL.
+Aplicación de gestión de presupuestos desarrollada con Flet y arquitectura MVC con interfaz moderna y funcionalidades avanzadas de análisis financiero.
 
 ## 📋 Descripción
 
-Sistema completo de gestión de presupuestos personales con interfaz gráfica moderna construida con Python y Flet. Incluye sistema de autenticación robusto, validación de entrada avanzada, manejo de errores comprehensive y arquitectura MVC escalable con base de datos MySQL optimizada.
+Sistema completo de gestión financiera personal con interfaz gráfica moderna construida con Python y Flet. Incluye dashboard de resumen financiero con gráficos interactivos, sistema de navegación lateral, tablas de datos profesionales y arquitectura MVC escalable preparada para integración con base de datos MySQL.
 
 ## 🚀 Características Principales
 
-- ✅ **Interfaz Moderna**: UI desarrollada con Flet, multiplataforma
-- 🏗️ **Arquitectura MVC**: Separación clara de responsabilidades
-- 🗄️ **Base de Datos MySQL**: Persistencia de datos confiable
-- 🔐 **Autenticación Segura**: Sistema de login con validación robusta
-- 🛡️ **Validación Avanzada**: Entrada de datos con sanitización
-- 🎨 **Diseño Responsive**: Interfaz adaptativa y centrada
-- 📱 **Ventana Optimizada**: Tamaño fijo 400x500px, no redimensionable
-- ⚠️ **Feedback Visual**: Retroalimentación inmediata para usuario
-- 🔄 **Sistema Resiliente**: Importaciones con fallback automático
-- 📊 **Gestión Integral**: Presupuestos, gastos e inversiones
-- 🔧 **Automatización**: Scripts de BD y configuración automática
-- 🚦 **Manejo de Errores**: Try-catch comprehensivo en toda la app
+- ✅ **Interfaz Moderna**: UI profesional desarrollada con Flet, diseño responsive
+- 🏗️ **Arquitectura MVC**: Separación clara de responsabilidades y código documentado
+- 🗄️ **Base de Datos MySQL**: Estructura preparada para persistencia de datos
+- 📊 **Dashboard Financiero**: Vista de resumen con métricas y análisis visual
+- 🎨 **Diseño Professional**: Interfaz con sidebar navegable y layout de dos columnas
+- 📱 **Responsive Design**: Ventana optimizada 1400x900px con redimensionamiento
+- 💳 **Gestión Completa**: Cuentas bancarias, tarjetas de crédito, préstamos e inversiones
+- 📈 **Análisis Visual**: Gráficos de ingresos vs gastos y tendencias financieras
+- 🔐 **Sistema de Login**: Autenticación con validación robusta (preparado)
+- 📋 **Tablas Interactivas**: Visualización de datos con filtros y acciones
+- 🎯 **Navegación Intuitiva**: Menú lateral organizado por categorías
+- 🎨 **Tema Moderno**: Paleta de colores profesional con tipografía Inter
 
-## 📁 Estructura del Proyecto
+## 📁 Estructura del Proyecto Actualizada
 
 ```
 app-presupuesto/
 ├── src/                    # Código fuente principal
 │   ├── views/              # Interfaces de usuario (UI Layer)
 │   │   ├── __init__.py
-│   │   ├── user_view.py    # Vista de login principal
-│   │   ├── dashboard_view.py # Dashboard principal (próximamente)
+│   │   ├── resumen.py      # 🆕 Vista principal de resumen financiero
+│   │   ├── user_view.py    # Vista de login (base implementada)
+│   │   ├── dashboard_view.py # Dashboard adicional (próximamente)
 │   │   └── budget_view.py  # Gestión de presupuestos (próximamente)
 │   ├── controllers/        # Lógica de negocio (Business Layer)
 │   │   ├── __init__.py
@@ -91,13 +92,13 @@ app-presupuesto/
 
 ### Requisitos del Sistema:
 - **Python 3.8+** (Recomendado: 3.10+)
-- **MySQL 8.0+** o **MariaDB 10.6+**
+- **MySQL 8.0+** o **MariaDB 10.6+** (opcional para desarrollo inicial)
 - **Git** para control de versiones
 - **4GB RAM** mínimo, 8GB recomendado
 
 ### 1. Clonar y configurar proyecto:
 ```bash
-git clone https://github.com/usuario/app-presopuesto.git
+git clone https://github.com/usuario/app-presupuesto.git
 cd app-presopuesto
 
 # Crear entorno virtual
@@ -111,231 +112,245 @@ venv\Scripts\activate  # Windows
 ### 2. Instalar dependencias:
 ```bash
 # Dependencias principales
-pip install -r requirements.txt
+pip install flet
+pip install plotly  # Opcional para gráficos avanzados
 
-# Dependencias de desarrollo (opcional)
-pip install -r requirements-dev.txt
+# Dependencias completas (cuando esté disponible)
+# pip install -r requirements.txt
 ```
 
-### 3. Configurar base de datos:
+### 3. Configuración inicial:
 ```bash
-# Copiar template de configuración
-copy .env.example .env  # Windows
-# cp .env.example .env  # Linux/Mac
+# La aplicación funciona sin base de datos inicialmente
+# Los datos son simulados para demostración
 
-# Editar variables en .env:
-# DB_HOST=localhost
-# DB_PORT=3306
-# DB_NAME=presupuesto_db
-# DB_USER=app_user
-# DB_PASSWORD=secure_password
-# SECRET_KEY=your-secret-key-here
-
-# Ejecutar scripts de inicialización
-database\init_db.bat  # Windows
-# bash database/init_db.sh  # Linux/Mac
+# Para configurar BD MySQL (opcional):
+# copy .env.example .env
+# Editar variables de entorno según necesidad
 ```
 
 ## 🎮 Uso y Ejecución
 
-### Ejecutar aplicación:
+### Ejecutar aplicación principal:
 ```bash
-# Desde el directorio raíz del proyecto
-python src/views/user_view.py
+# Vista de resumen financiero (principal)
+python src/views/resumen.py
 
-# O usando el módulo
-python -m src.views.user_view
+# Vista de login (base)
+python src/views/user_view.py
 ```
 
-### Características de la Interfaz:
+### 🆕 Características de la Vista de Resumen:
 
-#### 🔐 Sistema de Login:
-- **Validación en Tiempo Real**: Campos obligatorios con feedback inmediato
-- **Sanitización**: Eliminación automática de espacios y caracteres especiales
-- **Seguridad**: Hash de contraseñas y validación de sesión
-- **Accesibilidad**: Iconos descriptivos y mensajes claros
+#### 🏠 Dashboard Principal:
+- **Sidebar Navegable**: Menú lateral organizado por secciones con badges
+- **Breadcrumbs**: Navegación de ruta actual
+- **Tarjetas de Resumen**: Métricas principales con indicadores de cambio
+- **Layout Responsive**: Dos columnas adaptativas
 
-#### ✅ Validaciones Implementadas:
-- ✅ **Campos Obligatorios**: Usuario y contraseña no pueden estar vacíos
-- ✅ **Sanitización**: Trim automático y validación de caracteres
-- ✅ **Longitud**: Mínimo 3 caracteres para usuario, 6 para contraseña
-- ✅ **Caracteres Especiales**: Prevención de inyección SQL
-- ✅ **Intentos Fallidos**: Límite de intentos de login
-- ✅ **Sesión**: Timeout automático por inactividad
+#### 📊 Funcionalidades Implementadas:
+- ✅ **Resumen de Cuentas**: Bancarias, tarjetas de crédito, préstamos
+- ✅ **Análisis Visual**: Gráfico de ingresos vs gastos (últimos 30 días)
+- ✅ **Tablas Interactivas**: Con headers personalizados y acciones
+- ✅ **Indicadores de Progreso**: Barras de progreso para deudas
+- ✅ **Próximas Transacciones**: Vista de transacciones pendientes
+- ✅ **Categorías Top**: Análisis de gastos por categoría
+- ✅ **Deuda Programada**: Gestión de pagos automáticos
+
+#### 🎨 Características de Diseño:
+- **Paleta de Colores**: Material Design con azul primario (#2196F3)
+- **Tipografía**: Google Fonts Inter para mejor legibilidad
+- **Iconografía**: Material Design Icons consistentes
+- **Shadows y Borders**: Efectos sutiles para profundidad visual
+- **Estados Hover**: Retroalimentación visual en interacciones
 
 ## 👨‍💻 Desarrollo y Arquitectura
 
-### Stack Tecnológico:
-- **Frontend**: Flet (Python GUI Framework)
-- **Backend**: Python 3.8+ con arquitectura MVC
-- **Base de Datos**: MySQL 8.0+ / MariaDB 10.6+
-- **ORM**: mysql-connector-python con queries optimizadas
-- **Testing**: pytest + coverage
-- **Logging**: Python logging module
-- **Security**: bcrypt para hashing, validación de entrada
+### Stack Tecnológico Actual:
+- **Frontend**: Flet (Python GUI Framework) con componentes profesionales
+- **Visualización**: Gráficos con fallback visual (Plotly opcional)
+- **Arquitectura**: MVC con documentación completa
+- **Datos**: Simulación realista para desarrollo y demo
+- **Testing**: Estructura preparada para pytest
+
+### 🆕 Componentes Principales:
+
+#### LeftSidebarMenu:
+```python
+class LeftSidebarMenu:
+    """Gestiona el menú lateral con navegación y perfil de usuario"""
+    - create_menu_item()     # Items individuales con badges
+    - create_user_profile()  # Perfil con avatar y opciones
+    - create_sidebar()       # Menú completo organizado por secciones
+```
+
+#### ResumenView:
+```python
+class ResumenView:
+    """Vista principal del dashboard financiero"""
+    - create_header_bar()           # Breadcrumbs y acciones
+    - create_summary_cards()        # Tarjetas de métricas
+    - create_data_table()           # Tablas profesionales
+    - create_income_vs_expense_chart() # Análisis visual
+    - create_main_content()         # Layout principal
+```
 
 ### Patrones de Diseño Implementados:
 ```
-┌─────────────┐    ┌──────────────┐    ┌─────────────┐
-│   Views     │ -> │ Controllers  │ -> │   Models    │
-│ (Flet UI)   │    │ (Business)   │    │ (Data)      │
-└─────────────┘    └──────────────┘    └─────────────┘
-       │                    │                   │
-┌─────────────┐    ┌──────────────┐    ┌─────────────┐
-│  Validators │    │   Security   │    │  Database   │
-│ (Input Val) │    │ (Auth/Hash)  │    │  (MySQL)    │
-└─────────────┘    └──────────────┘    └─────────────┘
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Views         │    │   Controllers    │    │    Models       │
+│ LeftSidebarMenu │ -> │ (Preparados)     │ -> │ (Preparados)    │
+│ ResumenView     │    │ Business Logic   │    │ Data Models     │
+│ UserView        │    │                  │    │                 │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+        │                       │                       │
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Components    │    │    Utils         │    │   Database      │
+│ DataTable       │    │ Security         │    │ (MySQL Ready)   │
+│ SummaryCards    │    │ Validators       │    │ Connection Pool │
+│ Chart (Visual)  │    │ Helpers          │    │ Migrations      │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
 ```
 
-### 🔧 Mejoras Técnicas Implementadas:
-- **Connection Pooling**: Pool de conexiones a BD para mejor rendimiento
-- **Lazy Loading**: Carga bajo demanda de módulos pesados
-- **Error Handling**: Manejo granular de excepciones por tipo
-- **Logging**: Sistema de logs rotativo con niveles configurables
-- **Caching**: Cache en memoria para consultas frecuentes
-- **Validation**: Validadores reutilizables con decoradores
+## 🎯 Estado Actual del Proyecto
 
-## 🔒 Consideraciones de Seguridad
+### ✅ Completado (v0.6.0):
+- **Vista de Resumen**: Dashboard completo con navegación
+- **Componentes UI**: Tablas, tarjetas, gráficos y menús
+- **Arquitectura**: Estructura MVC documentada
+- **Diseño**: Interfaz profesional y responsive
+- **Datos Demo**: Simulación realista para desarrollo
 
-### Implementadas:
-- ✅ **Hash de Contraseñas**: bcrypt con salt automático
-- ✅ **Validación de Entrada**: Sanitización contra inyección SQL
-- ✅ **Variables de Entorno**: Credenciales fuera del código
-- ✅ **Timeout de Sesión**: Cierre automático por inactividad
-- ✅ **Logs de Seguridad**: Registro de intentos de acceso
+### 🔄 En Desarrollo:
+- **Integración BD**: Conexión con datos reales
+- **Autenticación**: Sistema de login funcional
+- **CRUD Operations**: Gestión completa de datos
 
-### Próximas:
-- 🔜 **2FA**: Autenticación de dos factores
-- 🔜 **JWT Tokens**: Tokens de sesión seguros
-- 🔜 **Rate Limiting**: Límite de peticiones por IP
-- 🔜 **Encryption**: Cifrado de datos sensibles en BD
+### 📋 Próximas Funcionalidades:
 
-## 📚 Documentación Completa
+#### v0.7.0 - Integración de Datos (Q1 2024):
+- [ ] Conexión MySQL funcional
+- [ ] CRUD completo de transacciones
+- [ ] Sistema de autenticación integrado
+- [ ] Persistencia de datos real
 
-- 📖 [Documentación de Base de Datos](docs/BASE_DATOS.md)
-- 🔌 [API y Endpoints](docs/API.md)
-- 🛡️ [Guía de Seguridad](docs/SECURITY.md)
-- 🚀 [Guía de Despliegue](docs/DEPLOYMENT.md)
-- 🧪 [Guía de Testing](docs/TESTING.md)
-- 📋 [Roadmap del Proyecto](docs/ROADMAP.md)
-
-## 🐛 Solución de Problemas Avanzada
-
-### Errores de Importación:
-```bash
-# Verificar estructura del proyecto
-python -c "import sys; print('\n'.join(sys.path))"
-
-# Reinstalar dependencias
-pip uninstall -r requirements.txt -y
-pip install -r requirements.txt
-
-# Verificar versión de Python
-python --version  # Debe ser 3.8+
-```
-
-### Errores de Base de Datos:
-```bash
-# Verificar estado de MySQL
-mysql -u root -p -e "SHOW DATABASES;"
-
-# Probar conexión desde Python
-python -c "
-import mysql.connector
-try:
-    conn = mysql.connector.connect(host='localhost', user='root', password='')
-    print('✅ Conexión exitosa')
-except Exception as e:
-    print(f'❌ Error: {e}')
-"
-
-# Recrear base de datos
-database\scripts\reset_db.bat
-```
-
-### Errores de Autenticación:
-```bash
-# Verificar configuración
-python -c "
-import os
-from dotenv import load_dotenv
-load_dotenv()
-print(f'DB_HOST: {os.getenv(\"DB_HOST\")})
-print(f'DB_NAME: {os.getenv(\"DB_NAME\")})
-"
-
-# Probar función de autenticación
-python -c "
-from src.controllers.persona_controller import autenticar_usuario
-result = autenticar_usuario('test', 'test123')
-print(f'Resultado: {result}')
-"
-```
-
-## 🧪 Testing y Calidad
-
-### Ejecutar Suite de Pruebas:
-```bash
-# Pruebas unitarias
-python -m pytest tests/unit/ -v
-
-# Pruebas de integración
-python -m pytest tests/integration/ -v
-
-# Cobertura de código
-python -m pytest tests/ --cov=src/ --cov-report=html
-
-# Linting y formateo
-flake8 src/
-black src/
-isort src/
-```
-
-### Métricas de Calidad:
-- **Cobertura de Código**: >90%
-- **Complejidad Ciclomática**: <10 por función
-- **Líneas por Función**: <50 líneas
-- **Documentación**: Docstrings en todas las funciones públicas
-
-## 📄 Versión y Changelog
-
-**0.5.0** - Mejoras de seguridad, arquitectura y documentación completa
-
-### Changelog Detallado:
-- **0.5.0**: 
-  - ✅ Implementación de seguridad avanzada
-  - ✅ Sistema de logging completo
-  - ✅ Documentación técnica exhaustiva
-  - ✅ Suite de testing ampliada
-  - ✅ Optimizaciones de rendimiento
-- **0.4.0**: Integración MySQL, documentación básica
-- **0.3.0**: Manejo de errores y validación
-- **0.2.0**: Interfaz mejorada con Flet
-- **0.1.0**: Versión inicial con login básico
-
-## 🚀 Próximas Versiones
-
-### v0.6.0 - Dashboard y Gestión (Q1 2024):
-- [ ] Dashboard principal con métricas
-- [ ] CRUD completo de presupuestos
-- [ ] Gestión de categorías de gastos
-- [ ] Gráficos y reportes básicos
-
-### v0.7.0 - Análisis y Reportes (Q2 2024):
-- [ ] Reportes avanzados con gráficos
-- [ ] Exportación a PDF/Excel
-- [ ] Análisis predictivo básico
+#### v0.8.0 - Funcionalidades Avanzadas (Q2 2024):
+- [ ] Gráficos interactivos con Plotly
+- [ ] Filtros y búsqueda en tablas
+- [ ] Exportación de reportes
 - [ ] Notificaciones y alertas
 
-### v1.0.0 - Versión Estable (Q3 2024):
-- [ ] API REST completa
-- [ ] Aplicación móvil companion
-- [ ] Sincronización en la nube
-- [ ] Múltiples monedas y idiomas
+#### v1.0.0 - Versión Estable (Q3 2024):
+- [ ] Sistema completo de presupuestos
+- [ ] Análisis predictivo
+- [ ] API REST
+- [ ] Aplicación móvil
+
+## 🧩 Funcionalidades Destacadas
+
+### 📊 Dashboard de Resumen:
+- **Métricas Principales**: Cuentas bancarias, préstamos, tarjetas, fondos
+- **Indicadores Visuales**: Porcentajes de cambio con colores semánticos
+- **Gráfico de Flujo**: Análisis de ingresos vs gastos con tendencias
+- **Tablas Organizadas**: Datos estructurados por tipo de cuenta
+
+### 🎯 Gestión de Transacciones:
+- **Próximas Transacciones**: Vista de pagos pendientes
+- **Categorías Top**: Análisis de gastos más frecuentes
+- **Deuda Programada**: Control de pagos automáticos
+- **Progreso Visual**: Barras de progreso para objetivos
+
+### 🔍 Análisis y Reportes:
+- **Tendencias**: Identificación de patrones de gasto
+- **Balance Diario**: Cálculo automático de flujo de efectivo
+- **Estadísticas**: Promedios y totales calculados
+- **Alertas Visuales**: Códigos de color para estados financieros
+
+## 📚 Documentación Técnica
+
+### Guías de Desarrollo:
+- 📖 **Código Documentado**: Docstrings completos con type hints
+- 🏗️ **Arquitectura**: Separación clara de responsabilidades
+- 🎨 **Design System**: Paleta de colores y componentes reutilizables
+- 🔧 **Extensibilidad**: Estructura preparada para nuevas funcionalidades
+
+### Estándares de Código:
+- **Type Hints**: Tipado completo para mejor IDE support
+- **Docstrings**: Documentación detallada de clases y métodos
+- **Naming Conventions**: Nomenclatura clara y consistente
+- **Error Handling**: Manejo de excepciones apropiado
+
+## 🐛 Solución de Problemas
+
+### Errores Comunes:
+
+#### Error de Importación de Flet:
+```bash
+pip install flet>=0.18.0
+python -c "import flet; print('✅ Flet instalado correctamente')"
+```
+
+#### Error de Plotly (Opcional):
+```bash
+# Si quieres gráficos avanzados
+pip install plotly>=5.0.0
+
+# La aplicación funciona sin Plotly con visualización alternativa
+```
+
+#### Problema de Ventana:
+```bash
+# Verificar resolución de pantalla compatible (mínimo 1024x768)
+# La aplicación ajusta automáticamente el tamaño
+
+# Si hay problemas de rendering:
+python src/views/resumen.py --no-web
+```
+
+## 💡 Cómo Contribuir
+
+### Para Desarrolladores:
+1. **Fork** el repositorio
+2. **Crear branch**: `git checkout -b feature/nueva-funcionalidad`
+3. **Desarrollar** siguiendo los estándares de código
+4. **Documentar** con docstrings y comentarios
+5. **Probar** la funcionalidad
+6. **Pull Request** con descripción detallada
+
+### Áreas de Contribución:
+- 🎨 **UI/UX**: Mejoras de diseño y usabilidad
+- 🔧 **Backend**: Integración de base de datos
+- 📊 **Analytics**: Nuevos tipos de análisis
+- 🔐 **Security**: Mejoras de seguridad
+- 📱 **Mobile**: Versión responsive/móvil
+- 🌐 **i18n**: Internacionalización
+
+## 📄 Changelog
+
+### v0.6.0 (Actual) - Dashboard Profesional:
+- ✅ Vista de resumen financiero completa
+- ✅ Navegación lateral con categorías organizadas
+- ✅ Tablas interactivas con datos simulados
+- ✅ Gráficos visuales con fallback
+- ✅ Diseño responsive y profesional
+- ✅ Documentación técnica completa
+
+### Versiones Anteriores:
+- **v0.5.0**: Mejoras de seguridad y arquitectura
+- **v0.4.0**: Integración MySQL preparada
+- **v0.3.0**: Manejo de errores y validación
+- **v0.2.0**: Interfaz mejorada con Flet
+- **v0.1.0**: Versión inicial con login básico
 
 ---
 
 <div align="center">
-  <p>Desarrollado con ❤️ por Esteban Fabián Patiño Montealegre</p>
+  <p>🚀 <strong>Desarrollado con ❤️ usando Python + Flet</strong></p>
+  <p>📧 Contacto: esteban.patino@email.com</p>
   <p>🌟 Si te gusta este proyecto, no olvides darle una estrella</p>
+  
+  <br>
+  
+  **Estado del Proyecto**: 🟢 En Desarrollo Activo  
+  **Próxima Release**: v0.7.0 - Integración de Datos (Q1 2024)
 </div>
