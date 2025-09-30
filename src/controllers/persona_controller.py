@@ -1,4 +1,4 @@
-from ..models import PersonaModel
+from models.persona_model import PersonaModel
 from typing import Tuple, Optional, Dict, Any, List
 
 

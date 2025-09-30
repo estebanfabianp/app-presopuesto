@@ -162,3 +162,4 @@ supervisor==4.2.5             # Sistema control procesos
 # Para producción únicamente:
 # pip install -r requirements-prod.txt
 # ===================================================================
+flet>=0.21.0

@@ -15,6 +15,11 @@ Example:
     >>> persona_model = PersonaModel()
 """
 
+from .user_model import UserModel
+from .persona_model import PersonaModel
+
+__all__ = ["UserModel", "PersonaModel"]
+
 # Información del módulo
 __version__ = "0.2.0"
 __author__ = "Esteban Fabián Patiño Montealegre"

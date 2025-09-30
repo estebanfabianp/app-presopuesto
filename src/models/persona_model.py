@@ -1,4 +1,13 @@
-from ..database import DatabaseConnector
+import sys
+import os
+
+# Configurar path para importación absoluta
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.dirname(current_dir)
+if src_dir not in sys.path:
+    sys.path.insert(0, src_dir)
+
+from database import DatabaseConnector
 from typing import Optional, Dict, List, Any
 
 

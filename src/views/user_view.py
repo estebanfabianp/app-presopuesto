@@ -1,6 +1,8 @@
 import sys
 import os
 
+from controllers.persona_controller import validar_persona_para_operacion
+
 # Configurar el path para importaciones
 current_dir = os.path.dirname(os.path.abspath(__file__))
 src_dir = os.path.dirname(current_dir)
@@ -11,51 +13,119 @@ for path in [src_dir, project_dir]:
     if path not in sys.path:
         sys.path.insert(0, path)
 
-import flet as ft
+import flet as ft 
 
 # Mock temporal del UserController hasta resolver las importaciones
-class UserController:
-    def save_user(self, name, email):
-        # Mock implementation para testing
-        if name and email:
-            user = {"name": name, "email": email}
-            return user, "Usuario guardado exitosamente"
-        else:
-            return None, "Error: Nombre y email son requeridos"
 
 def user_app(page: ft.Page):
-    page.title = "Ejemplo MVC con Flet y MySQL"
+    # Configuración de la página
+    page.title = "Login de Usuario"
     page.vertical_alignment = ft.MainAxisAlignment.CENTER
+    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
+    page.theme_mode = ft.ThemeMode.LIGHT
+    page.window_width = 400
+    page.window_height = 500
+    page.window_resizable = False
 
-    controller = UserController()
+    controller = validar_persona_para_operacion()
 
-    name_input = ft.TextField(label="Nombre", width=300)
-    email_input = ft.TextField(label="Correo", width=300)
-    result_text = ft.Text(value="", color="green")
+    # Campos de entrada con mejor alineación
+    name_input = ft.TextField(
+        label="Nombre de Usuario",
+        width=300,
+        border_radius=8,
+        prefix_icon=ft.Icon(ft.Icons.PERSON)
+    )
+    
+    password_input = ft.TextField(
+        label="Contraseña",
+        width=300,
+        border_radius=8,
+        password=True,
+        can_reveal_password=True,
+        prefix_icon=ft.Icon(ft.Icons.LOCK)
+    )
+    
+    result_text = ft.Text(
+        value="",
+        color="green",
+        text_align=ft.TextAlign.CENTER,
+        size=14
+    )
 
-    def on_save_click(e):
-        user, msg = controller.save_user(name_input.value, email_input.value)
+    # Función de manejo de login
+    def on_login_click(e):
+        user, msg = controller.save_user(name_input.value, password_input.value)
         if user:
-            result_text.value = f"{msg}: {user['name']} ({user['email']})"
+            result_text.value = f"¡Bienvenido {user['name']}!"
             result_text.color = "green"
         else:
             result_text.value = msg
             result_text.color = "red"
         page.update()
 
-    save_button = ft.ElevatedButton("Guardar usuario", on_click=on_save_click)
+    # Botón de login estilizado
+    login_button = ft.ElevatedButton(
+        "Iniciar Sesión",
+        on_click=on_login_click,
+        width=300,
+        height=45,
+        bgcolor=ft.Colors.BLUE,
+        color=ft.Colors.WHITE,
+    )
 
-    page.add(
-        ft.Column(
-            [
-                ft.Text("Registro de Usuario", size=20, weight="bold"),
+    # Contenedor principal centrado y estilizado
+    main_container = ft.Container(
+        content=ft.Column(
+            controls=[
+                # Icono principal
+                ft.Icon(
+                    ft.Icons.LOGIN,
+                    size=60,
+                    color=ft.Colors.BLUE
+                ),
+                # Título
+                ft.Text(
+                    "Inicio de Sesión",
+                    size=24,
+                    weight=ft.FontWeight.BOLD,
+                    text_align=ft.TextAlign.CENTER
+                ),
+                # Espaciado
+                ft.Container(height=20),
+                # Campo usuario
                 name_input,
-                email_input,
-                save_button,
+                # Espaciado pequeño
+                ft.Container(height=10),
+                # Campo contraseña
+                password_input,
+                # Espaciado
+                ft.Container(height=20),
+                # Botón login
+                login_button,
+                # Espaciado pequeño
+                ft.Container(height=10),
+                # Texto resultado
                 result_text,
             ],
             alignment=ft.MainAxisAlignment.CENTER,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=0,
+            tight=True
+        ),
+        padding=ft.Padding(30, 30, 30, 30),
+        bgcolor=ft.Colors.WHITE,
+        border_radius=15,
+        width=350,
+        height=450
+    )
+
+    # Agregar a la página con centrado perfecto
+    page.add(
+        ft.Container(
+            content=main_container,
+            alignment=ft.alignment.center,
+            expand=True
         )
     )
 
