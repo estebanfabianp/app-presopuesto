@@ -14,7 +14,7 @@ Example:
     >>> user_model = UserModel()
     >>> persona_model = PersonaModel()
 """
-
+'''
 from .user_model import UserModel
 from .persona_model import PersonaModel
 
@@ -25,3 +25,4 @@ __version__ = "0.2.0"
 __author__ = "Esteban Fabián Patiño Montealegre"
 
 # Modelos del proyecto
+'''

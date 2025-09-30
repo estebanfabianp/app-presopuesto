@@ -1,3 +1,4 @@
+'''
 from .persona_controller import validar_persona_para_operacion
 
 # Importaciones comentadas temporalmente para evitar errores de importación relativa
@@ -11,3 +12,4 @@ __status__ = "Development"
 
 # Controladores del proyecto
 # Nota: Usar importación directa desde archivos específicos
+'''

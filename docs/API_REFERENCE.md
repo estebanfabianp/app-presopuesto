@@ -1,322 +1,322 @@
-# API Reference - App Presupuesto
+# Referencia de Funciones Internas — App Presupuesto
 
-Documentación completa de la API RESTful del sistema de gestión financiera personal.
+Esta referencia describe las principales funciones y módulos internos de la aplicación de escritorio desarrollada con Flet.
 
 ---
 
-## 🌐 Información General
+## 🖥️ Información General
 
-### Base URL
+### Arquitectura de la Aplicación
+La aplicación **App Presupuesto** es una **aplicación de escritorio** desarrollada con Flet (no es una API web). Esta referencia documenta las funciones internas y módulos principales para desarrolladores que deseen contribuir o extender la funcionalidad.
+
+### Estructura de Módulos
 ```
-http://localhost:5000/api/v1
+src/
+├── views/          # Interfaces gráficas Flet
+├── controllers/    # Lógica de negocio
+├── models/         # Modelos de datos
+├── database/       # Acceso a base de datos
+└── utils/          # Utilidades y helpers
 ```
 
-### Autenticación
-La API utiliza **JWT (JSON Web Tokens)** para autenticación. Incluye el token en el header `Authorization`:
+### Formato de Datos Interno
+Todas las funciones manejan datos en formato Python nativo:
 
-```http
-Authorization: Bearer <jwt_token>
-```
-
-### Formato de Respuesta
-Todas las respuestas siguen el formato JSON estándar:
-
-```json
+```python
+# Ejemplo de estructura de usuario
 {
-  "success": true,
-  "data": {},
-  "message": "Operación exitosa",
-  "timestamp": "2025-01-20T10:30:00Z"
+    "id": 1,
+    "nombre": "Juan Pérez",
+    "email": "juan@email.com",
+    "fecha_creacion": datetime.datetime(...),
+    "activo": True
 }
 ```
 
-### Códigos de Estado HTTP
-- `200` - OK: Operación exitosa
-- `201` - Created: Recurso creado exitosamente
-- `400` - Bad Request: Error en la solicitud
-- `401` - Unauthorized: Token inválido o expirado
-- `403` - Forbidden: Sin permisos para la operación
-- `404` - Not Found: Recurso no encontrado
-- `422` - Unprocessable Entity: Error de validación
-- `500` - Internal Server Error: Error interno del servidor
-
 ---
 
-## 🔐 Autenticación y Usuarios
+## 🔐 Módulo de Autenticación (`persona_controller.py`)
 
-### Registro de Usuario
+### `autenticar_usuario(username, password)`
 
-**POST** `/auth/register`
+Autentica un usuario en el sistema.
+
+**Parámetros:**
+- `username` (str): Nombre de usuario o email
+- `password` (str): Contraseña en texto plano
+
+**Retorna:**
+- `tuple`: (user_data, message)
+  - `user_data` (dict): Datos del usuario si es exitoso, None si falla
+  - `message` (str): Mensaje descriptivo del resultado
+
+**Ejemplo de uso:**
+```python
+from src.controllers.persona_controller import autenticar_usuario
+
+user, msg = autenticar_usuario("juan@email.com", "password123")
+if user:
+    print(f"Bienvenido {user['name']}")
+else:
+    print(f"Error: {msg}")
+```
+
+**Validaciones implementadas:**
+- ✅ Sanitización de entrada (strip, validación de caracteres)
+- ✅ Verificación de hash bcrypt
+- ✅ Control de intentos fallidos
+- ✅ Logging de eventos de seguridad
+
+### `crear_usuario(nombre, email, password)`
 
 Registra un nuevo usuario en el sistema.
 
-**Request Body:**
-```json
-{
-  "nombre": "Juan Pérez",
-  "email": "juan@email.com",
-  "password": "password123",
-  "confirmar_password": "password123"
-}
+**Parámetros:**
+- `nombre` (str): Nombre completo del usuario
+- `email` (str): Correo electrónico único
+- `password` (str): Contraseña que se hasheará automáticamente
+
+**Retorna:**
+- `tuple`: (user_id, message)
+
+**Validaciones:**
+- Email único en el sistema
+- Contraseña mínimo 6 caracteres
+- Nombre no vacío
+
+---
+
+## 🖼️ Módulo de Vistas (`user_view.py`)
+
+### `user_app(page: ft.Page)`
+
+Función principal de la aplicación Flet que configura la vista de login.
+
+**Parámetros:**
+- `page` (ft.Page): Objeto página de Flet
+
+**Configuración aplicada:**
+```python
+page.title = "Login de Usuario"
+page.window_width = 400
+page.window_height = 500
+page.window_resizable = False
+page.theme_mode = ft.ThemeMode.LIGHT
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "user_id": 1,
-    "nombre": "Juan Pérez",
-    "email": "juan@email.com",
-    "fecha_creacion": "2025-01-20T10:30:00Z"
-  },
-  "message": "Usuario registrado exitosamente"
-}
+**Componentes principales:**
+- `name_input`: TextField para usuario con validación
+- `password_input`: TextField para contraseña con opción de mostrar/ocultar
+- `login_button`: Botón que ejecuta autenticación
+- `result_text`: Texto para feedback visual
+
+### Validación en Tiempo Real
+
+```python
+def on_login_click(e):
+    # Validación de campos vacíos
+    if not name_input.value or not name_input.value.strip():
+        result_text.value = "Por favor, ingrese un nombre de usuario"
+        result_text.color = "red"
+        return
+    
+    # Llamada al controlador
+    user, msg = autenticar_usuario(
+        name_input.value.strip(), 
+        password_input.value.strip()
+    )
 ```
 
-### Login
+---
 
-**POST** `/auth/login`
+## 🗄️ Módulo de Base de Datos (`connection.py`)
 
-Autentica un usuario y retorna tokens JWT.
+### `DatabaseManager`
 
-**Request Body:**
-```json
-{
-  "email": "juan@email.com",
-  "password": "password123"
-}
+Clase principal para manejo de conexiones a la base de datos.
+
+#### `get_connection()`
+
+Obtiene una conexión del pool de conexiones.
+
+**Retorna:**
+- `mysql.connector.connection`: Conexión activa a la BD
+
+**Ejemplo de uso:**
+```python
+from src.database.connection import db_manager
+
+try:
+    conn = db_manager.get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM usuarios WHERE activo = TRUE")
+    results = cursor.fetchall()
+finally:
+    conn.close()
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-    "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-    "user": {
-      "id": 1,
-      "nombre": "Juan Pérez",
-      "email": "juan@email.com",
-      "rol": "usuario"
-    }
-  },
-  "message": "Login exitoso"
-}
-```
+#### Configuración del Pool
 
-### Refresh Token
-
-**POST** `/auth/refresh`
-
-Renueva el access token usando el refresh token.
-
-**Headers:**
-```http
-Authorization: Bearer <refresh_token>
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
-  },
-  "message": "Token renovado exitosamente"
-}
-```
-
-### Logout
-
-**POST** `/auth/logout`
-
-Invalida los tokens del usuario.
-
-**Headers:**
-```http
-Authorization: Bearer <access_token>
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Logout exitoso"
+```python
+config = {
+    'pool_name': 'flet_app_pool',
+    'pool_size': 20,
+    'pool_reset_session': True,
+    'autocommit': True,
+    'charset': 'utf8mb4',
+    'collation': 'utf8mb4_unicode_ci'
 }
 ```
 
 ---
 
-## 👤 Gestión de Usuarios
+## 🔧 Módulo de Utilidades
 
-### Perfil de Usuario
+### Módulo de Seguridad (`utils/security.py`)
 
-**GET** `/users/profile`
+#### `hash_password(password)`
 
-Obtiene el perfil del usuario autenticado.
+Genera hash bcrypt de una contraseña.
 
-**Headers:**
-```http
-Authorization: Bearer <access_token>
+**Parámetros:**
+- `password` (str): Contraseña en texto plano
+
+**Retorna:**
+- `str`: Hash bcrypt de la contraseña
+
+#### `verify_password(password, hash)`
+
+Verifica una contraseña contra su hash.
+
+**Parámetros:**
+- `password` (str): Contraseña a verificar
+- `hash` (str): Hash almacenado
+
+**Retorna:**
+- `bool`: True si coincide, False si no
+
+#### `sanitize_input(data)`
+
+Sanitiza entrada de usuario.
+
+**Parámetros:**
+- `data` (str): Datos de entrada
+
+**Retorna:**
+- `str`: Datos sanitizados
+
+**Sanitización aplicada:**
+```python
+def sanitize_input(data):
+    if isinstance(data, str):
+        # Eliminar espacios
+        data = data.strip()
+        # Remover caracteres peligrosos
+        data = re.sub(r'[<>"\';]', '', data)
+        # Validar longitud
+        if len(data) > MAX_INPUT_LENGTH:
+            raise ValueError("Entrada demasiado larga")
+    return data
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "nombre": "Juan Pérez",
-    "email": "juan@email.com",
-    "rol": "usuario",
-    "fecha_creacion": "2025-01-15T10:30:00Z",
-    "fecha_actualizacion": "2025-01-20T10:30:00Z",
-    "configuracion": {
-      "moneda": "COP",
-      "zona_horaria": "America/Bogota",
-      "notificaciones_email": true
-    }
-  }
-}
-```
+### Módulo de Validadores (`utils/validators.py`)
 
-### Actualizar Perfil
+#### `validate_email(email)`
 
-**PUT** `/users/profile`
+Valida formato de email.
 
-Actualiza la información del perfil de usuario.
+#### `validate_password_strength(password)`
 
-**Request Body:**
-```json
-{
-  "nombre": "Juan Carlos Pérez",
-  "configuracion": {
-    "moneda": "USD",
-    "notificaciones_email": false
-  }
-}
-```
+Valida fortaleza de contraseña.
 
-### Cambiar Contraseña
+#### `validate_required_fields(**fields)`
 
-**PUT** `/users/change-password`
+Valida que campos requeridos no estén vacíos.
 
-Cambia la contraseña del usuario.
+---
 
-**Request Body:**
-```json
-{
-  "password_actual": "password123",
-  "password_nueva": "nuevaPassword456",
-  "confirmar_password": "nuevaPassword456"
-}
+## 📊 Módulos de Datos (Models)
+
+### Modelo Usuario (`models/persona.py`)
+
+```python
+class Persona:
+    def __init__(self, id=None, nombre=None, email=None, password=None):
+        self.id = id
+        self.nombre = nombre
+        self.email = email
+        self.password = password
+        self.fecha_creacion = None
+        self.activo = True
+    
+    def to_dict(self):
+        """Convierte el objeto a diccionario"""
+        return {
+            'id': self.id,
+            'nombre': self.nombre,
+            'email': self.email,
+            'fecha_creacion': self.fecha_creacion,
+            'activo': self.activo
+        }
+    
+    @classmethod
+    def from_dict(cls, data):
+        """Crea objeto desde diccionario"""
+        return cls(**data)
 ```
 
 ---
 
-## 🏦 Gestión de Cuentas
+## 🔄 Flujos de Trabajo Principales
 
-### Listar Cuentas
+### Flujo de Autenticación
 
-**GET** `/accounts`
+```python
+# 1. Usuario ingresa credenciales en UI
+username = name_input.value
+password = password_input.value
 
-Obtiene todas las cuentas del usuario autenticado.
+# 2. Vista valida formato básico
+if not username or not password:
+    show_error("Campos requeridos")
+    return
 
-**Query Parameters:**
-- `page` (int, opcional): Página para paginación (default: 1)
-- `per_page` (int, opcional): Elementos por página (default: 20)
-- `activo` (bool, opcional): Filtrar por estado activo
+# 3. Controlador procesa autenticación
+user, message = autenticar_usuario(username, password)
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "cuentas": [
-      {
-        "id": 1,
-        "nombre": "Cuenta Corriente Bancolombia",
-        "tipo": "corriente",
-        "saldo_actual": 1500000.00,
-        "moneda": "COP",
-        "fecha_creacion": "2025-01-15T10:30:00Z",
-        "activo": true
-      }
-    ],
-    "pagination": {
-      "page": 1,
-      "per_page": 20,
-      "total": 1,
-      "pages": 1
-    }
-  }
-}
+# 4. Vista muestra resultado
+if user:
+    result_text.value = f"¡Bienvenido {user['name']}!"
+    result_text.color = "green"
+    # Navegar a dashboard (v0.6.0)
+else:
+    result_text.value = message
+    result_text.color = "red"
+
+page.update()
 ```
 
-### Crear Cuenta
+### Flujo de Validación
 
-**POST** `/accounts`
-
-Crea una nueva cuenta bancaria.
-
-**Request Body:**
-```json
-{
-  "nombre": "Cuenta Ahorros Banco Popular",
-  "tipo": "ahorros",
-  "saldo_inicial": 500000.00,
-  "moneda": "COP",
-  "descripcion": "Cuenta de ahorros principal"
-}
+```python
+# Cadena de validación implementada
+def validate_user_input(username, password):
+    # 1. Validación de formato
+    username = sanitize_input(username)
+    password = sanitize_input(password)
+    
+    # 2. Validación de reglas de negocio
+    if len(username) < 3:
+        raise ValueError("Usuario muy corto")
+    
+    if len(password) < 6:
+        raise ValueError("Contraseña muy corta")
+    
+    # 3. Validación de existencia en BD
+    # (implementado en persona_controller)
+    
+    return username, password
 ```
-
-### Obtener Cuenta
-
-**GET** `/accounts/{id}`
-
-Obtiene los detalles de una cuenta específica.
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "nombre": "Cuenta Corriente Bancolombia",
-    "tipo": "corriente",
-    "saldo_inicial": 1000000.00,
-    "saldo_actual": 1500000.00,
-    "moneda": "COP",
-    "fecha_creacion": "2025-01-15T10:30:00Z",
-    "activo": true,
-    "transacciones_recientes": 25
-  }
-}
-```
-
-### Actualizar Cuenta
-
-**PUT** `/accounts/{id}`
-
-Actualiza la información de una cuenta.
-
-**Request Body:**
-```json
-{
-  "nombre": "Cuenta Corriente Principal",
-  "descripcion": "Cuenta principal para gastos mensuales"
-}
-```
-
-### Eliminar Cuenta
-
-**DELETE** `/accounts/{id}`
-
-Desactiva una cuenta (soft delete).
-
-**Response:**
 ```json
 {
   "success": true,

@@ -1,224 +1,338 @@
-# 💡 Ideas para mejoras futuras y aspectos a considerar en el desarrollo
+# 💡 Roadmap de Ideas y Mejoras Futuras
 
-Este documento recopila ideas, sugerencias y posibles mejoras para el proyecto **app-presupuesto**.  
-Se organiza por prioridad y categorías para facilitar el seguimiento y desarrollo.
-
----
-
-## 🚀 Alta prioridad - Core Business Logic
-
-### Base de Datos y Triggers
-- [x] **Migración completada**: Cambiar columna 'activo' por 'estado' en tabla persona con referencia a tabla estado_persona
-- [ ] Crear un **trigger** que, al registrar un movimiento con número de cuotas mayor a 1, lo envíe a la tabla *deudas financiadas*, donde se pueda visualizar el avance de la deuda y el saldo pendiente.
-- [ ] Al agregar un movimiento, tener en cuenta el **producto asociado** para actualizar automáticamente el saldo currente.
-- [ ] Implementar un **procedimiento almacenado** para recalcular saldos cuando sea necesario ejecutarlo manualmente.
-- [ ] Crear **índices optimizados** en tablas principales para mejorar rendimiento de consultas.
-- [ ] Implementar **transacciones ACID** para operaciones críticas que afecten múltiples tablas.
-
-### Gestión de Estados y Productos
-- [x] **Implementado**: Sistema de estados para personas (ACTIVO, INACTIVO, SUSPENDIDO, BLOQUEADO)
-- [x] **Implementado**: Validación de persona activa antes de operaciones
-- [ ] Definir y gestionar **estados** para productos y transacciones
-- [ ] Implementar **ciclo de vida de transacciones** con estados bien definidos
-- [ ] Crear **workflow de aprobación** para transacciones grandes
-
-### Seguridad y Autenticación
-- [ ] Mejorar la **seguridad de contraseñas** usando bcrypt y autenticación JWT.
-- [ ] Implementar control de acceso por **roles** (usuario, admin) en todos los endpoints.
-- [ ] Añadir **validación de entrada** robusta en todos los endpoints.
-- [ ] Implementar **rate limiting** para prevenir ataques de fuerza bruta.
-- [ ] Configurar **CORS** apropiadamente para el frontend.
-
-### API y Documentación
-- [ ] Añadir endpoints para **exportación de datos** y reportes avanzados.
-- [ ] Documentar y versionar la API para facilitar futuras integraciones.
-- [ ] Implementar **versionado de API** (v1, v2, etc.).
-- [ ] Añadir **documentación automática** con Swagger/OpenAPI.
+Este documento centraliza las ideas, sugerencias y mejoras planificadas para **app-presupuesto**.  
+Se organiza por prioridad estratégica y categorías para optimizar el desarrollo iterativo.
 
 ---
 
-## 🏗️ Alta prioridad - Arquitectura y Estructura
+## 🎯 Metodología de Priorización
 
-### Organización del Código
-- [ ] Corregir **imports relativos** en todos los controladores usando estructura de `__init__.py`.
-- [ ] Implementar **separación de responsabilidades** en modelos, controladores y servicios.
-- [ ] Crear capa de **servicios** para lógica de negocio compleja.
-- [ ] Establecer **patrones de diseño** consistentes (Repository, Factory, etc.).
-- [ ] Implementar **manejo centralizado de errores** y logging.
-
-### Configuración y Entorno
-- [ ] Crear **variables de entorno** para configuración sensible.
-- [ ] Implementar **configuración por entornos** (desarrollo, testing, producción).
-- [ ] Establecer **estructura de carpetas** estandarizada y documentada.
-- [ ] Configurar **Docker** para desarrollo y despliegue.
+- **🔴 Crítico**: Funcionalidades esenciales para el MVP y estabilidad
+- **🟡 Alto**: Mejoras que impactan significativamente en UX/performance
+- **🔵 Medio**: Funcionalidades que agregan valor considerable
+- **🟢 Bajo**: Optimizaciones y funcionalidades avanzadas
+- **🚀 Futuro**: Visión a largo plazo e innovación
 
 ---
 
-## 📊 Prioridad media - Funcionalidades de Negocio
+## 🔴 CRÍTICO - Fundamentos del Sistema
 
-### Gestión de Estados y Productos
-- [ ] Definir y gestionar **estados** como "conciliado" y estados del producto.
-- [ ] Implementar **ciclo de vida de transacciones** con estados bien definidos.
-- [ ] Crear **workflow de aprobación** para transacciones grandes.
+### Core Business Logic & Base de Datos
 
-### Presupuestos y Planificación
-- [ ] Permitir que los usuarios configuren **gastos recurrentes**, con opción de añadirlos fácilmente mediante un botón.
-- [ ] Analizar la **frecuencia de gastos** para generar sugerencias automáticas de gastos recurrentes.
-- [ ] Implementar comparación **presupuesto vs. gastos reales** para identificar desviaciones.
-- [ ] Permitir la creación de **presupuestos mensuales y anuales**, similar a aplicaciones de referencia.
-- [ ] Crear **alertas de presupuesto** cuando se exceda cierto porcentaje.
+#### Triggers y Automatización Financiera
+- [x] **✅ COMPLETADO**: Migración columna 'activo' → 'estado' con referencia a estado_persona
+- [x] **✅ COMPLETADO**: Sistema de estados para personas (ACTIVO, INACTIVO, SUSPENDIDO, BLOQUEADO)
+- [x] **✅ COMPLETADO**: Validación de persona activa antes de operaciones
 
-### Categorización y Organización
-- [ ] Habilitar que una **categoría pueda tener subcategorías** con jerarquía ilimitada.
-- [ ] Asociar un **beneficiario** con una categoría o subcategoría sugerida automáticamente.
-- [ ] Implementar **etiquetas personalizables** para transacciones.
-- [ ] Crear **reglas de categorización automática** basadas en patrones.
+- [ ] **🔥 URGENTE**: Crear trigger inteligente para movimientos con cuotas → tabla *deudas_financiadas*
+  - Incluir: avance automático, cálculo de saldo pendiente, proyección de pagos
+  - Gestión de intereses y comisiones por cuota
+- [ ] **🔥 URGENTE**: Auto-actualización de saldo por producto al registrar movimientos
+- [ ] Procedimiento almacenado para recálculo masivo de saldos con rollback
+- [ ] Índices compuestos optimizados para consultas frecuentes
+- [ ] Transacciones ACID con manejo de concurrencia
 
-### Notificaciones y UX
-- [ ] Añadir soporte para **notificaciones** push, email y in-app.
-- [ ] Implementar **preferencias/configuración de usuario** granulares.
-- [ ] Crear **dashboard personalizable** con widgets configurables.
-- [ ] Mejorar la gestión de **sesiones** y expiración de tokens.
+#### Gestión Avanzada de Estados
+- [ ] Estados granulares para productos: ACTIVO, PAUSADO, CERRADO, EN_REVISION
+- [ ] Workflow de transacciones: PENDIENTE → PROCESANDO → COMPLETADA → CONCILIADA
+- [ ] Estados de deudas: VIGENTE, VENCIDA, REESTRUCTURADA, CANCELADA
+- [ ] Historial de cambios de estado con timestamps y responsables
 
----
-
-## 🧪 Prioridad media - Testing y Calidad
-
-### Testing Automático
-- [ ] Implementar **tests unitarios** para modelos y servicios.
-- [ ] Crear **tests de integración** para endpoints críticos.
-- [ ] Establecer **tests end-to-end** para flujos principales.
-- [ ] Configurar **coverage reporting** y establecer mínimos.
-- [ ] Implementar **tests de carga** para endpoints críticos.
-
-### Calidad de Código
-- [ ] Configurar **linting** automático (pylint, flake8).
-- [ ] Implementar **formateo automático** del código (black, prettier).
-- [ ] Establecer **pre-commit hooks** para validaciones.
-- [ ] Crear **pipeline CI/CD** automatizado.
+### Seguridad de Nivel Empresarial
+- [ ] **🔒 CRÍTICO**: Autenticación JWT con refresh tokens y blacklist
+- [ ] **🔒 CRÍTICO**: Hashing de contraseñas con bcrypt + salt personalizado
+- [ ] RBAC granular: SUPER_ADMIN, ADMIN, MANAGER, USER, READONLY
+- [ ] Rate limiting inteligente con whitelist por IP/usuario
+- [ ] Validación de entrada con sanitización automática
+- [ ] CORS configurado por entorno con headers de seguridad
 
 ---
 
-## 📈 Prioridad media - Monitoreo y Análisis
+## 🟡 ALTO - Experiencia y Arquitectura
 
-### Logging y Monitoreo
-- [ ] Implementar **logging estructurado** con niveles apropiados.
-- [ ] Configurar **monitoreo de performance** y métricas de uso.
-- [ ] Establecer **alertas automáticas** para errores críticos.
-- [ ] Crear **dashboards de monitoreo** para operaciones.
+### Arquitectura Limpia y Escalable
+- [ ] **📁 REFACTOR**: Migrar a arquitectura hexagonal con DDD
+- [ ] **📁 REFACTOR**: Corrección completa de imports relativos
+- [ ] Capa de servicios con inyección de dependencias
+- [ ] Repository pattern con interfaces abstractas
+- [ ] Event sourcing para auditoría completa
+- [ ] Command Query Responsibility Segregation (CQRS)
 
-### Análisis de Datos
-- [ ] Probar la **extensión Jupyter** en VS Code para validar modelos iniciales de categorización de gastos.
-- [ ] Generar un **modelo entidad-relación (MER)** actualizado y guardarlo como imagen.
-- [ ] Implementar **reportes automáticos** mensuales y anuales.
-- [ ] Crear **métricas de negocio** (KPIs) para usuarios.
+### API de Clase Mundial
+- [ ] **📚 DOCUMENTACIÓN**: OpenAPI/Swagger con ejemplos interactivos
+- [ ] Versionado semántico de API (v1, v2) con backward compatibility
+- [ ] GraphQL endpoint para consultas optimizadas
+- [ ] Webhooks con retry automático y circuit breaker
+- [ ] SDK para integraciones de terceros
 
----
-
-## 💡 Prioridad baja / Futuro - Funcionalidades Avanzadas
-
-### Visualización y Reportes
-- [ ] Ofrecer diferentes formas de **visualizar la información**, adaptables según preferencias.
-- [ ] Implementar **gráficos interactivos** con diferentes tipos de visualización.
-- [ ] Crear **exportación a múltiples formatos** (PDF, Excel, CSV).
-- [ ] Desarrollar **reportes personalizables** por usuario.
-
-### Pagos y Planificación
-- [ ] Implementar **notificaciones de pagos programados** para recordar vencimientos.
-- [ ] Para pagos programados, permitir configurar **rango de fechas** y botón de confirmación.
-- [ ] Crear **calendario de pagos** integrado.
-- [ ] Implementar **predicción de flujo de caja** a corto y mediano plazo.
-
-### Internacionalización
-- [ ] Soporte para **internacionalización** (i18n) completa.
-- [ ] Implementar **múltiples monedas** con conversión automática.
-- [ ] Crear **formatos de fecha/hora** localizados.
-- [ ] Establecer **soporte multiidioma** en la interfaz.
+### DevOps y Calidad
+- [ ] **🐳 CONTAINERIZACIÓN**: Docker multi-stage con optimización de layers
+- [ ] **🔄 CI/CD**: Pipeline completo con testing, security scanning, deployment
+- [ ] **📊 TESTING**: Coverage >90% con unit, integration, e2e tests
+- [ ] **📈 MONITORING**: APM con Prometheus + Grafana + alertas Slack
+- [ ] **🔧 LINTING**: Pre-commit hooks con black, pylint, mypy, bandit
 
 ---
 
-## 🛠️ Prioridad baja - Mejoras Técnicas
+## 🔵 MEDIO - Funcionalidades de Valor
+
+### Gestión Financiera Inteligente
+
+#### Presupuestos Dinámicos
+- [ ] **💰 PRESUPUESTOS 2.0**: 
+  - Presupuestos por categoría con subcategorías ilimitadas
+  - Presupuestos adaptativos basados en histórico
+  - Alertas predictivas antes de exceder límites
+  - Comparativa presupuesto vs. real con varianza automática
+  - Presupuestos compartidos para familias/equipos
+
+#### Automatización de Gastos
+- [ ] **🔄 GASTOS RECURRENTES**:
+  - Detección automática de patrones de gasto
+  - Sugerencias inteligentes de gastos recurrentes
+  - Configuración flexible: diario, semanal, mensual, anual
+  - Inflación automática en gastos recurrentes
+  - Pausar/reactivar gastos estacionales
+
+#### Categorización Inteligente
+- [ ] **🏷️ SMART CATEGORIZATION**:
+  - ML para categorización automática con confidence score
+  - Subcategorías jerárquicas con herencia de propiedades
+  - Etiquetas personalizables y colores
+  - Reglas de categorización con lógica condicional
+  - Beneficiarios inteligentes con auto-sugerencias
+
+### Análisis y Reportes Avanzados
+- [ ] **📊 ANALYTICS DASHBOARD**:
+  - Widgets personalizables drag-and-drop
+  - Gráficos interactivos con drill-down
+  - Exportación multi-formato (PDF, Excel, JSON)
+  - Reportes programados automáticos
+  - Comparativas con períodos anteriores
+
+#### Visualización de Datos
+- [ ] **📈 DATA VISUALIZATION**:
+  - Gráficos de flujo de caja (waterfall charts)
+  - Treemap para categorías de gastos
+  - Heatmaps de patrones temporales
+  - Dashboards para mobile responsive
+  - Modo oscuro/claro personalizable
+
+---
+
+## 🟢 BAJO - Optimizaciones y UX
 
 ### Performance y Escalabilidad
-- [ ] Implementar **pool de conexiones** para optimizar acceso a base de datos.
-- [ ] Configurar **cache** para consultas frecuentes (Redis).
-- [ ] Implementar **paginación** en endpoints que retornan listas.
-- [ ] Optimizar **consultas N+1** y uso de eager loading.
-- [ ] Configurar **CDN** para assets estáticos.
+- [ ] **⚡ PERFORMANCE**:
+  - Connection pooling con SQLAlchemy
+  - Redis cache para consultas frecuentes
+  - Paginación con cursor-based navigation
+  - Lazy loading optimizado
+  - CDN para assets estáticos
+  - Database sharding preparation
 
-### Seguridad Avanzada
-- [ ] Evitar credenciales en código fuente, usar **gestores de secretos**.
-- [ ] Implementar **context managers** para manejo seguro de conexiones.
-- [ ] Configurar **auditoría de seguridad** automática.
-- [ ] Establecer **backup automático** y estrategia de recuperación.
-- [ ] Implementar **encriptación de datos sensibles** en reposo.
+### Experiencia de Usuario
+- [ ] **🎨 UX/UI ENHANCEMENTS**:
+  - PWA con offline capability
+  - Drag & drop para movimientos entre categorías
+  - Búsqueda global con filtros avanzados
+  - Modo kiosko para tablets compartidas
+  - Accesibilidad WCAG 2.1 AA compliance
+  - Onboarding interactivo con tours guiados
 
-### DevOps y Deployment
-- [ ] Configurar **deployment automático** con blue-green o rolling updates.
-- [ ] Implementar **health checks** y readiness probes.
-- [ ] Crear **documentación de deployment** y runbooks.
-- [ ] Establecer **estrategia de rollback** automática.
-
----
-
-## 🤖 Ideas para IA y Analítica Avanzada
-
-### Machine Learning
-- [ ] Implementar **categorización automática** de gastos con ML.
-- [ ] Desarrollar **detección de anomalías** en patrones de gasto.
-- [ ] Crear **predicción de gastos futuros** basada en históricos.
-- [ ] Implementar **recomendaciones personalizadas** de ahorro.
-
-### Analytics Avanzados
-- [ ] Analizar **patrones de comportamiento** financiero por usuario.
-- [ ] Generar **insights automáticos** sobre hábitos de gasto.
-- [ ] Crear **scoring de salud financiera** personalizado.
-- [ ] Implementar **análisis de series temporales** para tendencias.
-
-### Visualización de Datos
-- [ ] Desarrollar **dashboards interactivos** con D3.js o similar.
-- [ ] Crear **reportes predictivos** con visualizaciones avanzadas.
-- [ ] Implementar **comparativas benchmarking** con usuarios similares.
+### Notificaciones y Comunicación
+- [ ] **🔔 SMART NOTIFICATIONS**:
+  - Push notifications con service workers
+  - Email templates responsivos
+  - SMS para alertas críticas
+  - In-app notifications con prioridades
+  - Configuración granular de preferencias
+  - Notificaciones de IA con insights
 
 ---
 
-## 🎯 Objetivos a Largo Plazo
+## 🚀 FUTURO - Innovación y Disrupción
 
-### Escalabilidad de Negocio
-- [ ] Diseñar **arquitectura multi-tenant** para múltiples organizaciones.
-- [ ] Implementar **API pública** para integraciones de terceros.
-- [ ] Crear **marketplace de plugins** para funcionalidades adicionales.
-- [ ] Desarrollar **mobile app** nativa (iOS/Android).
+### Inteligencia Artificial y Machine Learning
 
-### Integraciones
-- [ ] Conectar con **APIs bancarias** para importación automática.
-- [ ] Integrar con **servicios de facturación** populares.
-- [ ] Implementar **webhooks** para notificaciones externas.
-- [ ] Crear **sincronización** con aplicaciones de contabilidad.
+#### Financial AI Assistant
+- [ ] **🤖 AI COPILOT**:
+  - Chatbot financiero con NLP avanzado
+  - Análisis predictivo de gastos futuros
+  - Detección de anomalías en tiempo real
+  - Recomendaciones personalizadas de ahorro
+  - Scoring de salud financiera dinámico
+  - Simulación de escenarios "what-if"
+
+#### Advanced Analytics
+- [ ] **🧠 DEEP LEARNING**:
+  - Clustering de usuarios para benchmarking
+  - Análisis de sentimiento en descripciones
+  - Computer vision para receipts scanning
+  - Predicción de riesgo crediticio personal
+  - Optimización automática de portfolios
+  - Detección de fraude con ML
+
+### Fintech Integration
+
+#### Open Banking
+- [ ] **🏦 BANK INTEGRATION**:
+  - APIs bancarias con PSD2 compliance
+  - Agregación de cuentas multi-banco
+  - Sincronización automática de transacciones
+  - Categorización por merchant data
+  - Balance forecasting en tiempo real
+  - Investment tracking integration
+
+#### Blockchain y DeFi
+- [ ] **₿ CRYPTO INTEGRATION**:
+  - Wallet tracking para criptomonedas
+  - DeFi protocols monitoring
+  - NFT portfolio tracking
+  - Staking rewards calculation
+  - Cross-chain transaction analysis
+  - Tax reporting para crypto
+
+### Next-Gen Features
+
+#### Realidad Aumentada
+- [ ] **🕶️ AR/VR FEATURES**:
+  - AR receipt scanning con cámara
+  - VR dashboards para data immersion
+  - Spatial computing para expense tracking
+  - Gesture-based navigation
+  - Voice commands con NLP
+
+#### IoT y Automatización
+- [ ] **🏠 IOT INTEGRATION**:
+  - Smart home expense tracking
+  - Wearables para micro-payments
+  - Location-based automatic categorization
+  - Beacon-triggered expense logging
+  - Smart contracts para automated savings
+
+#### Social Features
+- [ ] **👥 SOCIAL FINANCE**:
+  - Family/team budget collaboration
+  - Expense splitting con amigos
+  - Financial challenges gamificados
+  - Community insights anónimos
+  - Peer-to-peer financial advice
+  - Social trading features
 
 ---
 
-## 🔗 Referencias y Recursos
+## 🌍 Escalabilidad Global
+
+### Internacionalización Avanzada
+- [ ] **🌐 GLOBAL READY**:
+  - Multi-currency con conversión real-time
+  - Localización cultural de UX (RTL, formatos)
+  - Compliance con regulaciones locales (GDPR, CCPA)
+  - Tax systems integration por país
+  - Multi-language NLP para IA
+  - Regional payment methods
+
+### Enterprise Features
+- [ ] **🏢 B2B EXPANSION**:
+  - Multi-tenant architecture
+  - Enterprise SSO (SAML, OAuth2)
+  - White-label solutions
+  - Advanced permission management
+  - Audit trails completos
+  - SLA monitoring y reporting
+
+---
+
+## 📱 Plataformas y Ecosistema
+
+### Mobile-First Strategy
+- [ ] **📱 NATIVE APPS**:
+  - React Native/Flutter cross-platform
+  - Offline-first architecture
+  - Biometric authentication
+  - Apple Pay/Google Pay integration
+  - Widget para quick expenses
+  - Apple Watch/Wear OS companions
+
+### Desktop Applications
+- [ ] **💻 DESKTOP APPS**:
+  - Electron app para power users
+  - Native macOS/Windows apps
+  - CLI tools para developers/accountants
+  - Browser extensions para quick capture
+  - Desktop widgets para monitoring
+
+---
+
+## 🔧 Herramientas de Desarrollo
+
+### Developer Experience
+- [ ] **👩‍💻 DEV TOOLS**:
+  - Hot reload para toda la stack
+  - Testing framework unificado
+  - Mock data generators
+  - Performance profiling tools
+  - Automated dependency updates
+  - Code quality dashboards
+
+### Monitoring y Observabilidad
+- [ ] **📊 OBSERVABILITY**:
+  - Distributed tracing
+  - Custom metrics dashboards
+  - Error tracking con contexto
+  - Performance budgets
+  - Real user monitoring (RUM)
+  - Chaos engineering practices
+
+---
+
+## 🎓 Recursos de Aprendizaje
+
+### Referencias Técnicas
+- [Clean Architecture - Robert Martin](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
+- [Domain-Driven Design](https://martinfowler.com/bliki/DomainDrivenDesign.html)
+- [Microservices Patterns](https://microservices.io/patterns/)
+- [ML for Finance](https://www.oreilly.com/library/view/machine-learning-for/9781492073048/)
 
 ### Aplicaciones de Referencia
-- [YNAB - You Need a Budget](https://www.youneedabudget.com/)
-- [Mint](https://mint.intuit.com/)
-- [PocketGuard](https://pocketguard.com/)
-- [Toshl Finance](https://toshl.com/)
+- [YNAB](https://www.youneedabudget.com/) - Budgeting philosophy
+- [Mint](https://mint.intuit.com/) - Account aggregation
+- [Toshl](https://toshl.com/) - UX/UI inspiration
+- [PocketGuard](https://pocketguard.com/) - Simplicity focus
+- [Personal Capital](https://www.personalcapital.com/) - Investment tracking
 
-### Documentación Técnica
-- [Documentación oficial de MySQL Triggers](https://dev.mysql.com/doc/refman/8.0/en/triggers.html)
-- [Flask Best Practices](https://flask.palletsprojects.com/en/2.3.x/patterns/)
-- [SQLAlchemy Performance](https://docs.sqlalchemy.org/en/20/orm/queryguide/performance.html)
+### Tendencias Fintech
+- [a16z Fintech](https://a16z.com/fintech/) - Industry insights
+- [CB Insights Fintech](https://www.cbinsights.com/research/fintech-trends-2024/)
+- [Plaid](https://plaid.com/) - Banking API standards
+- [Stripe](https://stripe.com/) - Payment processing innovation
 
-### Machine Learning y Analytics
-- [Artículo: Clasificación de transacciones bancarias con ML](https://towardsdatascience.com/)
-- [Pandas Financial Analysis](https://pandas.pydata.org/docs/user_guide/timeseries.html)
-- [Scikit-learn para finanzas personales](https://scikit-learn.org/stable/)
+---
 
-### DevOps y Deployment
-- [Docker Best Practices](https://docs.docker.com/develop/dev-best-practices/)
-- [CI/CD con GitHub Actions](https://docs.github.com/en/actions)
-- [Monitoring con Prometheus](https://prometheus.io/docs/)
+## 📋 Metodología de Implementación
 
-#archivoMD
+### Sprint Planning
+1. **Epic Definition**: Definir valor de negocio y métricas de éxito
+2. **Story Mapping**: Desglosar en user stories con acceptance criteria
+3. **Technical Design**: Architecture Decision Records (ADRs)
+4. **Risk Assessment**: Identificar dependencias y blockers
+5. **MVP Definition**: Minimum Viable Feature scope
+
+### Definition of Done
+- [ ] Code review aprobado por 2+ developers
+- [ ] Tests automatizados con >90% coverage
+- [ ] Documentación actualizada (API, user guides)
+- [ ] Performance benchmarks cumplidos
+- [ ] Security review completado
+- [ ] Accessibility testing pasado
+- [ ] Deployment a staging exitoso
+
+---
+
+**📅 Última actualización**: Diciembre 2024  
+**🔄 Próxima revisión**: Trimestral  
+**👥 Contribuidores**: Equipo de desarrollo, community feedback  
+**🎯 Versión objetivo**: 2.0 (Q2 2025)
+
+#roadmap #fintech #innovation #architecture #archivoMD

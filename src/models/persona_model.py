@@ -1,5 +1,6 @@
 import sys
 import os
+import hashlib
 
 # Configurar path para importación absoluta
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -22,7 +23,7 @@ class PersonaModel:
         db (DatabaseConnector): Instancia del conector de base de datos
     """
     
-    def __init__(self, host: str = "localhost", database: str = "presupuesto_db", 
+    def __init__(self, host: str = "localhost", database: str = "mydb", 
                  user: str = "root", password: str = "") -> None:
         """
         Inicializa el modelo de persona y establece conexión a la base de datos.
@@ -114,7 +115,7 @@ class PersonaModel:
         return self.db.execute_query(query, (estado_id,))
 
     def add_persona(self, nombre: str, email: str, telefono: str = None, 
-                   estado_id: int = 1) -> Optional[Dict[str, Any]]:
+                   password: str = None, estado_id: int = 1) -> Optional[Dict[str, Any]]:
         """
         Añade una nueva persona a la base de datos.
         
@@ -122,16 +123,22 @@ class PersonaModel:
             nombre (str): Nombre completo de la persona
             email (str): Email único de la persona
             telefono (str, optional): Teléfono de la persona
+            password (str, optional): Contraseña del usuario
             estado_id (int): ID del estado (default: 1 = ACTIVO)
             
         Returns:
             Optional[Dict[str, Any]]: Datos de la persona creada si es exitoso
         """
+        # Hash de la contraseña si se proporciona
+        password_hash = None
+        if password:
+            password_hash = hashlib.sha256(password.encode()).hexdigest()
+        
         query = """
-        INSERT INTO persona (nombre, email, telefono, id_estado) 
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO persona (nombre, email, telefono, password, id_estado) 
+        VALUES (%s, %s, %s, %s, %s)
         """
-        persona_id = self.db.execute_non_query(query, (nombre, email, telefono, estado_id))
+        persona_id = self.db.execute_non_query(query, (nombre, email, telefono, password_hash, estado_id))
         
         if persona_id:
             return self.get_persona_by_id(persona_id)
@@ -238,3 +245,98 @@ class PersonaModel:
         Cierra la conexión a la base de datos de forma segura.
         """
         self.db.close()
+
+    def login(self, email: str, password: str) -> Optional[Dict[str, Any]]:
+        """
+        Autentica a un usuario mediante email y contraseña.
+        
+        Args:
+            email (str): Email del usuario
+            password (str): Contraseña del usuario
+            
+        Returns:
+            Optional[Dict[str, Any]]: Datos del usuario si las credenciales son válidas,
+                                    None si son inválidas o el usuario no está activo
+        """
+        # Hash de la contraseña para comparación segura
+        #password_hash = hashlib.sha256(password.encode()).hexdigest()
+        password_hash = password
+        
+        query = """
+        SELECT 
+            p.id,
+            p.nombre,
+            p.email,
+            p.telefono,
+            p.id_estado,
+            ep.nombre as estado_nombre,
+            ep.descripcion as estado_descripcion,
+            p.fecha_creacion,
+            p.fecha_actualizacion
+        FROM persona p
+        LEFT JOIN estado_persona ep ON p.id_estado = ep.id
+        WHERE p.email = %s AND p.password = %s AND p.id_estado = 1
+        """
+        
+        results = self.db.execute_query(query, (email, password_hash))
+        
+        if results:
+            # Remover la contraseña del resultado por seguridad
+            user_data = results[0].copy()
+            return user_data
+        
+        return None
+
+    def verificar_password(self, email: str, password: str) -> bool:
+        """
+        Verifica si la contraseña proporcionada es correcta para el usuario dado.
+        
+        Args:
+            email (str): Email del usuario
+            password (str): Contraseña a verificar
+            
+        Returns:
+            bool: True si la contraseña es correcta, False en caso contrario
+        """
+        # Hash de la contraseña para comparación segura
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        
+        query = """
+        SELECT COUNT(*) as count
+        FROM persona p
+        WHERE p.correo_electronico = %s AND p.hash_contrasena = %s AND p.activo = 1
+        """
+        
+        results = self.db.execute_query(query, (email, password))
+        
+        if results and results[0]['count'] > 0:
+            return True
+        
+        return False
+
+    def verificar_password_por_id(self, persona_id: int, password: str) -> bool:
+        """
+        Verifica si la contraseña proporcionada es correcta para el usuario con ID dado.
+        
+        Args:
+            persona_id (int): ID del usuario
+            password (str): Contraseña a verificar
+            
+        Returns:
+            bool: True si la contraseña es correcta, False en caso contrario
+        """
+        # Hash de la contraseña para comparación segura
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        
+        query = """
+        SELECT COUNT(*) as count
+        FROM persona p
+        WHERE p.id = %s AND p.password = %s AND p.id_estado = 1
+        """
+        
+        results = self.db.execute_query(query, (persona_id, password))
+        
+        if results and results[0]['count'] > 0:
+            return True
+        
+        return False

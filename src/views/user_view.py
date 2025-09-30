@@ -1,21 +1,24 @@
 import sys
 import os
 
-from controllers.persona_controller import validar_persona_para_operacion
+# Fix import path
+try:
+    from ..controllers.persona_controller import autenticar_usuario
+except ImportError:
+    # Fallback if relative import fails
+    try:
+        sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+        from controllers.persona_controller import autenticar_usuario
+    except ImportError:
+        print("Warning: No se pudo importar autenticar_usuario 1")
+        # Mock fallback function
+        def autenticar_usuario(username, password):
+            if username and password:
+                return {"name": username}, f"Usuario {username} autenticado correctamente"
+            return None, "Error: Usuario y contraseña son requeridos"
 
-# Configurar el path para importaciones
-current_dir = os.path.dirname(os.path.abspath(__file__))
-src_dir = os.path.dirname(current_dir)
-project_dir = os.path.dirname(src_dir)
-
-# Añadir directorios al path si no están
-for path in [src_dir, project_dir]:
-    if path not in sys.path:
-        sys.path.insert(0, path)
 
 import flet as ft 
-
-# Mock temporal del UserController hasta resolver las importaciones
 
 def user_app(page: ft.Page):
     # Configuración de la página
@@ -27,7 +30,8 @@ def user_app(page: ft.Page):
     page.window_height = 500
     page.window_resizable = False
 
-    controller = validar_persona_para_operacion()
+    # Remove incorrect controller instantiation
+    # controller = autenticar_usuario()  # This line was wrong
 
     # Campos de entrada con mejor alineación
     name_input = ft.TextField(
@@ -55,7 +59,8 @@ def user_app(page: ft.Page):
 
     # Función de manejo de login
     def on_login_click(e):
-        user, msg = controller.save_user(name_input.value, password_input.value)
+        # Call autenticar_usuario directly with parameters
+        user, msg = autenticar_usuario(name_input.value, password_input.value)
         if user:
             result_text.value = f"¡Bienvenido {user['name']}!"
             result_text.color = "green"

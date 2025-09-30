@@ -1,76 +1,205 @@
 # Guía de Usuario — Sistema de Gestión de Presupuestos
 
-Esta guía te ayudará a comenzar a utilizar la aplicación para gestionar tus finanzas personales y familiares.
+Esta guía te ayudará a comenzar a utilizar la aplicación de gestión financiera personal desarrollada con Flet y arquitectura MVC.
 
-## Instalación y Primeros Pasos
+## 📋 Instalación y Primeros Pasos
 
-Sigue los pasos de instalación descritos en el [README.md](../README.md).
+Sigue los pasos de instalación descritos detalladamente en el [README.md](../README.md):
 
-## Acceso y Autenticación
+1. **Requisitos del Sistema:**
+   - Python 3.8+ (Recomendado: 3.10+)
+   - MySQL 8.0+ o MariaDB 10.6+
+   - 4GB RAM mínimo
 
-- Registro y login con JWT.
-- Control de acceso por roles (usuario, admin).
+2. **Instalación:**
+   ```bash
+   git clone https://github.com/usuario/app-presopuesto.git
+   cd app-presopuesto
+   python -m venv venv
+   venv\Scripts\activate  # Windows
+   pip install -r requirements.txt
+   ```
 
-## Funcionalidades Principales
+3. **Configuración:**
+   ```bash
+   copy .env.example .env
+   # Editar variables de entorno
+   database\scripts\init_db.bat
+   ```
 
-- Registro de movimientos en `/presupuesto/api/movimientos/`.
-- Gestión de presupuestos en `/presupuesto/api/presupuestos/`.
-- Control de préstamos y tarjetas en `/presupuesto/api/prestamos/` y `/presupuesto/api/tarjetas/`.
-- Gestión de inversiones y activos en `/presupuesto/api/inversiones/` y `/presupuesto/api/activos/`.
-- Reportes y visualización en `/presupuesto/api/reportes/`.
-- Notificaciones y configuración en `/presupuesto/api/notificaciones/` y `/presupuesto/api/configuracion/`.
+## 🔐 Acceso y Autenticación
 
-## Automatización e Inteligencia
+### Sistema de Login con Flet
+La aplicación cuenta con una interfaz gráfica moderna desarrollada con Flet que incluye:
 
-- Categorización automática de movimientos (reglas e IA).
-- Sugerencias y aprendizaje de hábitos.
+- **Ventana de Login**: Interfaz centrada de 400x500px
+- **Validación en Tiempo Real**: Campos obligatorios con feedback inmediato
+- **Seguridad Robusta**: Hash de contraseñas con bcrypt y validación de sesión
+- **Manejo de Errores**: Try-catch comprehensivo con mensajes descriptivos
 
-## Seguridad
+### Características del Login:
+```bash
+# Ejecutar la aplicación
+python src/views/user_view.py
+```
 
-- Contraseñas seguras, cierre de sesión, actualización de dependencias.
-- Consulta la [política de seguridad](SECURITY.md).
+- **Campo Usuario**: Mínimo 3 caracteres, validación automática
+- **Campo Contraseña**: Campo oculto con opción de mostrar, mínimo 6 caracteres
+- **Validaciones**:
+  - ✅ Campos no pueden estar vacíos
+  - ✅ Sanitización automática (trim de espacios)
+  - ✅ Prevención de inyección SQL
+  - ✅ Límite de intentos fallidos
+  - ✅ Timeout de sesión por inactividad
 
-## Soporte y Documentación
+## 🚀 Funcionalidades Principales
 
-- [Documentación técnica](../documentacion/roadmap.md)
-- [Preguntas Frecuentes (FAQ.md)](FAQ.md)
+### a) Interfaz Gráfica con Flet
+
+**Vista Principal de Login:**
+- Diseño moderno y responsive
+- Iconos descriptivos para mejor UX
+- Retroalimentación visual inmediata (verde para éxito, rojo para errores)
+- Sistema de fallback para importaciones
+
+**Características Técnicas:**
+- Arquitectura MVC implementada
+- Sistema de importación robusto con múltiples fallbacks
+- Manejo de errores granular por tipo de excepción
+- Logging detallado para debugging
+
+### b) Gestión de Datos (En Desarrollo)
+
+**Estructura Preparada para:**
+- Registro de movimientos financieros
+- Gestión de presupuestos personales
+- Control de deudas y préstamos
+- Seguimiento de inversiones y activos
+- Reportes y análisis financiero
+
+### c) Base de Datos Integrada
+
+**Sistema de Base de Datos:**
+- Conexión MySQL/MariaDB optimizada
+- Pool de conexiones para mejor rendimiento
+- Scripts automatizados de inicialización
+- Migraciones y respaldos automatizados
+
+## 🛠️ Uso Avanzado
+
+### Desarrollo y Testing
+```bash
+# Ejecutar pruebas
+python -m pytest tests/ -v
+
+# Verificar cobertura
+python -m pytest tests/ --cov=src/ --cov-report=html
+
+# Linting del código
+flake8 src/
+black src/
+```
+
+### Configuración Avanzada
+```bash
+# Variables de entorno importantes
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=presupuesto_db
+DB_USER=app_user
+DB_PASSWORD=secure_password
+SECRET_KEY=your-secret-key-here
+```
+
+## 🔒 Seguridad y Mejores Prácticas
+
+### Medidas de Seguridad Implementadas:
+- **Hash de Contraseñas**: bcrypt con salt automático
+- **Validación de Entrada**: Sanitización completa contra inyección SQL
+- **Variables de Entorno**: Credenciales sensibles fuera del código
+- **Logs de Seguridad**: Registro completo de intentos de acceso
+- **Manejo de Errores**: Sin exposición de información sensible
+
+### Recomendaciones de Uso:
+- Utiliza contraseñas seguras (mínimo 8 caracteres, combinación de letras, números y símbolos)
+- No compartas credenciales de acceso
+- Cierra sesión en dispositivos compartidos
+- Mantén actualizada la aplicación y sus dependencias
+- Realiza respaldos regulares de tus datos
+
+## 🐛 Solución de Problemas
+
+### Problemas Comunes y Soluciones:
+
+**Error de Importación:**
+```bash
+# Verificar estructura del proyecto
+python -c "import sys; print('\n'.join(sys.path))"
+
+# Reinstalar dependencias
+pip install -r requirements.txt --force-reinstall
+```
+
+**Error de Conexión a BD:**
+```bash
+# Verificar MySQL
+mysql -u root -p -e "SHOW DATABASES;"
+
+# Probar conexión
+python -c "
+from src.database.connection import get_connection
+try:
+    conn = get_connection()
+    print('✅ Conexión exitosa')
+except Exception as e:
+    print(f'❌ Error: {e}')
+"
+```
+
+**Problemas de Interfaz:**
+- Verificar que Flet esté correctamente instalado: `pip install flet`
+- Comprobar resolución de pantalla (mínimo 800x600)
+- Asegurar que Python 3.8+ esté siendo utilizado
+
+## 📚 Próximas Funcionalidades
+
+### Versión 0.6.0 - Dashboard Principal:
+- [ ] Dashboard interactivo con métricas financieras
+- [ ] CRUD completo de presupuestos
+- [ ] Gestión avanzada de categorías
+- [ ] Gráficos y reportes básicos
+
+### Versión 0.7.0 - Análisis Avanzado:
+- [ ] Reportes con exportación PDF/Excel
+- [ ] Análisis predictivo básico
+- [ ] Sistema de notificaciones
+- [ ] Múltiples cuentas bancarias
+
+## 📞 Soporte y Documentación
+
+### Recursos Disponibles:
+- 📖 [Documentación Técnica Completa](../README.md)
+- 🗄️ [Documentación de Base de Datos](BASE_DATOS.md)
+- 🏗️ [Arquitectura del Sistema](ARCHITECTURE.md)
+- 🔧 [Guía de Contribución](CONTRIBUTING.md)
+- ❓ [Preguntas Frecuentes](FAQ.md)
+
+### Contacto y Soporte:
+- **GitHub Issues**: Para reportar bugs o solicitar funcionalidades
+- **Email**: estebanfabianp@gmail.com
+- **Documentación**: Consulta los archivos MD en `/docs/` y `/documentacion/`
 
 ---
 
-¡Disfruta gestionando tus finanzas de manera inteligente!
-- Gestiona activos físicos y su depreciación.
+## 🎯 Consejos para Maximizar el Uso
 
-### e) Reportes y Visualización
-
-- Accede a reportes visuales: flujo de caja, resumen mensual, gastos por categoría, desempeño del presupuesto, evolución de inversiones, etc. desde `/presupuesto/api/reportes/`.
-- Exporta reportes en diferentes formatos (Excel, PDF, CSV).
-
-### f) Notificaciones y Configuración
-
-- Recibe notificaciones sobre vencimientos, alertas de presupuesto y recomendaciones en `/presupuesto/api/notificaciones/`.
-- Personaliza tus preferencias y configuración de usuario en `/presupuesto/api/configuracion/`.
-
-## 4. Automatización e Inteligencia
-
-- Categorización automática de movimientos usando reglas e IA (ver `/presupuesto/services/` y [sugerencia_IA.md](../documentacion/sugerencia_IA.md)).
-- Sugerencias para optimizar gastos y estrategias de pago.
-- Aprendizaje de hábitos para mejorar recomendaciones.
-
-## 5. Consejos de Seguridad
-
-- Utiliza contraseñas seguras y no las compartas.
-- Cierra sesión después de usar la aplicación en dispositivos compartidos.
-- Mantén tu aplicación y dependencias actualizadas.
-- Consulta la [política de seguridad](SECURITY.md) para más recomendaciones.
+1. **Familiarízate con la Interfaz**: Explora todas las opciones de validación y feedback
+2. **Configura Correctamente**: Asegúrate de que las variables de entorno estén bien configuradas
+3. **Mantén Actualizado**: Sigue el changelog para nuevas funcionalidades
+4. **Contribuye**: El proyecto es open source, tus contribuciones son bienvenidas
 
 ---
 
-## 6. Soporte y Documentación
+**¡Disfruta gestionando tus finanzas de manera inteligente con nuestra aplicación desarrollada con tecnología moderna!**
 
-- Consulta la [documentación técnica](../documentacion/roadmap.md) y los archivos de referencia para detalles avanzados.
-- Si tienes dudas o encuentras errores, abre un issue en el repositorio o contacta al autor.
-- Revisa la sección de [Preguntas Frecuentes (FAQ.md)](FAQ.md) para resolver dudas comunes.
-
----
-
-¡Disfruta gestionando tus finanzas de manera inteligente!
+**Versión Actual**: 0.5.0 | **Última Actualización**: Enero 2025

@@ -131,3 +131,51 @@ def validar_persona_para_operacion(persona_id: int) -> Tuple[bool, str]:
         
     finally:
         persona_model.close_connection()
+
+
+def validar_usuario_credenciales(username: str, password: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    """
+    Valida las credenciales de un usuario (nombre de usuario y contraseña).
+    
+    Args:
+        username (str): Nombre de usuario
+        password (str): Contraseña
+        
+    Returns:
+        Tuple[bool, str, Optional[Dict[str, Any]]]: (éxito, mensaje, datos_usuario)
+    """
+    if not username or not password:
+        return False, "Usuario y contraseña son requeridos 2", None
+    
+    persona_model = PersonaModel()
+    try:
+        
+        # Verificar contraseña
+        if not persona_model.verificar_password(username, password):
+            return False, "Contraseña incorrecta", None
+        else:
+            return False, "Contraseña correcta", "OK"
+
+    except Exception as e:
+        return False, f"Error al validar credenciales: {str(e)}", None
+    finally:
+        persona_model.close_connection()
+
+
+def autenticar_usuario(username: str, password: str) -> Tuple[Optional[Dict[str, Any]], str]:
+    """
+    Autentica un usuario y retorna sus datos si las credenciales son válidas.
+    
+    Args:
+        username (str): Nombre de usuario
+        password (str): Contraseña
+        
+    Returns:
+        Tuple[Optional[Dict[str, Any]], str]: (datos_usuario, mensaje)
+    """
+    exito, mensaje, usuario = validar_usuario_credenciales(username, password)
+    
+    if exito:
+        return usuario, mensaje
+    else:
+        return None, mensaje
