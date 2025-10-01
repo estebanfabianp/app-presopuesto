@@ -20,4 +20,4 @@ def main(page: ft.Page):
     page.go("/login")  # Comienza en login
 
 ft.app(target=main)
-ft.app(target=main)
+

@@ -50,7 +50,8 @@ class LeftSidebarMenu:
         icon: str, 
         title: str, 
         index: int, 
-        badge_count: Optional[int] = None
+        badge_count: Optional[int] = None,
+        on_click: Optional[Callable] = None
     ) -> ft.Container:
         """
         Crea un elemento individual del menú lateral.
@@ -60,12 +61,13 @@ class LeftSidebarMenu:
             title (str): Texto del título del elemento de menú
             index (int): Índice único del elemento para control de selección
             badge_count (Optional[int]): Número a mostrar en el badge de notificación
+            on_click (Optional[Callable]): Función personalizada de clic
             
         Returns:
             ft.Container: Contenedor con el elemento de menú configurado
         """
         
-        def on_click(e: ft.ControlEvent) -> None:
+        def default_on_click(e: ft.ControlEvent) -> None:
             """
             Maneja el evento de clic en un elemento del menú.
             
@@ -75,6 +77,9 @@ class LeftSidebarMenu:
             self.selected_index = index
             self.update_menu_selection()
             self.navigate_to_section(title)
+        
+        # Usar el on_click personalizado si se proporciona, sino usar el default
+        click_handler = on_click if on_click else default_on_click
         
         is_selected = index == self.selected_index
         
@@ -117,7 +122,7 @@ class LeftSidebarMenu:
                     weight="w600" if is_selected else "w400",  # Negrita si está seleccionado
                     color="#2196F3" if is_selected else "#333333"
                 ),
-                on_click=on_click,
+                on_click=click_handler,
             ),
             bgcolor="#E3F2FD" if is_selected else "transparent",  # Fondo azul claro si está seleccionado
             border_radius=8,
@@ -167,7 +172,12 @@ class LeftSidebarMenu:
             aquí se manejaría el enrutamiento real de la aplicación.
         """
         print(f"Navegando a: {section}")
+        if section == "Cerrar Sesión":
+            self.page.go("/login")
         # TODO: Implementar lógica de navegación real entre vistas
+        
+
+
         
     def create_user_profile(self) -> ft.Container:
         """
@@ -288,7 +298,7 @@ class LeftSidebarMenu:
                         
                         # Logout en la parte inferior
                         ft.Divider(height=1, color="#E0E0E0"),
-                        self.create_menu_item("logout", "Cerrar Sesión", 17),
+                        self.create_menu_item("logout", "Cerrar Sesión", 17, on_click=lambda e: self.page.go("/login")),
                         
                     ], spacing=0),
                     expand=True,
@@ -1133,4 +1143,5 @@ if __name__ == "__main__":
     Inicia la aplicación Flet con la función main como target.
     """
     ft.app(target=main)
+ 
 
