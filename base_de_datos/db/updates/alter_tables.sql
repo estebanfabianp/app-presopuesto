@@ -1,10 +1,1 @@
--- Ejemplo: agregar una columna
--- ALTER TABLE persona ADD COLUMN telefono VARCHAR(20) AFTER nombre;
-
--- Ejemplo: modificar tipo de columna
--- ALTER TABLE producto MODIFY COLUMN monto_maximo DECIMAL(18,2);
-
--- Ejemplo: eliminar una columna
--- ALTER TABLE movimiento DROP COLUMN nota;
-
--- Agrega aquí tus alteraciones de tablas según sea necesario.
+ALTER TABLE `persona` CHANGE `hash_contrasena` `clave` VARCHAR(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL;

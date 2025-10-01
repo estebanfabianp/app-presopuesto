@@ -152,9 +152,9 @@ def validar_usuario_credenciales(username: str, password: str) -> Tuple[bool, st
         
         # Verificar contraseña
         if not persona_model.verificar_password(username, password):
-            return False, "Contraseña incorrecta", None
+            return False, "Usuario o  Contraseña incorrecta", None
         else:
-            return False, "Contraseña correcta", "OK"
+            return True, username, "OK"
 
     except Exception as e:
         return False, f"Error al validar credenciales: {str(e)}", None

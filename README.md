@@ -346,7 +346,7 @@ python src/views/resumen.py --no-web
 
 <div align="center">
   <p>🚀 <strong>Desarrollado con ❤️ usando Python + Flet</strong></p>
-  <p>📧 Contacto: esteban.patino@email.com</p>
+  <p>📧 Contacto: estebanfabianp@gmail.com</p>
   <p>🌟 Si te gusta este proyecto, no olvides darle una estrella</p>
   
   <br>

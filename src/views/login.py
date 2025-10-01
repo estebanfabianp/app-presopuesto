@@ -20,19 +20,7 @@ except ImportError:
 
 import flet as ft 
 
-def user_app(page: ft.Page):
-    # Configuración de la página
-    page.title = "Login de Usuario"
-    page.vertical_alignment = ft.MainAxisAlignment.CENTER
-    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
-    page.theme_mode = ft.ThemeMode.LIGHT
-    page.window_width = 400
-    page.window_height = 500
-    page.window_resizable = False
-
-    # Remove incorrect controller instantiation
-    # controller = autenticar_usuario()  # This line was wrong
-
+def login_view(page: ft.Page):
     # Campos de entrada con mejor alineación
     name_input = ft.TextField(
         label="Nombre de Usuario",
@@ -62,7 +50,8 @@ def user_app(page: ft.Page):
         # Call autenticar_usuario directly with parameters
         user, msg = autenticar_usuario(name_input.value, password_input.value)
         if user:
-            result_text.value = f"¡Bienvenido {user['name']}!"
+            page.go("/resumen")
+            result_text.value = f"¡Bienvenido {user}!"
             result_text.color = "green"
         else:
             result_text.value = msg
@@ -125,6 +114,19 @@ def user_app(page: ft.Page):
         height=450
     )
 
+    # Return ft.View instead of adding to page
+    return ft.View(
+        route="/login",
+        controls=[
+            ft.Container(
+                content=main_container,
+                alignment=ft.alignment.center,
+                expand=True
+            )
+        ],
+        vertical_alignment=ft.MainAxisAlignment.CENTER,
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+    )
     # Agregar a la página con centrado perfecto
     page.add(
         ft.Container(
@@ -134,5 +136,3 @@ def user_app(page: ft.Page):
         )
     )
 
-if __name__ == "__main__":
-    ft.app(target=user_app)

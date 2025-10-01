@@ -1073,12 +1073,35 @@ class ResumenView:
             expand=True
         )
 
+def resumen_view(page: ft.Page) -> ft.View:
+    """
+    Función principal de la aplicación que retorna una vista.
+    
+    Configura y retorna la vista de resumen financiero.
+    
+    Args:
+        page (ft.Page): La página principal proporcionada por Flet
+        
+    Returns:
+        ft.View: Vista del resumen financiero
+    """
+    # Crear la vista
+    resumen = ResumenView(page)
+    
+    # Retornar ft.View en lugar de manipular la página directamente
+    return ft.View(
+        route="/resumen",
+        controls=[
+            resumen.build()
+        ],
+        padding=0,
+        spacing=0
+    )
+
 
 def main(page: ft.Page) -> None:
     """
-    Función principal de la aplicación.
-    
-    Configura la página principal de Flet y inicializa la vista de resumen.
+    Función principal para ejecutar la aplicación de forma independiente.
     
     Args:
         page (ft.Page): La página principal proporcionada por Flet
@@ -1100,8 +1123,7 @@ def main(page: ft.Page) -> None:
     page.theme = ft.Theme(font_family="Inter")
     
     # Crear y mostrar la vista
-    resumen_view = ResumenView(page)
-    page.add(resumen_view.build())
+    page.add(resumen_view(page))
 
 
 if __name__ == "__main__":

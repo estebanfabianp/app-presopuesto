@@ -304,7 +304,7 @@ class PersonaModel:
         query = """
         SELECT COUNT(*) as count
         FROM persona p
-        WHERE p.correo_electronico = %s AND p.hash_contrasena = %s AND p.activo = 1
+        WHERE p.correo_electronico = %s AND p.clave = %s AND p.activo = 1
         """
         
         results = self.db.execute_query(query, (email, password))
