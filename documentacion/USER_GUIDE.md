@@ -7,9 +7,10 @@ Esta guía te ayudará a comenzar a utilizar la aplicación de gestión financie
 Sigue los pasos de instalación descritos detalladamente en el [README.md](../README.md):
 
 1. **Requisitos del Sistema:**
-   - Python 3.8+ (Recomendado: 3.10+)
+   - Python 3.8+ (Recomendado: 3.11+)
    - MySQL 8.0+ o MariaDB 10.6+
-   - 4GB RAM mínimo
+   - 4GB RAM mínimo, 8GB recomendado
+   - 2GB espacio libre en disco
 
 2. **Instalación:**
    ```bash
@@ -17,14 +18,20 @@ Sigue los pasos de instalación descritos detalladamente en el [README.md](../RE
    cd app-presopuesto
    python -m venv venv
    venv\Scripts\activate  # Windows
+   # source venv/bin/activate  # Linux/macOS
    pip install -r requirements.txt
    ```
 
 3. **Configuración:**
    ```bash
    copy .env.example .env
-   # Editar variables de entorno
+   # Editar variables de entorno en .env
    database\scripts\init_db.bat
+   ```
+
+4. **Ejecutar la aplicación:**
+   ```bash
+   python src/views/user_view.py
    ```
 
 ## 🔐 Acceso y Autenticación
@@ -37,11 +44,13 @@ La aplicación cuenta con una interfaz gráfica moderna desarrollada con Flet qu
 - **Seguridad Robusta**: Hash de contraseñas con bcrypt y validación de sesión
 - **Manejo de Errores**: Try-catch comprehensivo con mensajes descriptivos
 
+### Credenciales de Prueba
+
+Para probar la aplicación, puedes usar estas credenciales predeterminadas:
+- **Usuario**: `admin` o `test@test.com`
+- **Contraseña**: `admin123` o `test123`
+
 ### Características del Login:
-```bash
-# Ejecutar la aplicación
-python src/views/user_view.py
-```
 
 - **Campo Usuario**: Mínimo 3 caracteres, validación automática
 - **Campo Contraseña**: Campo oculto con opción de mostrar, mínimo 6 caracteres
@@ -68,14 +77,20 @@ python src/views/user_view.py
 - Manejo de errores granular por tipo de excepción
 - Logging detallado para debugging
 
-### b) Gestión de Datos (En Desarrollo)
+### b) Gestión de Datos
 
-**Estructura Preparada para:**
-- Registro de movimientos financieros
-- Gestión de presupuestos personales
-- Control de deudas y préstamos
-- Seguimiento de inversiones y activos
-- Reportes y análisis financiero
+**Funcionalidades Actuales (v0.5.0):**
+- ✅ Sistema de autenticación completo
+- ✅ Gestión segura de sesiones
+- ✅ Logging y auditoría de seguridad
+- ✅ Base de datos optimizada con pool de conexiones
+
+**Próximas Funcionalidades (v0.6.0 - Q1 2025):**
+- 📈 Dashboard interactivo con métricas financieras
+- 💳 CRUD completo de cuentas bancarias
+- 💰 Registro de transacciones (ingresos/gastos/transferencias)
+- 📂 Sistema de categorización personalizable
+- 📊 Gráficos básicos de distribución de gastos
 
 ### c) Base de Datos Integrada
 
@@ -109,6 +124,7 @@ DB_NAME=presupuesto_db
 DB_USER=app_user
 DB_PASSWORD=secure_password
 SECRET_KEY=your-secret-key-here
+DEBUG=False
 ```
 
 ## 🔒 Seguridad y Mejores Prácticas
@@ -163,16 +179,22 @@ except Exception as e:
 
 ## 📚 Próximas Funcionalidades
 
-### Versión 0.6.0 - Dashboard Principal:
+### Versión 0.6.0 - Dashboard Principal (Q1 2025):
 - [ ] Dashboard interactivo con métricas financieras
 - [ ] CRUD completo de presupuestos
 - [ ] Gestión avanzada de categorías
 - [ ] Gráficos y reportes básicos
 
-### Versión 0.7.0 - Análisis Avanzado:
+### Versión 0.7.0 - Análisis Avanzado (Q2 2025):
 - [ ] Reportes con exportación PDF/Excel
-- [ ] Análisis predictivo básico
+- [ ] Análisis predictivo básico con IA
 - [ ] Sistema de notificaciones
+- [ ] Importación automática de extractos bancarios
+
+### Versión 0.8.0 - Reportes Avanzados (Q3 2025):
+- [ ] Gráficos interactivos avanzados
+- [ ] Dashboard personalizable
+- [ ] Análisis de tendencias
 - [ ] Múltiples cuentas bancarias
 
 ## 📞 Soporte y Documentación
@@ -202,4 +224,4 @@ except Exception as e:
 
 **¡Disfruta gestionando tus finanzas de manera inteligente con nuestra aplicación desarrollada con tecnología moderna!**
 
-**Versión Actual**: 0.5.0 | **Última Actualización**: Enero 2025
+**Versión Actual**: 0.5.0 | **Última Actualización**: Enero 2025 | **Tipo**: Aplicación de Escritorio

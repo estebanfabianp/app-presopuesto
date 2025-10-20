@@ -11,7 +11,7 @@ Sistema completo de gestión de presupuestos personales con interfaz Flet y arqu
 **Objetivo ALCANZADO:** Sistema de autenticación robusto con interfaz gráfica moderna.
 
 **✅ Logros Implementados:**
-- **Interfaz Gráfica Flet**: UI moderna de 400x500px, no redimensionable
+- **Interfaz Gráfica Flet**: UI moderna de 400x500px, optimizada para UX
 - **Sistema de Login Completo**: Validación robusta, hash bcrypt, manejo de errores
 - **Arquitectura MVC**: Separación clara entre vistas, controladores y modelos
 - **Base de Datos MySQL**: Configuración con pool de conexiones optimizado
@@ -32,9 +32,9 @@ Sistema completo de gestión de presupuestos personales con interfaz Flet y arqu
 
 **Objetivo:** Implementar dashboard principal y CRUD básico de presupuestos.
 
-**📅 Timeline:** Q1 2025 (Febrero - Abril)
+**📅 Timeline:** Q1 2025 (Febrero - Marzo)
 
-**🚧 Desarrollo en Progreso:**
+**🚧 Desarrollo Planeado:**
 
 ### a) Dashboard Principal
 - [ ] **Vista Dashboard**: Pantalla principal post-login con métricas
@@ -66,21 +66,18 @@ Sistema completo de gestión de presupuestos personales con interfaz Flet y arqu
 
 **Objetivo:** Implementar IA para categorización automática y análisis predictivo.
 
-**📅 Timeline:** Q2 2025 (Mayo - Julio)
+**📅 Timeline:** Q2 2025 (Abril - Junio)
 
 ### a) Categorización Automática con IA
 - [ ] **Dataset de Entrenamiento**: Cargar extractos bancarios como datos base
 - [ ] **Reglas Básicas**: Sistema de reglas para categorización automática
-  ```python
-  # Ejemplo: "mercado" → alimentación, "gasolina" → transporte
-  ```
 - [ ] **Modelo ML**: Implementar Naive Bayes o SVM para categorización
 - [ ] **NLP Ligero**: Procesamiento de descripción de transacciones
 - [ ] **Aprendizaje Continuo**: El modelo mejora con feedback del usuario
 
 ### b) Análisis Predictivo
 - [ ] **Patrones de Gasto**: Identificación de tendencias y hábitos
-- [ ] **Alertas Inteligentes**: "Gasto en transporte creció 20% este mes"
+- [ ] **Alertas Inteligentes**: Notificaciones sobre cambios en gastos
 - [ ] **Proyecciones**: Estimación de gastos futuros basado en histórico
 - [ ] **Recomendaciones**: Sugerencias para optimización financiera
 
@@ -102,7 +99,7 @@ Sistema completo de gestión de presupuestos personales con interfaz Flet y arqu
 
 **Objetivo:** Sistema completo de reportes y visualización de datos financieros.
 
-**📅 Timeline:** Q3 2025 (Agosto - Octubre)
+**📅 Timeline:** Q3 2025 (Julio - Septiembre)
 
 ### a) Dashboard Interactivo Avanzado
 - [ ] **Gráficos Dinámicos**: Flujo de caja, tendencias temporales
@@ -134,7 +131,7 @@ Sistema completo de gestión de presupuestos personales con interfaz Flet y arqu
 
 **Objetivo:** Ampliar sistema para incluir inversiones, fondos y activos.
 
-**📅 Timeline:** Q4 2025 (Noviembre - Diciembre)
+**📅 Timeline:** Q4 2025 (Octubre - Diciembre)
 
 ### a) Portafolio de Inversiones
 - [ ] **Registro de Activos**: Acciones, bonos, fondos, criptomonedas

@@ -9,8 +9,8 @@ Clases:
     LeftSidebarMenu: Gestiona el menú lateral de navegación con perfil de usuario
     ResumenView: Vista principal que muestra el resumen financiero completo
 
-Autor: [Tu nombre]
-Fecha: [Fecha actual]
+Autor: [esteban patiño]
+Fecha: [30-sep-2025]
 Versión: 1.0
 """
 
@@ -1143,5 +1143,5 @@ if __name__ == "__main__":
     Inicia la aplicación Flet con la función main como target.
     """
     ft.app(target=main)
- 
+
 

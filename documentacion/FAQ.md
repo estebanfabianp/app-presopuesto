@@ -10,7 +10,7 @@ Respuestas a las preguntas más comunes sobre la aplicación de escritorio de ge
 **App Presupuesto** es una **aplicación de escritorio** desarrollada con Python y Flet. No es una aplicación web ni API REST. Se ejecuta nativamente en tu computadora sin necesidad de navegador web.
 
 ### ¿Qué tecnologías utiliza el proyecto?
-- **Lenguaje Principal**: Python 3.8+
+- **Lenguaje Principal**: Python 3.8+ (Recomendado: 3.11+)
 - **Framework UI**: Flet (interfaz gráfica moderna)
 - **Base de Datos**: MySQL 8.0+ o MariaDB 10.6+
 - **Conector BD**: mysql-connector-python
@@ -44,7 +44,7 @@ Sigue estos pasos detallados:
 2. **Instalación**:
    ```bash
    git clone https://github.com/usuario/app-presopuesto.git
-   cd app-presupuesto
+   cd app-presopuesto
    python -m venv venv
    venv\Scripts\activate  # Windows
    pip install -r requirements.txt
@@ -62,7 +62,7 @@ Sigue estos pasos detallados:
    python src/views/user_view.py
    ```
 
-Para detalles completos, consulta la [Guía de Usuario](../docs/USER_GUIDE.md).
+Para detalles completos, consulta la [Guía de Usuario](USER_GUIDE.md).
 
 ### ¿Qué sistemas operativos soporta?
 - ✅ **Windows 10/11**
@@ -114,7 +114,7 @@ bash database/scripts/backup_db.sh  # Linux/macOS
 - ✅ **Arquitectura MVC**: Separación clara de responsabilidades
 
 ### ¿Cuándo estará disponible el dashboard principal?
-**Versión 0.6.0** (Q1 2025 - Febrero-Abril) incluirá:
+**Versión 0.6.0** (Q1 2025 - Febrero-Marzo) incluirá:
 - 📈 Dashboard interactivo con métricas financieras
 - 💳 CRUD completo de cuentas bancarias
 - 💰 Registro de transacciones (ingresos/gastos/transferencias)
@@ -122,7 +122,7 @@ bash database/scripts/backup_db.sh  # Linux/macOS
 - 📊 Gráficos básicos de distribución de gastos
 
 ### ¿Habrá funciones de inteligencia artificial?
-**Sí.** **Versión 0.7.0** (Q2 2025 - Mayo-Julio) incluirá:
+**Sí.** **Versión 0.7.0** (Q2 2025 - Abril-Junio) incluirá:
 - 🤖 **Categorización automática** con Machine Learning
 - 📊 **Análisis predictivo** de patrones de gasto
 - 💡 **Recomendaciones personalizadas** para optimizar finanzas
@@ -149,9 +149,11 @@ Consulta el [Roadmap detallado](roadmap.md) para información completa sobre:
 
 2. **Verificar entorno virtual**:
    ```bash
-   # Debe estar activado
-   venv\Scripts\activate  # Windows
-   source venv/bin/activate  # Linux/macOS
+   # Windows
+   venv\Scripts\activate
+   
+   # Linux/macOS
+   source venv/bin/activate
    ```
 
 3. **Verificar Flet**:
@@ -208,12 +210,6 @@ Consulta el [Roadmap detallado](roadmap.md) para información completa sobre:
    "
    ```
 
-4. **Reinicializar base de datos**:
-   ```bash
-   database\scripts\reset_db.bat  # Windows
-   bash database/scripts/reset_db.sh  # Linux/macOS
-   ```
-
 ### Error "Módulo flet no encontrado"
 ```bash
 # Verificar entorno virtual activo
@@ -236,7 +232,7 @@ mysql -u root -p presupuesto_db -e "SELECT username, nombre FROM usuarios LIMIT 
 # Crear usuario de prueba
 mysql -u root -p presupuesto_db < database/scripts/create/create_data.sql
 
-# Probar credenciales por defecto:
+# Credenciales por defecto:
 # Usuario: admin, Contraseña: admin123
 # Usuario: test@test.com, Contraseña: test123
 ```
@@ -356,16 +352,16 @@ Consulta la [Guía de Contribución](CONTRIBUTING.md) para detalles completos.
 **Documentación técnica completa**:
 - 📖 **Principal**: [README.md](../README.md)
 - 🏗️ **Arquitectura**: [ARCHITECTURE.md](ARCHITECTURE.md)
-- 🗄️ **Base de Datos**: [BASE_DATOS.md](../docs/BASE_DATOS.md)
-- 👤 **Guía de Usuario**: [USER_GUIDE.md](../docs/USER_GUIDE.md)
-- 🔒 **Seguridad**: [SECURITY.md](SECURITY.md)
+- 🗄️ **Base de Datos**: [DATA_MODEL.md](DATA_MODEL.md)
+- 👤 **Guía de Usuario**: [USER_GUIDE.md](USER_GUIDE.md)
+- 🔒 **Seguridad**: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - 🚀 **Roadmap**: [roadmap.md](roadmap.md)
 
 ### ¿Cómo me mantengo actualizado?
 **Métodos recomendados**:
 1. **GitHub Watch**: Suscribirse a notificaciones del repositorio
 2. **GitHub Releases**: Seguir página de releases para nuevas versiones
-3. **Changelog**: Revisar [CHANGELOG.md](CHANGELOG.md) regularmente
+3. **Changelog**: Revisar CHANGELOG.md regularmente
 4. **Issues**: Seguir discusiones activas
 
 ### ¿Hay alguna comunidad de usuarios?

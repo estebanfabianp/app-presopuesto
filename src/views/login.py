@@ -1,3 +1,26 @@
+"""
+Módulo de Vista de Inicio de Sesión
+
+Este módulo contiene la implementación de la vista de autenticación de usuarios
+para la aplicación de presupuesto. Proporciona una interfaz gráfica limpia y
+moderna para el proceso de login.
+
+Funcionalidades:
+    - Validación de credenciales de usuario
+    - Interfaz de usuario responsiva y centrada
+    - Manejo de errores de autenticación
+    - Redirección automática tras login exitoso
+    - Fallback para importaciones de controladores
+
+Dependencias:
+    - flet: Framework de UI para Python
+    - persona_controller: Controlador de autenticación (opcional)
+
+Autor: [esteban patiño]
+Fecha: [30-sep-2025]
+Versión: 1.0
+"""
+
 import sys
 import os
 
@@ -13,6 +36,16 @@ except ImportError:
         print("Warning: No se pudo importar autenticar_usuario 1")
         # Mock fallback function
         def autenticar_usuario(username, password):
+            """
+            Función mock de autenticación cuando el controlador real no está disponible.
+            
+            Args:
+                username (str): Nombre de usuario
+                password (str): Contraseña del usuario
+                
+            Returns:
+                tuple: (usuario_dict, mensaje) donde usuario_dict es None si falla la autenticación
+            """
             if username and password:
                 return {"name": username}, f"Usuario {username} autenticado correctamente"
             return None, "Error: Usuario y contraseña son requeridos"
@@ -20,13 +53,43 @@ except ImportError:
 
 import flet as ft 
 
-def login_view(page: ft.Page):
+def login_view(page: ft.Page) -> ft.View:
+    """
+    Crea y retorna la vista de inicio de sesión.
+    
+    Esta función construye una interfaz de usuario completa para el proceso de
+    autenticación, incluyendo campos de entrada, validación y manejo de errores.
+    
+    Características de la vista:
+        - Diseño centrado y responsivo
+        - Campos de entrada con iconos y validación visual
+        - Botón de login estilizado
+        - Mensajes de error/éxito dinámicos
+        - Redirección automática tras autenticación exitosa
+    
+    Args:
+        page (ft.Page): Referencia a la página principal de Flet para navegación
+        
+    Returns:
+        ft.View: Vista completa del formulario de login lista para mostrar
+        
+    Example:
+        >>> login_view(page)
+        <flet.View object with login form>
+    """
+    
     # Campos de entrada con mejor alineación
     name_input = ft.TextField(
         label="Nombre de Usuario",
         width=300,
         border_radius=8,
-        prefix_icon=ft.Icon(ft.Icons.PERSON)
+        prefix_icon=ft.Icon(ft.Icons.PERSON),
+        # Configuración adicional para mejor UX
+        autofocus=True,  # Foco automático al cargar
+        hint_text="Ingresa tu nombre de usuario",
+        helper_text="Ejemplo: juan.perez",
+        max_length=50
+        # Removed capitalization=ft.TextCapitalization.NONE as it may not exist
     )
     
     password_input = ft.TextField(
@@ -35,28 +98,102 @@ def login_view(page: ft.Page):
         border_radius=8,
         password=True,
         can_reveal_password=True,
-        prefix_icon=ft.Icon(ft.Icons.LOCK)
+        prefix_icon=ft.Icon(ft.Icons.LOCK),
+        # Configuración adicional para seguridad y UX
+        hint_text="Ingresa tu contraseña",
+        helper_text="Mínimo 6 caracteres",
+        max_length=100
     )
     
+    # Texto para mostrar resultados de autenticación
     result_text = ft.Text(
         value="",
         color="green",
         text_align=ft.TextAlign.CENTER,
-        size=14
+        size=14,
+        weight=ft.FontWeight.BOLD
     )
 
-    # Función de manejo de login
-    def on_login_click(e):
-        # Call autenticar_usuario directly with parameters
-        user, msg = autenticar_usuario(name_input.value, password_input.value)
-        if user:
-            page.go("/resumen")
-            result_text.value = f"¡Bienvenido {user}!"
-            result_text.color = "green"
-        else:
-            result_text.value = msg
+    def on_login_click(e: ft.ControlEvent) -> None:
+        """
+        Maneja el evento de clic en el botón de inicio de sesión.
+        
+        Esta función realiza las siguientes operaciones:
+        1. Valida que los campos no estén vacíos
+        2. Llama al controlador de autenticación
+        3. Maneja la respuesta (éxito o error)
+        4. Navega a la vista principal o muestra error
+        5. Actualiza la interfaz con el resultado
+        
+        Args:
+            e (ft.ControlEvent): Evento de control generado por el clic
+            
+        Note:
+            - Los campos vacíos generan mensaje de error
+            - La autenticación exitosa redirige a "/resumen"
+            - Los errores se muestran en color rojo
+        """
+        # Limpiar mensaje anterior
+        result_text.value = ""
+        result_text.color = "green"
+        
+        # Validación básica de campos
+        username = name_input.value.strip() if name_input.value else ""
+        password = password_input.value.strip() if password_input.value else ""
+        
+        if not username or not password:
+            result_text.value = "Por favor, completa todos los campos"
             result_text.color = "red"
-        page.update()
+            page.update()
+            return
+        
+        try:
+            # Llamar al controlador de autenticación
+            user, msg = autenticar_usuario(username, password)
+            
+            if user:
+                # Autenticación exitosa
+                result_text.value = "¡Login exitoso! Redirigiendo..."
+                result_text.color = "green"
+                page.update()
+                
+                # Pequeña pausa para mostrar el mensaje de éxito
+                import time
+                time.sleep(0.5)
+                
+                # Navegar a la vista principal
+                page.go("/resumen")
+            else:
+                # Error de autenticación
+                result_text.value = msg or "Credenciales incorrectas"
+                result_text.color = "red"
+                
+                # Limpiar campo de contraseña por seguridad
+                password_input.value = ""
+                
+        except Exception as ex:
+            # Manejo de errores inesperados
+            result_text.value = f"Error del sistema: {str(ex)}"
+            result_text.color = "red"
+            print(f"Error en login: {ex}")  # Log para depuración
+        
+        finally:
+            # Siempre actualizar la página
+            page.update()
+
+    # Función para manejar Enter en los campos de texto
+    def on_text_field_submit(e: ft.ControlEvent) -> None:
+        """
+        Maneja el evento de presionar Enter en los campos de texto.
+        
+        Args:
+            e (ft.ControlEvent): Evento de control del campo de texto
+        """
+        on_login_click(e)
+
+    # Configurar eventos de Enter en los campos
+    name_input.on_submit = on_text_field_submit
+    password_input.on_submit = on_text_field_submit
 
     # Botón de login estilizado
     login_button = ft.ElevatedButton(
@@ -66,40 +203,57 @@ def login_view(page: ft.Page):
         height=45,
         bgcolor=ft.Colors.BLUE,
         color=ft.Colors.WHITE,
+        # Estilo adicional para mejor apariencia
+        elevation=3,
+        style=ft.ButtonStyle(
+            shape=ft.RoundedRectangleBorder(radius=8),
+            text_style=ft.TextStyle(
+                size=16,
+                weight=ft.FontWeight.BOLD
+            )
+        )
     )
 
     # Contenedor principal centrado y estilizado
     main_container = ft.Container(
         content=ft.Column(
             controls=[
-                # Icono principal
+                # Icono principal de la aplicación
                 ft.Icon(
                     ft.Icons.LOGIN,
                     size=60,
                     color=ft.Colors.BLUE
                 ),
-                # Título
+                # Título de la aplicación
                 ft.Text(
                     "Inicio de Sesión",
                     size=24,
                     weight=ft.FontWeight.BOLD,
-                    text_align=ft.TextAlign.CENTER
+                    text_align=ft.TextAlign.CENTER,
+                    color="#333333"
                 ),
-                # Espaciado
+                # Subtítulo descriptivo
+                ft.Text(
+                    "Accede a tu cuenta de presupuesto",
+                    size=14,
+                    text_align=ft.TextAlign.CENTER,
+                    color="#666666"
+                ),
+                # Espaciado entre header y formulario
                 ft.Container(height=20),
-                # Campo usuario
+                # Campo de nombre de usuario
                 name_input,
-                # Espaciado pequeño
+                # Espaciado pequeño entre campos
                 ft.Container(height=10),
-                # Campo contraseña
+                # Campo de contraseña
                 password_input,
-                # Espaciado
+                # Espaciado antes del botón
                 ft.Container(height=20),
-                # Botón login
+                # Botón de inicio de sesión
                 login_button,
-                # Espaciado pequeño
+                # Espaciado pequeño antes del resultado
                 ft.Container(height=10),
-                # Texto resultado
+                # Texto de resultado (éxito/error)
                 result_text,
             ],
             alignment=ft.MainAxisAlignment.CENTER,
@@ -107,32 +261,41 @@ def login_view(page: ft.Page):
             spacing=0,
             tight=True
         ),
+        # Estilo del contenedor principal
         padding=ft.Padding(30, 30, 30, 30),
         bgcolor=ft.Colors.WHITE,
         border_radius=15,
         width=350,
-        height=450
+        height=450,
+        # Sombra para efecto elevado
+        shadow=ft.BoxShadow(
+            spread_radius=1,
+            blur_radius=10,
+            color="#00000020",
+            offset=ft.Offset(0, 2)
+        )
     )
 
-    # Return ft.View instead of adding to page
+    # Retornar vista completa en lugar de agregar a la página
     return ft.View(
         route="/login",
         controls=[
+            # Contenedor wrapper para centrado perfecto
             ft.Container(
                 content=main_container,
                 alignment=ft.alignment.center,
-                expand=True
+                expand=True,
+                # Fondo degradado sutil
+                gradient=ft.LinearGradient(
+                    begin=ft.alignment.top_center,
+                    end=ft.alignment.bottom_center,
+                    colors=["#F8F9FA", "#E9ECEF"]
+                )
             )
         ],
         vertical_alignment=ft.MainAxisAlignment.CENTER,
         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-    )
-    # Agregar a la página con centrado perfecto
-    page.add(
-        ft.Container(
-            content=main_container,
-            alignment=ft.alignment.center,
-            expand=True
-        )
+        padding=0,
+        spacing=0
     )
 

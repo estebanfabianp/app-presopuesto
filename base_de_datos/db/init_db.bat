@@ -15,15 +15,7 @@ REM Crear la base de datos si no existe
 mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% -e "CREATE DATABASE IF NOT EXISTS %DB_NAME%;"
 
 REM Ejecutar los scripts SQL en orden
-mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% %DB_NAME% < "base_de_datos\script_bd\create\create_tables.sql"
-mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% %DB_NAME% < "base_de_datos\script_bd\create\create_foreign_keys.sql"
-mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% %DB_NAME% < "base_de_datos\script_bd\comments\comentarios.sql"
-mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% %DB_NAME% < "base_de_datos\script_bd\create\create_indexes.sql"
-mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% %DB_NAME% < "base_de_datos\script_bd\create\create_views.sql"
-mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% %DB_NAME% < "base_de_datos\script_bd\create\create_functions.sql"
-mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% %DB_NAME% < "base_de_datos\script_bd\create\create_procedures.sql"
-mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% %DB_NAME% < "base_de_datos\script_bd\create\create_jobs.sql"
-mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% %DB_NAME% < "base_de_datos\script_bd\create\create_data.sql"
+mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% %DB_NAME% < "base_de_datos\db\create\09_master_script.sql"
 
 echo ============================================
 echo  ✅ Base de datos inicializada correctamente en %DB_NAME%
