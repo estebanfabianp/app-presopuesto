@@ -18,40 +18,50 @@ Dependencias:
 
 Autor: [esteban patiño]
 Fecha: [30-sep-2025]
-Versión: 1.0
+Versión: 1.1
 """
 
 import sys
 import os
+import flet as ft
 
-# Fix import path
+# Fix import path - Simplificado y corregido
 try:
-    from ..controllers.persona_controller import autenticar_usuario
+    # Intentar importación relativa primero
+    from ..controllers.persona_controller import iniciar_sesion
 except ImportError:
-    # Fallback if relative import fails
     try:
-        sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-        from controllers.persona_controller import autenticar_usuario
+        # Agregar path del proyecto al sys.path
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
+        
+        from src.controllers.persona_controller import iniciar_sesion
     except ImportError:
-        print("Warning: No se pudo importar autenticar_usuario 1")
-        # Mock fallback function
-        def autenticar_usuario(username, password):
-            """
-            Función mock de autenticación cuando el controlador real no está disponible.
-            
-            Args:
-                username (str): Nombre de usuario
-                password (str): Contraseña del usuario
+        try:
+            # Último intento: importación directa desde controllers
+            controllers_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'controllers')
+            sys.path.insert(0, controllers_path)
+            from persona_controller import iniciar_sesion
+        except ImportError:
+            print("Warning: No se pudo importar iniciar_sesion del controlador")
+            # Mock function como fallback
+            def iniciar_sesion(username, password):
+                """
+                Función mock de autenticación cuando el controlador real no está disponible.
                 
-            Returns:
-                tuple: (usuario_dict, mensaje) donde usuario_dict es None si falla la autenticación
-            """
-            if username and password:
-                return {"name": username}, f"Usuario {username} autenticado correctamente"
-            return None, "Error: Usuario y contraseña son requeridos"
-
-
-import flet as ft 
+                Args:
+                    username (str): Nombre de usuario
+                    password (str): Contraseña del usuario
+                    
+                Returns:
+                    tuple: (success, message, user_data)
+                """
+                if username == "admin" and password == "admin":
+                    return True, "Login exitoso", {"username": username, "role": "admin"}
+                elif username and password:
+                    return False, "Credenciales incorrectas", None
+                return False, "Usuario y contraseña son requeridos", None
 
 def login_view(page: ft.Page) -> ft.View:
     """
@@ -60,22 +70,11 @@ def login_view(page: ft.Page) -> ft.View:
     Esta función construye una interfaz de usuario completa para el proceso de
     autenticación, incluyendo campos de entrada, validación y manejo de errores.
     
-    Características de la vista:
-        - Diseño centrado y responsivo
-        - Campos de entrada con iconos y validación visual
-        - Botón de login estilizado
-        - Mensajes de error/éxito dinámicos
-        - Redirección automática tras autenticación exitosa
-    
     Args:
         page (ft.Page): Referencia a la página principal de Flet para navegación
         
     Returns:
         ft.View: Vista completa del formulario de login lista para mostrar
-        
-    Example:
-        >>> login_view(page)
-        <flet.View object with login form>
     """
     
     # Campos de entrada con mejor alineación
@@ -84,12 +83,10 @@ def login_view(page: ft.Page) -> ft.View:
         width=300,
         border_radius=8,
         prefix_icon=ft.Icon(ft.Icons.PERSON),
-        # Configuración adicional para mejor UX
-        autofocus=True,  # Foco automático al cargar
+        autofocus=True,
         hint_text="Ingresa tu nombre de usuario",
         helper_text="Ejemplo: juan.perez",
         max_length=50
-        # Removed capitalization=ft.TextCapitalization.NONE as it may not exist
     )
     
     password_input = ft.TextField(
@@ -99,7 +96,6 @@ def login_view(page: ft.Page) -> ft.View:
         password=True,
         can_reveal_password=True,
         prefix_icon=ft.Icon(ft.Icons.LOCK),
-        # Configuración adicional para seguridad y UX
         hint_text="Ingresa tu contraseña",
         helper_text="Mínimo 6 caracteres",
         max_length=100
@@ -117,21 +113,6 @@ def login_view(page: ft.Page) -> ft.View:
     def on_login_click(e: ft.ControlEvent) -> None:
         """
         Maneja el evento de clic en el botón de inicio de sesión.
-        
-        Esta función realiza las siguientes operaciones:
-        1. Valida que los campos no estén vacíos
-        2. Llama al controlador de autenticación
-        3. Maneja la respuesta (éxito o error)
-        4. Navega a la vista principal o muestra error
-        5. Actualiza la interfaz con el resultado
-        
-        Args:
-            e (ft.ControlEvent): Evento de control generado por el clic
-            
-        Note:
-            - Los campos vacíos generan mensaje de error
-            - La autenticación exitosa redirige a "/resumen"
-            - Los errores se muestran en color rojo
         """
         # Limpiar mensaje anterior
         result_text.value = ""
@@ -148,10 +129,10 @@ def login_view(page: ft.Page) -> ft.View:
             return
         
         try:
-            # Llamar al controlador de autenticación
-            user, msg = autenticar_usuario(username, password)
+            # Llamar al controlador de autenticación - Actualizado para nueva signatura
+            success, message, user_data = iniciar_sesion(username, password)
             
-            if user:
+            if success:
                 # Autenticación exitosa
                 result_text.value = "¡Login exitoso! Redirigiendo..."
                 result_text.color = "green"
@@ -165,7 +146,7 @@ def login_view(page: ft.Page) -> ft.View:
                 page.go("/resumen")
             else:
                 # Error de autenticación
-                result_text.value = msg or "Credenciales incorrectas"
+                result_text.value = message or "Credenciales incorrectas"
                 result_text.color = "red"
                 
                 # Limpiar campo de contraseña por seguridad
@@ -175,20 +156,14 @@ def login_view(page: ft.Page) -> ft.View:
             # Manejo de errores inesperados
             result_text.value = f"Error del sistema: {str(ex)}"
             result_text.color = "red"
-            print(f"Error en login: {ex}")  # Log para depuración
+            print(f"Error en login: {ex}")
         
         finally:
             # Siempre actualizar la página
             page.update()
 
-    # Función para manejar Enter en los campos de texto
     def on_text_field_submit(e: ft.ControlEvent) -> None:
-        """
-        Maneja el evento de presionar Enter en los campos de texto.
-        
-        Args:
-            e (ft.ControlEvent): Evento de control del campo de texto
-        """
+        """Maneja el evento de presionar Enter en los campos de texto."""
         on_login_click(e)
 
     # Configurar eventos de Enter en los campos
