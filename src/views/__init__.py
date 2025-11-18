@@ -1,23 +1,22 @@
-'''
-# Archivo para hacer que views sea un paquete Python
+"""
+Componentes UI Reutilizables
 
-# Fix relative imports - from views to sibling directories
-try:
-    from ..database import DatabaseConnector
-except ImportError:
-    DatabaseConnector = None
+Este paquete contiene todos los componentes de interfaz de usuario que pueden
+ser reutilizados a través de diferentes vistas de la aplicación.
 
-# Import only what exists in controllers module
-try:
-    from ..controllers import validar_persona_para_operacion
-except ImportError:
-    validar_persona_para_operacion = None
+Componentes disponibles:
+    - sidebar: Menú lateral de navegación principal
+    - tables: Componentes de tablas de datos
+    - charts: Componentes de gráficos y visualizaciones
+    - forms: Componentes de formularios reutilizables
 
-# Commented out imports that don't exist yet
-# from ..controllers import UserController, registrar_usuario, autenticar_usuario
+Autor: [esteban patiño]
+Fecha: [30-sep-2025]
+Versión: 1.0
+"""
+
+from .sidebar import LeftSidebarMenu
 
 __all__ = [
-    "DatabaseConnector", 
-    "validar_persona_para_operacion"
+    'LeftSidebarMenu'
 ]
-'''

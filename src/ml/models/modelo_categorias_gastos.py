@@ -8,7 +8,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.metrics import accuracy_score, classification_report
 
 # 1. Conexión a la BD
-# ⚠️ Cambia usuario, password, host y base
+# ⚠️ Cambia usuario, clave, host y base
 engine = create_engine("mysql+pymysql://root:@localhost/app_presupuesto")
 
 # 2. Leer datos de la tabla movimiento (ajusta nombres de columnas si difieren)

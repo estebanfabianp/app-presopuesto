@@ -43,9 +43,9 @@ CREATE TABLE `persona` (
   `correo_electronico` varchar(100) DEFAULT NULL,
   `usuario` varchar(45) DEFAULT NULL,
   `clave` varchar(255) DEFAULT NULL,
-  `fecha_creacion` datetime DEFAULT NULL,
-  `fecha_actualizacion` datetime DEFAULT NULL,
-  `estado` tinyint(1) DEFAULT NULL,
+  `fecha_creacion` datetime DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `estado` tinyint(1) DEFAULT 1,
   PRIMARY KEY (`id_persona`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 

@@ -16,22 +16,22 @@ class DatabaseConnector:
         conn: Objeto de conexión MySQL
     """
     
-    def __init__(self, host: str = "localhost", database: str = "mydb", 
-                 user: str = "root", password: str = "") -> None:
+    def __init__(self, host: str = "localhost", database: str = "app_presupuesto", 
+                 user: str = "root", clave: str = "") -> None:
         """
         Inicializa la conexión a la base de datos MySQL.
         
         Args:
             host (str): Dirección del servidor MySQL. Default: 'localhost'
-            database (str): Nombre de la base de datos. Default: 'mydb'
+            database (str): Nombre de la base de datos. Default: 'app_presupuesto'
             user (str): Usuario de MySQL. Default: 'root'
-            password (str): Contraseña de MySQL. Default: ''
+            clave (str): Contraseña de MySQL. Default: ''
         """
         self._connection_params = {
             'host': host,
             'database': database,
             'user': user,
-            'password': password
+            'password': clave  # Cambiado de 'clave' a 'password'
         }
         self.conn = None
         self._connect_mysql()

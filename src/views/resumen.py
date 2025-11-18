@@ -2,315 +2,24 @@
 Módulo de Vista de Resumen Financiero
 
 Este módulo contiene la implementación de la vista principal del resumen financiero
-de la aplicación de presupuesto. Incluye un menú lateral navegable y un dashboard
-con información financiera detallada.
+de la aplicación de presupuesto. Utiliza componentes reutilizables para mantener
+consistencia en la interfaz.
 
 Clases:
-    LeftSidebarMenu: Gestiona el menú lateral de navegación con perfil de usuario
     ResumenView: Vista principal que muestra el resumen financiero completo
 
-Autor: [esteban patiño]
+Autor: [esteban patiño]  
 Fecha: [30-sep-2025]
-Versión: 1.0
+Versión: 2.0 - Refactorizado con componentes reutilizables
 """
 
 import flet as ft
 import datetime
 import random
-from typing import List, Optional, Dict, Any, Callable
+from typing import List, Optional, Dict, Any
 
-
-class LeftSidebarMenu:
-    """
-    Clase para manejar el menú lateral de navegación.
-    
-    Esta clase gestiona la creación y comportamiento del menú lateral que incluye:
-    - Perfil de usuario
-    - Navegación por secciones
-    - Badges de notificación
-    - Estado de selección
-    
-    Attributes:
-        page (ft.Page): Referencia a la página principal de Flet
-        selected_index (int): Índice del elemento de menú actualmente seleccionado
-    """
-    
-    def __init__(self, page: ft.Page) -> None:
-        """
-        Inicializa el menú lateral.
-        
-        Args:
-            page (ft.Page): La página principal de la aplicación Flet
-        """
-        self.page = page
-        self.selected_index = 1  # Default to "Resumen Financiero"
-        
-    def create_menu_item(
-        self, 
-        icon: str, 
-        title: str, 
-        index: int, 
-        badge_count: Optional[int] = None,
-        on_click: Optional[Callable] = None
-    ) -> ft.Container:
-        """
-        Crea un elemento individual del menú lateral.
-        
-        Args:
-            icon (str): Nombre del ícono de Material Design
-            title (str): Texto del título del elemento de menú
-            index (int): Índice único del elemento para control de selección
-            badge_count (Optional[int]): Número a mostrar en el badge de notificación
-            on_click (Optional[Callable]): Función personalizada de clic
-            
-        Returns:
-            ft.Container: Contenedor con el elemento de menú configurado
-        """
-        
-        def default_on_click(e: ft.ControlEvent) -> None:
-            """
-            Maneja el evento de clic en un elemento del menú.
-            
-            Args:
-                e (ft.ControlEvent): Evento de control de Flet
-            """
-            self.selected_index = index
-            self.update_menu_selection()
-            self.navigate_to_section(title)
-        
-        # Usar el on_click personalizado si se proporciona, sino usar el default
-        click_handler = on_click if on_click else default_on_click
-        
-        is_selected = index == self.selected_index
-        
-        # Crear badge si hay contador
-        badge = None
-        if badge_count and badge_count > 0:
-            badge = ft.Container(
-                content=ft.Text(
-                    str(badge_count), 
-                    size=10, 
-                    color="white",
-                    weight=ft.FontWeight.BOLD
-                ),
-                bgcolor="#F44336",  # Color rojo para alertas
-                border_radius=10,
-                padding=ft.padding.symmetric(horizontal=6, vertical=2),
-                margin=ft.margin.only(left=5)
-            )
-        
-        # Contenedor del ícono con badge opcional
-        icon_container = ft.Row([
-            ft.Icon(
-                icon, 
-                size=20, 
-                color="#2196F3" if is_selected else "#666666"  # Azul si está seleccionado
-            ),
-            badge if badge else ft.Container()
-        ], tight=True) if badge else ft.Icon(
-            icon, 
-            size=20, 
-            color="#2196F3" if is_selected else "#666666"
-        )
-        
-        return ft.Container(
-            content=ft.ListTile(
-                leading=icon_container,
-                title=ft.Text(
-                    title, 
-                    size=14,
-                    weight="w600" if is_selected else "w400",  # Negrita si está seleccionado
-                    color="#2196F3" if is_selected else "#333333"
-                ),
-                on_click=click_handler,
-            ),
-            bgcolor="#E3F2FD" if is_selected else "transparent",  # Fondo azul claro si está seleccionado
-            border_radius=8,
-            margin=ft.margin.symmetric(horizontal=8, vertical=1),
-            border=ft.border.all(1, "#2196F3") if is_selected else None,  # Borde azul si está seleccionado
-        )
-    
-    def create_section_divider(self, title: str) -> ft.Container:
-        """
-        Crea un divisor de sección para agrupar elementos del menú.
-        
-        Args:
-            title (str): Título de la sección
-            
-        Returns:
-            ft.Container: Contenedor con el divisor de sección
-        """
-        return ft.Container(
-            content=ft.Text(
-                title.upper(), 
-                size=11, 
-                color="#666666",
-                weight=ft.FontWeight.BOLD
-            ),
-            margin=ft.margin.only(left=16, top=16, bottom=8)
-        )
-    
-    def update_menu_selection(self) -> None:
-        """
-        Actualiza la selección visual del menú.
-        
-        Este método se encarga de refrescar la página para mostrar
-        los cambios visuales cuando se selecciona un nuevo elemento.
-        """
-        # TODO: Implementar lógica más específica para actualizar solo los elementos necesarios
-        self.page.update()
-    
-    def navigate_to_section(self, section: str) -> None:
-        """
-        Navega a la sección seleccionada.
-        
-        Args:
-            section (str): Nombre de la sección a la cual navegar
-            
-        Note:
-            Por ahora solo imprime el destino. En una implementación completa,
-            aquí se manejaría el enrutamiento real de la aplicación.
-        """
-        print(f"Navegando a: {section}")
-        if section == "Cerrar Sesión":
-            self.page.go("/login")
-        # TODO: Implementar lógica de navegación real entre vistas
-        
-
-
-        
-    def create_user_profile(self) -> ft.Container:
-        """
-        Crea la sección del perfil de usuario en la parte superior del menú.
-        
-        Incluye:
-        - Avatar del usuario
-        - Nombre y email
-        - Menú de opciones del perfil
-        
-        Returns:
-            ft.Container: Contenedor con el perfil de usuario completo
-        """
-        return ft.Container(
-            content=ft.Column([
-                ft.Container(
-                    content=ft.Row([
-                        # Avatar circular con iniciales
-                        ft.CircleAvatar(
-                            content=ft.Text("JD", color="white", size=16, weight="bold"),
-                            bgcolor="#2196F3",
-                            radius=24
-                        ),
-                        # Información del usuario
-                        ft.Column([
-                            ft.Text(
-                                "John Doe", 
-                                size=16, 
-                                weight="bold",
-                                color="#333333"
-                            ),
-                            ft.Text(
-                                "john.doe@email.com", 
-                                size=12, 
-                                color="#666666"
-                            ),
-                        ], spacing=2, expand=True),
-                        # Botón de opciones del perfil
-                        ft.IconButton(
-                            icon="more_vert",
-                            icon_size=16,
-                            icon_color="#666666",
-                            on_click=lambda e: print("Profile menu")  # TODO: Implementar menú real
-                        )
-                    ], alignment="center"),
-                    padding=16
-                ),
-                # Línea divisoria
-                ft.Divider(height=1, color="#E0E0E0")
-            ], spacing=0),
-            margin=ft.margin.only(bottom=10)
-        )
-    
-    def create_sidebar(self) -> ft.Container:
-        """
-        Crea el menú lateral completo con todas las secciones.
-        
-        Estructura del menú:
-        - Perfil de usuario
-        - Sección Principal (Dashboard, Resumen)
-        - Sección Transacciones
-        - Sección Presupuestos
-        - Sección Cuentas
-        - Sección Reportes
-        - Sección Configuración
-        - Logout
-        
-        Returns:
-            ft.Container: Contenedor con el menú lateral completo
-        """
-        return ft.Container(
-            width=280,  # Ancho fijo del sidebar
-            bgcolor="#FAFAFA",  # Color de fondo gris claro
-            content=ft.Column([
-                # Header con perfil de usuario
-                self.create_user_profile(),
-                
-                # Contenido scrolleable del menú
-                ft.Container(
-                    content=ft.Column([
-                        # Sección Principal
-                        self.create_section_divider("PRINCIPAL"),
-                        self.create_menu_item("dashboard", "Dashboard", 0),
-                        self.create_menu_item("account_balance_wallet", "Resumen Financiero", 1),
-                        
-                        # Sección Transacciones
-                        self.create_section_divider("TRANSACCIONES"),
-                        self.create_menu_item("add_circle_outline", "Nueva Transacción", 2),
-                        self.create_menu_item("list_alt", "Historial", 3, badge_count=5),
-                        self.create_menu_item("swap_horiz", "Transferencias", 4),
-                        
-                        # Sección Presupuestos
-                        self.create_section_divider("PRESUPUESTOS"),
-                        self.create_menu_item("pie_chart", "Presupuestos", 5),
-                        self.create_menu_item("trending_up", "Metas de Ahorro", 6),
-                        self.create_menu_item("category", "Categorías", 7),
-                        
-                        # Sección Cuentas
-                        self.create_section_divider("CUENTAS"),
-                        self.create_menu_item("account_balance", "Cuentas Bancarias", 8),
-                        self.create_menu_item("credit_card", "Tarjetas de Crédito", 9, badge_count=2),
-                        self.create_menu_item("savings", "Inversiones", 10),
-                        
-                        # Sección Reportes
-                        self.create_section_divider("REPORTES"),
-                        self.create_menu_item("analytics", "Análisis", 11),
-                        self.create_menu_item("assessment", "Reportes", 12),
-                        self.create_menu_item("file_download", "Exportar Datos", 13),
-                        
-                        # Sección Configuración
-                        self.create_section_divider("CONFIGURACIÓN"),
-                        self.create_menu_item("person", "Perfil", 14),
-                        self.create_menu_item("notifications", "Notificaciones", 15, badge_count=3),
-                        self.create_menu_item("settings", "Configuración", 16),
-                        
-                        # Espacio adicional
-                        ft.Container(height=20),
-                        
-                        # Logout en la parte inferior
-                        ft.Divider(height=1, color="#E0E0E0"),
-                        self.create_menu_item("logout", "Cerrar Sesión", 17, on_click=lambda e: self.page.go("/login")),
-                        
-                    ], spacing=0),
-                    expand=True,
-                    padding=ft.padding.only(bottom=20)
-                )
-            ], 
-            scroll=ft.ScrollMode.AUTO,  # Scroll automático si el contenido es muy largo
-            expand=True,
-            spacing=0
-            ),
-            border=ft.border.only(right=ft.BorderSide(1, "#E0E0E0"))  # Borde derecho sutil
-        )
+# Importar el componente de sidebar reutilizable
+from sidebar import create_sidebar_menu
 
 
 class ResumenView:
@@ -326,7 +35,7 @@ class ResumenView:
     
     Attributes:
         page (ft.Page): Referencia a la página principal de Flet
-        sidebar_menu (LeftSidebarMenu): Instancia del menú lateral
+        sidebar_menu (LeftSidebarMenu): Instancia del menú lateral reutilizable
     """
     
     def __init__(self, page: ft.Page) -> None:
@@ -337,7 +46,38 @@ class ResumenView:
             page (ft.Page): La página principal de la aplicación Flet
         """
         self.page = page
-        self.sidebar_menu = LeftSidebarMenu(page)
+        
+        # Crear el menú lateral usando el componente reutilizable
+        self.sidebar_menu = create_sidebar_menu(
+            page=page,
+            selected_index=1,  # "Resumen Financiero" está seleccionado
+            user_data={
+                "name": "John Doe",
+                "email": "john.doe@email.com", 
+                "avatar_initials": "JD",
+                "avatar_color": "#2196F3"
+            },
+            navigation_callback=self.handle_navigation
+        )
+    
+    def handle_navigation(self, route: str, index: int) -> None:
+        """
+        Maneja la navegación desde el menú lateral.
+        
+        Args:
+            route (str): Ruta de destino
+            index (int): Índice del elemento seleccionado
+        """
+        print(f"Navegando desde resumen a: {route} (índice: {index})")
+        
+        # Aquí se puede implementar lógica específica de navegación
+        # Por ejemplo, guardar estado antes de navegar, validaciones, etc.
+        
+        # Navegación por defecto
+        if route == "/login":
+            self.page.go("/login")
+        elif route:
+            self.page.go(route)
     
     def create_header_bar(self) -> ft.Container:
         """
@@ -368,19 +108,19 @@ class ResumenView:
                         icon="refresh",
                         icon_size=20,
                         tooltip="Actualizar datos",
-                        on_click=lambda e: print("Refresh")  # TODO: Implementar actualización real
+                        on_click=lambda e: self.refresh_data()
                     ),
                     ft.IconButton(
                         icon="notifications",
                         icon_size=20,
                         tooltip="Notificaciones",
-                        on_click=lambda e: print("Notifications")  # TODO: Abrir panel de notificaciones
+                        on_click=lambda e: self.show_notifications()
                     ),
                     ft.IconButton(
                         icon="help_outline",
                         icon_size=20,
                         tooltip="Ayuda",
-                        on_click=lambda e: print("Help")  # TODO: Abrir sistema de ayuda
+                        on_click=lambda e: self.show_help()
                     ),
                 ], tight=True)
             ], alignment="spaceBetween"),
@@ -388,6 +128,21 @@ class ResumenView:
             padding=ft.padding.symmetric(horizontal=24, vertical=16),
             border=ft.border.only(bottom=ft.BorderSide(1, "#E0E0E0"))
         )
+    
+    def refresh_data(self) -> None:
+        """Actualiza los datos del dashboard."""
+        print("Actualizando datos del resumen...")
+        # TODO: Implementar actualización real de datos
+        
+    def show_notifications(self) -> None:
+        """Muestra el panel de notificaciones."""
+        print("Mostrando notificaciones...")
+        # TODO: Implementar panel de notificaciones
+        
+    def show_help(self) -> None:
+        """Muestra el sistema de ayuda."""
+        print("Mostrando ayuda...")
+        # TODO: Implementar sistema de ayuda
     
     def create_summary_cards(self) -> ft.Container:
         """
@@ -638,9 +393,6 @@ class ResumenView:
             
             ingresos.append(base_income)
             gastos.append(base_expense)
-
-        # Configuración del gráfico Plotly (código preparado pero no ejecutado en el fallback visual)
-        # TODO: Implementar integración real de Plotly cuando sea necesario
 
         # Representación visual simplificada
         return ft.Container(
@@ -1050,7 +802,7 @@ class ResumenView:
                         ], spacing=0, expand=True),
                         
                     ], 
-                    scroll=ft.ScrollMode.AUTO,  # Scroll automático para contenido largo
+                    scroll=ft.ScrollMode.AUTO,
                     spacing=0
                     ),
                     expand=True,
@@ -1062,22 +814,20 @@ class ResumenView:
 
     def build(self) -> ft.Container:
         """
-        Construye la vista completa del resumen financiero.
-        
-        Combina el menú lateral y el contenido principal en un layout horizontal.
+        Construye la vista completa del resumen financiero usando componentes reutilizables.
         
         Returns:
             ft.Container: Vista completa lista para ser añadida a la página
         """
         return ft.Container(
             content=ft.Row([
-                # Sidebar izquierdo
+                # Sidebar izquierdo usando componente reutilizable
                 self.sidebar_menu.create_sidebar(),
                 # Contenido principal
                 ft.Container(
                     content=self.create_main_content(),
                     expand=True,
-                    bgcolor="#F8F9FA"  # Fondo gris muy claro
+                    bgcolor="#F8F9FA"
                 )
             ], expand=True, spacing=0),
             expand=True
@@ -1085,20 +835,18 @@ class ResumenView:
 
 def resumen_view(page: ft.Page) -> ft.View:
     """
-    Función principal de la aplicación que retorna una vista.
-    
-    Configura y retorna la vista de resumen financiero.
+    Función principal que retorna la vista de resumen financiero.
     
     Args:
         page (ft.Page): La página principal proporcionada por Flet
         
     Returns:
-        ft.View: Vista del resumen financiero
+        ft.View: Vista del resumen financiero con componentes reutilizables
     """
     # Crear la vista
     resumen = ResumenView(page)
     
-    # Retornar ft.View en lugar de manipular la página directamente
+    # Retornar ft.View
     return ft.View(
         route="/resumen",
         controls=[
@@ -1107,7 +855,6 @@ def resumen_view(page: ft.Page) -> ft.View:
         padding=0,
         spacing=0
     )
-
 
 def main(page: ft.Page) -> None:
     """
@@ -1134,7 +881,6 @@ def main(page: ft.Page) -> None:
     
     # Crear y mostrar la vista
     page.add(resumen_view(page))
-
 
 if __name__ == "__main__":
     """

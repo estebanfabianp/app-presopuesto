@@ -13,8 +13,7 @@ Funcionalidades:
 
 Rutas disponibles:
     - /login: Vista de autenticación de usuario
-    - /resumen: Vista principal del resumen financiero
-
+    - /constantes: Vista principal de constantes financieras
 Dependencias:
     - flet: Framework de UI para Python
     - resumen: Módulo de vista de resumen financiero
@@ -28,6 +27,7 @@ Versión: 1.0
 import flet as ft
 from resumen import resumen_view
 from login import login_view
+from constante import constantes_view
 
 def main(page: ft.Page) -> None:
     """
@@ -98,6 +98,9 @@ def main(page: ft.Page) -> None:
         elif page.route == "/resumen":
             # Mostrar vista de resumen financiero
             page.views.append(resumen_view(page))
+        elif page.route == "/constantes":
+            # Mostrar vista de constantes financiero
+            page.views.append(constantes_view(page))
         else:
             # Manejo de rutas no encontradas (404)
             page.views.append(create_404_view(page))
