@@ -79,9 +79,15 @@ def main(page: ft.Page) -> None:
             None: Modifica el estado de la página directamente
             
         Rutas soportadas:
-            - "/login": Muestra la vista de autenticación
-            - "/resumen": Muestra la vista de resumen financiero
-            - Otras rutas: Muestra página de error 404
+            - "/login": Vista de autenticación
+            - "/dashboard": Vista principal del dashboard  
+            - "/resumen": Vista de resumen financiero
+            - "/constantes": Vista de constantes del sistema
+            - "/transacciones/nueva": Vista de nueva transacción
+            - "/transferencias": Vista de transferencias
+            - "/configuracion": Vista de configuración general
+            - "/perfil": Vista de perfil de usuario
+            - Otras rutas: Página de error 404
         
         Note:
             - Siempre limpia las vistas anteriores antes de agregar nuevas
@@ -95,12 +101,47 @@ def main(page: ft.Page) -> None:
         if page.route == "/login":
             # Mostrar vista de autenticación
             page.views.append(login_view(page))
+        elif page.route == "/dashboard":
+            try:
+                from dasvorad import dashboard_view
+                page.views.append(dashboard_view(page))
+            except ImportError:
+                print("Error: No se pudo importar dashboard_view")
+                page.views.append(create_404_view(page))
         elif page.route == "/resumen":
             # Mostrar vista de resumen financiero
             page.views.append(resumen_view(page))
         elif page.route == "/constantes":
             # Mostrar vista de constantes financiero
             page.views.append(constantes_view(page))
+        elif page.route == "/transacciones/nueva":
+            try:
+                from nueva_trasacion import nueva_transaccion_view
+                page.views.append(nueva_transaccion_view(page))
+            except ImportError:
+                print("Error: No se pudo importar nueva_transaccion_view")
+                page.views.append(create_404_view(page))
+        elif page.route == "/transferencias":
+            try:
+                from tranferencia import transferencias_view
+                page.views.append(transferencias_view(page))
+            except ImportError:
+                print("Error: No se pudo importar transferencias_view")
+                page.views.append(create_404_view(page))
+        elif page.route == "/configuracion":
+            try:
+                from configuracion import configuracion_view
+                page.views.append(configuracion_view(page))
+            except ImportError:
+                print("Error: No se pudo importar configuracion_view")
+                page.views.append(create_404_view(page))
+        elif page.route == "/perfil":
+            try:
+                from perfil import perfil_view
+                page.views.append(perfil_view(page))
+            except ImportError:
+                print("Error: No se pudo importar perfil_view")
+                page.views.append(create_404_view(page))
         else:
             # Manejo de rutas no encontradas (404)
             page.views.append(create_404_view(page))

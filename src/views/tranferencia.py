@@ -1,55 +1,47 @@
 """
-Módulo de Vista de Constantes Financieras
+Módulo de Vista de Transferencias
 
-Este módulo contiene la implementación de la vista de constantes financieras
-de la aplicación de presupuesto. Utiliza componentes reutilizables para mantener
-consistencia en la interfaz.
+Este módulo contiene la implementación de la vista de transferencias bancarias
+y entre cuentas de la aplicación de presupuesto.
 
 Clases:
-    ConstantesView: Vista principal que muestra las constantes financieras
+    TransferenciasView: Vista principal para gestionar transferencias
 
 Autor: [esteban patiño]  
 Fecha: [30-sep-2025]
-Versión: 2.0 - Refactorizado con componentes reutilizables
+Versión: 1.0 - Vista de transferencias bancarias
 """
 
 import flet as ft
 import datetime
-import random
 from typing import List, Optional, Dict, Any
 
-# Importar el componente de sidebar reutilizable
 from sidebar import create_sidebar_menu
 
 
-class ConstantesView:
+class TransferenciasView:
     """
-    Vista principal de constantes financieras.
+    Vista principal de transferencias.
     
-    Esta clase gestiona la vista de constantes del sistema que muestra:
-    - Barra de encabezado con breadcrumbs y acciones
-    - Tabla de constantes del sistema
-    - Configuraciones financieras
-    - Parámetros de cálculo
-    
-    Attributes:
-        page (ft.Page): Referencia a la página principal de Flet
-        sidebar_menu (LeftSidebarMenu): Instancia del menú lateral reutilizable
+    Esta clase gestiona la vista de transferencias que muestra:
+    - Formulario de nueva transferencia
+    - Historial de transferencias
+    - Cuentas disponibles
+    - Validaciones de saldo
     """
     
     def __init__(self, page: ft.Page) -> None:
         """
-        Inicializa la vista de constantes.
+        Inicializa la vista de transferencias.
         
         Args:
             page (ft.Page): La página principal de la aplicación Flet
         """
         self.page = page
         
-        # Crear el menú lateral usando el componente reutilizable
         self.sidebar_menu = create_sidebar_menu(
             page=page,
-            selected_index=16,  # "Configuración" está seleccionado para constantes
+            selected_index=4,  # "Transferencias" está seleccionado
             user_data={
                 "name": "John Doe",
                 "email": "john.doe@email.com", 
@@ -60,61 +52,40 @@ class ConstantesView:
         )
     
     def handle_navigation(self, route: str, index: int) -> None:
-        """
-        Maneja la navegación desde el menú lateral.
+        """Maneja la navegación desde el menú lateral."""
+        print(f"Navegando desde transferencias a: {route} (índice: {index})")
         
-        Args:
-            route (str): Ruta de destino
-            index (int): Índice del elemento seleccionado
-        """
-        print(f"Navegando desde constantes a: {route} (índice: {index})")
-        
-        # Navegación por defecto
         if route == "/login":
             self.page.go("/login")
         elif route:
             self.page.go(route)
     
     def create_header_bar(self) -> ft.Container:
-        """
-        Crea la barra de encabezado con breadcrumbs y acciones de usuario.
-        
-        Returns:
-            ft.Container: Contenedor con la barra de encabezado completa
-        """
+        """Crea la barra de encabezado de transferencias."""
         return ft.Container(
             content=ft.Row([
-                # Breadcrumbs de navegación
                 ft.Row([
                     ft.Icon("home", size=16, color="#666666"),
                     ft.Text(" / ", color="#666666"),
-                    ft.Text("Configuración", size=14, color="#666666"),
+                    ft.Text("Transacciones", size=14, color="#666666"),
                     ft.Text(" / ", color="#666666"),
-                    ft.Text("Constantes del Sistema", size=16, weight="bold", color="#333333"),
+                    ft.Text("Transferencias", size=16, weight="bold", color="#333333"),
                 ], tight=True),
                 
-                # Spacer para empujar los botones a la derecha
                 ft.Container(expand=True),
                 
-                # Acciones de usuario
                 ft.Row([
-                    ft.IconButton(
-                        icon="refresh",
-                        icon_size=20,
-                        tooltip="Actualizar datos",
-                        on_click=lambda e: self.refresh_data()
-                    ),
                     ft.IconButton(
                         icon="add_circle",
                         icon_size=20,
-                        tooltip="Agregar constante",
-                        on_click=lambda e: self.add_constant()
+                        tooltip="Nueva transferencia",
+                        on_click=lambda e: self.nueva_transferencia()
                     ),
                     ft.IconButton(
-                        icon="help_outline",
+                        icon="history",
                         icon_size=20,
-                        tooltip="Ayuda",
-                        on_click=lambda e: self.show_help()
+                        tooltip="Historial",
+                        on_click=lambda e: self.ver_historial()
                     ),
                 ], tight=True)
             ], alignment="spaceBetween"),
@@ -123,47 +94,32 @@ class ConstantesView:
             border=ft.border.only(bottom=ft.BorderSide(1, "#E0E0E0"))
         )
     
-    def refresh_data(self) -> None:
-        """Actualiza los datos de las constantes."""
-        print("Actualizando datos de constantes...")
-        # TODO: Implementar actualización real de datos
+    def nueva_transferencia(self) -> None:
+        """Abre el formulario para nueva transferencia."""
+        print("Nueva transferencia...")
         
-    def add_constant(self) -> None:
-        """Abre el diálogo para agregar una nueva constante."""
-        print("Agregando nueva constante...")
-        # TODO: Implementar diálogo de agregar constante
-        
-    def show_help(self) -> None:
-        """Muestra el sistema de ayuda."""
-        print("Mostrando ayuda...")
-        # TODO: Implementar sistema de ayuda
-
+    def ver_historial(self) -> None:
+        """Muestra el historial de transferencias."""
+        print("Ver historial...")
+    
     def create_main_content(self) -> ft.Container:
-        """
-        Crea el contenido principal de la vista de constantes.
-        
-        Returns:
-            ft.Container: Contenedor con todo el contenido principal
-        """
+        """Crea el contenido principal de transferencias."""
         return ft.Container(
             content=ft.Column([
-                # Header bar
                 self.create_header_bar(),
                 
-                # Contenido principal con scroll
                 ft.Container(
                     content=ft.Column([
-                        # Título y descripción
                         ft.Container(
                             content=ft.Column([
                                 ft.Text(
-                                    "Constantes del Sistema", 
+                                    "Transferencias", 
                                     size=28, 
                                     weight="bold",
                                     color="#333333"
                                 ),
                                 ft.Text(
-                                    f"Configuración de parámetros y constantes financieras - Última actualización: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}",
+                                    f"Gestión de transferencias entre cuentas - {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}",
                                     size=14,
                                     color="#666666"
                                 ),
@@ -171,17 +127,16 @@ class ConstantesView:
                             margin=ft.margin.only(bottom=32)
                         ),
                         
-                        # Tabla de constantes
                         ft.Container(
                             content=ft.Column([
                                 ft.Text(
-                                    "Tabla de Constantes",
+                                    "Formulario de Transferencia",
                                     size=20,
                                     weight="bold",
                                     color="#333333"
                                 ),
                                 ft.Text(
-                                    "Aquí se mostrarán las constantes del sistema",
+                                    "Realiza transferencias entre tus cuentas bancarias",
                                     size=14,
                                     color="#666666"
                                 ),
@@ -199,17 +154,10 @@ class ConstantesView:
         )
 
     def build(self) -> ft.Container:
-        """
-        Construye la vista completa de constantes usando componentes reutilizables.
-        
-        Returns:
-            ft.Container: Vista completa lista para ser añadida a la página
-        """
+        """Construye la vista completa de transferencias."""
         return ft.Container(
             content=ft.Row([
-                # Sidebar izquierdo usando componente reutilizable
                 self.sidebar_menu.create_sidebar(),
-                # Contenido principal
                 ft.Container(
                     content=self.create_main_content(),
                     expand=True,
@@ -219,25 +167,13 @@ class ConstantesView:
             expand=True
         )
 
-def constantes_view(page: ft.Page) -> ft.View:
-    """
-    Función principal que retorna la vista de constantes del sistema.
+def transferencias_view(page: ft.Page) -> ft.View:
+    """Función principal que retorna la vista de transferencias."""
+    vista = TransferenciasView(page)
     
-    Args:
-        page (ft.Page): La página principal proporcionada por Flet
-        
-    Returns:
-        ft.View: Vista de constantes con componentes reutilizables
-    """
-    # Crear la vista
-    constantes = ConstantesView(page)
-    
-    # Retornar ft.View
     return ft.View(
-        route="/constantes",
-        controls=[
-            constantes.build()
-        ],
+        route="/transferencias",
+        controls=[vista.build()],
         padding=0,
         spacing=0
     )
@@ -250,7 +186,7 @@ def main(page: ft.Page) -> None:
         page (ft.Page): La página principal proporcionada por Flet
     """
     # Configuración de la ventana
-    page.title = "App Presupuesto - Constantes del Sistema"
+    page.title = "App Presupuesto - Transferencias"
     page.window.width = 1400
     page.window.height = 900
     page.window.min_width = 1000
@@ -266,7 +202,7 @@ def main(page: ft.Page) -> None:
     page.theme = ft.Theme(font_family="Inter")
     
     # Crear y mostrar la vista
-    page.add(constantes_view(page))
+    page.add(transferencias_view(page))
 
 if __name__ == "__main__":
     """

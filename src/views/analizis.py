@@ -1,3 +1,4 @@
+
 """
 Módulo de Vista de Constantes Financieras
 
