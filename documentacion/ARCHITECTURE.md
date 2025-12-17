@@ -1,31 +1,32 @@
-# Arquitectura del Sistema: App Presupuesto - Desktop Application
+# Arquitectura del Sistema: App Presupuesto - Sistema Empresarial
+**v0.7.1 - Actualizado Diciembre 2024**
 
-El sistema utiliza una **arquitectura MVC optimizada** para aplicación de escritorio con Flet, MySQL y está diseñado para escalabilidad, seguridad y performance de alta calidad.
+El sistema utiliza una **arquitectura MVC empresarial optimizada** para aplicación de escritorio con Flet, MySQL 8.0+ y está diseñado para escalabilidad, seguridad, automatización y performance de alta calidad empresarial.
 
 ---
 
-## 🏗️ Arquitectura General - Desktop MVC Application
+## 🏗️ Arquitectura General - Enterprise Desktop MVC Application
 
-### Stack Tecnológico Actual (v0.7.1)
+### Stack Tecnológico Empresarial (v0.7.1)
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    DESKTOP APPLICATION ARCHITECTURE              │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────┐    ┌──────────────┐    ┌─────────────────┐    │
-│  │    VIEW     │ -> │ CONTROLLER   │ -> │     MODEL       │    │
-│  │  Flet GUI   │    │ Business     │    │   Data Layer    │    │
-│  │             │    │ Logic        │    │                 │    │
-│  └─────────────┘    └──────────────┘    └─────────────────┘    │
-│         │                    │                     │           │
-│  ┌─────────────┐    ┌──────────────┐    ┌─────────────────┐    │
-│  │   UTILS     │    │  SECURITY    │    │    DATABASE     │    │
-│  │ Helpers &   │    │ Auth & Hash  │    │ MySQL 8.0+      │    │
-│  │ Validators  │    │ Sessions     │    │ Connection Pool │    │
-│  └─────────────┘    └──────────────┘    └─────────────────┘    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    ENTERPRISE DESKTOP APPLICATION ARCHITECTURE              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────┐    ┌──────────────┐    ┌─────────────────┐    ┌─────────┐ │
+│  │    VIEW     │ -> │ CONTROLLER   │ -> │     MODEL       │ -> │ DATABASE│ │
+│  │  Flet GUI   │    │ Business     │    │   Data Layer    │    │ MySQL   │ │
+│  │ Components  │    │ Logic        │    │ Active Record   │    │ 8.0+    │ │
+│  └─────────────┘    └──────────────┘    └─────────────────┘    └─────────┘ │
+│         │                    │                     │                 │     │
+│  ┌─────────────┐    ┌──────────────┐    ┌─────────────────┐    ┌─────────┐ │
+│  │   UTILS     │    │  SECURITY    │    │ DB AUTOMATION   │    │ REPORTS │ │
+│  │ Helpers &   │    │ Auth & Hash  │    │ Triggers/Events │    │ & DOCS  │ │
+│  │ Validators  │    │ Sessions     │    │ Functions/Procs │    │ System  │ │
+│  └─────────────┘    └──────────────┘    └─────────────────┘    └─────────┘ │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Arquitectura MVC Detallada

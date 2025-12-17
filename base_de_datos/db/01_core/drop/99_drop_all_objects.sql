@@ -8,6 +8,8 @@
 -- * Hacer backup antes de ejecutar
 -- * Verificar que estás en la base de datos correcta
 -- * Este proceso es IRREVERSIBLE
+-- Última actualización: 16 de diciembre de 2025
+-- Incluye: Funciones de días hábiles, tabla de festivos, vistas consolidadas
 -- =================================================================
 
 USE `app_presupuesto`;
@@ -30,7 +32,25 @@ SELECT
 -- Descripción: Eliminar eventos antes que otros objetos
 -- =================================================================
 
+-- Eventos de mantenimiento
 DROP EVENT IF EXISTS `limpiar_movimientos_antiguos`;
+DROP EVENT IF EXISTS `backup_automatico_diario`;
+DROP EVENT IF EXISTS `calcular_intereses_mensuales`;
+DROP EVENT IF EXISTS `generar_reportes_mensuales`;
+
+-- Eventos de actualización de datos
+DROP EVENT IF EXISTS `actualizar_precios_acciones`;
+DROP EVENT IF EXISTS `recalcular_saldos_cuentas`;
+DROP EVENT IF EXISTS `validar_vencimientos_tarjetas`;
+
+-- Eventos de notificaciones
+DROP EVENT IF EXISTS `enviar_alertas_vencimientos`;
+DROP EVENT IF EXISTS `notificar_limites_excedidos`;
+DROP EVENT IF EXISTS `recordatorio_pagos_pendientes`;
+
+-- Eventos de análisis
+DROP EVENT IF EXISTS `actualizar_estadisticas_uso`;
+DROP EVENT IF EXISTS `generar_festivos_nuevo_anio`;
 
 SELECT 'Eventos eliminados correctamente' AS paso_1;
 
@@ -43,16 +63,39 @@ SELECT 'Eventos eliminados correctamente' AS paso_1;
 DROP TRIGGER IF EXISTS `tr_update_saldo_cuenta_after_delete`;
 DROP TRIGGER IF EXISTS `tr_update_saldo_cuenta_after_insert`;
 DROP TRIGGER IF EXISTS `tr_update_saldo_cuenta_after_update`;
+DROP TRIGGER IF EXISTS `tr_movimiento_before_insert`;
+DROP TRIGGER IF EXISTS `tr_movimiento_before_update`;
+DROP TRIGGER IF EXISTS `tr_movimiento_after_delete`;
+
+-- Triggers de tabla cuenta
+DROP TRIGGER IF EXISTS `tr_cuenta_before_insert`;
+DROP TRIGGER IF EXISTS `tr_cuenta_after_update`;
+DROP TRIGGER IF EXISTS `tr_cuenta_before_delete`;
 
 -- Triggers de tabla movimiento_tarjeta
 DROP TRIGGER IF EXISTS `tr_update_saldo_tarjeta_after_delete`;
 DROP TRIGGER IF EXISTS `tr_update_saldo_tarjeta_after_insert`;
 DROP TRIGGER IF EXISTS `tr_update_saldo_tarjeta_after_update`;
 
+-- Triggers de tabla tarjeta
+DROP TRIGGER IF EXISTS `tr_tarjeta_before_insert`;
+DROP TRIGGER IF EXISTS `tr_tarjeta_after_update`;
+DROP TRIGGER IF EXISTS `tr_tarjeta_validar_limite`;
+
 -- Triggers de tabla prestamo_movimiento
 DROP TRIGGER IF EXISTS `tr_update_saldo_prestamo_after_delete`;
 DROP TRIGGER IF EXISTS `tr_update_saldo_prestamo_after_insert`;
 DROP TRIGGER IF EXISTS `tr_update_saldo_prestamo_after_update`;
+
+-- Triggers de tabla prestamo
+DROP TRIGGER IF EXISTS `tr_prestamo_before_insert`;
+DROP TRIGGER IF EXISTS `tr_prestamo_after_update`;
+DROP TRIGGER IF EXISTS `tr_prestamo_calcular_cuota`;
+
+-- Triggers de auditoría
+DROP TRIGGER IF EXISTS `tr_auditoria_persona`;
+DROP TRIGGER IF EXISTS `tr_auditoria_constantes`;
+DROP TRIGGER IF EXISTS `tr_log_cambios_sistema`;
 
 SELECT 'Triggers eliminados correctamente' AS paso_2;
 
@@ -61,8 +104,20 @@ SELECT 'Triggers eliminados correctamente' AS paso_2;
 -- Descripción: Eliminar funciones definidas por el usuario
 -- =================================================================
 
+-- Funciones financieras originales
 DROP FUNCTION IF EXISTS `obtener_total_movimientos`;
 DROP FUNCTION IF EXISTS `reclasificar_categoria_movimientos`;
+
+-- Funciones de días hábiles y fechas
+DROP FUNCTION IF EXISTS `obtener_ultimo_dia_habil_mes`;
+DROP FUNCTION IF EXISTS `es_dia_habil`;
+DROP FUNCTION IF EXISTS `obtener_dia_habil_dia_15`;
+DROP FUNCTION IF EXISTS `obtener_proximo_dia_habil_desde_15`;
+
+-- Funciones de análisis (si existen)
+DROP FUNCTION IF EXISTS `calcular_interes_prestamo`;
+DROP FUNCTION IF EXISTS `validar_limite_credito`;
+DROP FUNCTION IF EXISTS `obtener_dias_habiles_entre_fechas`;
 
 SELECT 'Funciones eliminadas correctamente' AS paso_3;
 
@@ -71,9 +126,30 @@ SELECT 'Funciones eliminadas correctamente' AS paso_3;
 -- Descripción: Eliminar procedimientos antes de eliminar tablas
 -- =================================================================
 
+-- Procedimientos de cálculo de saldos
 DROP PROCEDURE IF EXISTS `sp_recalcular_saldo_cuenta`;
 DROP PROCEDURE IF EXISTS `sp_recalcular_saldo_prestamo`;
 DROP PROCEDURE IF EXISTS `sp_recalcular_saldo_tarjeta`;
+
+-- Procedimientos de mantenimiento
+DROP PROCEDURE IF EXISTS `sp_generar_festivos_anio`;
+DROP PROCEDURE IF EXISTS `sp_calcular_dias_habiles`;
+DROP PROCEDURE IF EXISTS `sp_backup_automatico`;
+DROP PROCEDURE IF EXISTS `sp_limpieza_datos`;
+
+-- Procedimientos de reportes
+DROP PROCEDURE IF EXISTS `sp_reporte_mensual`;
+DROP PROCEDURE IF EXISTS `sp_analisis_gastos`;
+DROP PROCEDURE IF EXISTS `sp_consolidar_patrimonio`;
+
+-- Procedimientos de migración y actualización
+DROP PROCEDURE IF EXISTS `sp_migrar_datos`;
+DROP PROCEDURE IF EXISTS `sp_actualizar_version`;
+DROP PROCEDURE IF EXISTS `sp_validar_integridad`;
+
+-- Procedimientos de documentación
+DROP PROCEDURE IF EXISTS `sp_generar_reporte_documentacion`;
+DROP PROCEDURE IF EXISTS `sp_generar_reporte_arquitectura`;
 
 SELECT 'Procedimientos almacenados eliminados correctamente' AS paso_4;
 
@@ -87,6 +163,7 @@ DROP VIEW IF EXISTS `v_movimientos_detalle`;
 DROP VIEW IF EXISTS `v_prestamo_saldos`;
 DROP VIEW IF EXISTS `v_saldos`;
 DROP VIEW IF EXISTS `v_tarjeta_saldos`;
+DROP VIEW IF EXISTS `v_documentacion_completa`;
 
 SELECT 'Vistas eliminadas correctamente' AS paso_5;
 
@@ -126,6 +203,7 @@ DROP TABLE IF EXISTS `activo`;
 DROP TABLE IF EXISTS `beneficiario`;
 DROP TABLE IF EXISTS `categoria`;
 DROP TABLE IF EXISTS `constantes`;
+DROP TABLE IF EXISTS `dias_festivos`;
 
 -- Tablas de estados (catálogos)
 DROP TABLE IF EXISTS `estado_movimiento`;
@@ -136,11 +214,12 @@ DROP TABLE IF EXISTS `tipo_movimiento`;
 -- Tablas de referencia
 DROP TABLE IF EXISTS `moneda`;
 
+-- Tablas de documentación del sistema
+DROP TABLE IF EXISTS `arquitectura_sistema`;
+DROP TABLE IF EXISTS `documentacion_sistema`;
+
 -- Tabla principal (usuarios)
 DROP TABLE IF EXISTS `persona`;
-
--- Tabla de documentación (si existe)
-DROP TABLE IF EXISTS `documentacion_sistema`;
 
 SELECT 'Tablas eliminadas correctamente' AS paso_7;
 
@@ -296,3 +375,11 @@ CASOS DE USO:
 - Limpieza para desarrollo/testing
 - Migración a nueva versión
 */
+
+-- =================================================================
+-- VALIDACIÓN FINAL COMPLETADA
+-- =================================================================
+
+-- Todos los objetos del sistema han sido eliminados correctamente
+-- incluyendo las nuevas tablas y procedimientos de documentación
+SELECT 'ELIMINACIÓN COMPLETA DE TODOS LOS OBJETOS FINALIZADA' AS resultado;

@@ -1,7 +1,8 @@
+import logging
+from typing import List, Dict, Any, Optional
 import mysql.connector
 from mysql.connector import Error, IntegrityError
-import logging
-from typing import List, Dict, Any, Optional, Union
+
 
 
 class DatabaseConnector:
@@ -16,7 +17,7 @@ class DatabaseConnector:
         conn: Objeto de conexión MySQL
     """
     
-    def __init__(self, host: str = "localhost", database: str = "app_presupuesto", 
+    def __init__(self, host: str = "localhost", database: str = "app_presupuesto",
                  user: str = "root", clave: str = "") -> None:
         """
         Inicializa la conexión a la base de datos MySQL.
@@ -48,7 +49,7 @@ class DatabaseConnector:
             if self.conn.is_connected():
                 logging.info("Conexión exitosa a la base de datos MySQL")
         except Error as e:
-            logging.error(f"Error conectando a MySQL: {e}")
+            logging.error("Error conectando a MySQL: %s", e)
             self.conn = None
 
     def _reconnect(self) -> None:
@@ -89,7 +90,7 @@ class DatabaseConnector:
                 cursor.execute(query, params or ())
                 return cursor.fetchall()
         except Error as e:
-            logging.error(f"Error en consulta SELECT: {e}")
+            logging.error("Error en consulta SELECT: %s", e)
             return []
 
     def execute_non_query(self, query: str, params: Optional[tuple] = None) -> Optional[int]:
@@ -124,10 +125,10 @@ class DatabaseConnector:
                 return cursor.lastrowid  # Retorna ID para INSERT, 0 para UPDATE/DELETE
         except IntegrityError as e:
             # Error específico para violaciones de integridad (ej: duplicados)
-            logging.warning(f"Error de integridad (ej: dato duplicado): {e}")
+            logging.warning("Error de integridad (ej: dato duplicado): %s", e)
             return None
         except Error as e:
-            logging.error(f"Error en consulta no-SELECT: {e}")
+            logging.error("Error en consulta no-SELECT: %s", e)
             return None
 
     def is_connected(self) -> bool:

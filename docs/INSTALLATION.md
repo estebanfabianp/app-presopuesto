@@ -1,6 +1,7 @@
-# 🚀 Guía de Instalación - App Presupuesto
+# 🚀 Guía de Instalación - App Presupuesto v0.7.1
+**Sistema Empresarial de Gestión Financiera**
 
-Guía completa de instalación y configuración para el sistema de gestión financiera personal con arquitectura MVC optimizada y funcionalidades de IA avanzadas.
+Guía completa de instalación y configuración para el sistema empresarial de gestión financiera personal con arquitectura MVC optimizada, base de datos automatizada y funcionalidades de IA avanzadas.
 
 ---
 
@@ -35,8 +36,10 @@ Guía completa de instalación y configuración para el sistema de gestión fina
 
 ### Software Requerido
 - **Git**: Para control de versiones
-- **MySQL**: 8.0+ o MariaDB 10.6+ con UTF-8
+- **MySQL**: 8.0+ (REQUERIDO - Funciones empresariales requieren MySQL 8.0+)
+- **MariaDB**: 10.6+ (Alternativo, pero algunas funciones pueden no estar disponibles)
 - **Editor de Código**: VS Code, PyCharm o similar (opcional)
+- **Windows**: Para usar scripts .bat de instalación automatizada (opcional)
 
 ---
 

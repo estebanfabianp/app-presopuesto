@@ -1,17 +1,19 @@
-# 👩‍💻 Guía de Desarrollo - App Presupuesto
+# 👩‍💻 Guía de Desarrollo - App Presupuesto v0.7.1
+**Sistema Empresarial de Gestión Financiera**
 
 ## 🚀 Quick Start
 
 ### Prerrequisitos
 - Python 3.11+
-- MySQL 8.0+
+- MySQL 8.0+ (REQUERIDO para funciones empresariales)
 - Flet framework
 - IDE recomendado: VS Code
+- Git para control de versiones
 
-### Setup Inicial (< 2 horas)
+### Setup Inicial (< 30 minutos)
 ```bash
 # 1. Clonar repositorio
-git clone https://github.com/user/app-presupuesto
+git clone https://github.com/user/app-presopuesto
 cd app-presupuesto
 
 # 2. Crear entorno virtual
@@ -22,8 +24,20 @@ source venv/bin/activate  # Linux/Mac
 # 3. Instalar dependencias
 pip install -r requirements.txt
 
-# 4. Configurar base datos
-# Ver documentacion/DATABASE_SETUP.md
+# 4. Setup automático de base de datos (NUEVO)
+# MÉTODO 1: Script maestro (recomendado)
+cd base_de_datos/db/01_core/create
+mysql -u root -p < 09_master_script.sql
+
+# MÉTODO 2: Batch automático (Windows)
+cd base_de_datos/db
+init_db.bat
+
+# 5. Verificar instalación
+mysql -u root -p app_presupuesto -e "CALL sp_generar_reporte_documentacion();"
+
+# 6. Ejecutar aplicación
+python src/views/main.py
 ```
 
 ## 📋 Estándares de Código

@@ -1,19 +1,20 @@
-# Modelo de Datos — App Presupuesto (Flet Desktop)
+# Modelo de Datos — App Presupuesto v0.7.1 (Sistema Empresarial)
+**Actualizado: Diciembre 2024**
 
-Este documento describe la estructura de datos, relaciones y automatización para la aplicación de escritorio desarrollada con Flet y MySQL.
+Este documento describe la estructura de datos empresarial, relaciones, automatización y sistema de documentación para la aplicación de escritorio desarrollada con Flet y MySQL 8.0+ con funcionalidades empresariales.
 
 ---
 
-## 📊 Diagrama Entidad-Relación
+## 📊 Diagrama Entidad-Relación Empresarial
 
-### Diagrama Conceptual Actualizado
+### Diagrama Conceptual Actualizado v0.7.1
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    APP PRESUPUESTO - MODELO DE DATOS v2.1      │
-├─────────────────────────────────────────────────────────────────┤
+┌─────────────────────────────────────────────────────────────────────────────┐
+│              APP PRESUPUESTO - MODELO DE DATOS EMPRESARIAL v0.7.1      │
+├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  👤 USUARIOS (Personas)                                        │
+│  👤 USUARIOS (Personas) ──── ⚙️ CONSTANTES (Configuración Global)  │
 │       │                                                         │
 │       ├── 🏦 CUENTAS ──── 💰 TRANSACCIONES ──── 📂 CATEGORÍAS │
 │       │      │                    │                   │        │
@@ -40,9 +41,30 @@ Este documento describe la estructura de datos, relaciones y automatización par
 │       │                                                         │
 │       ├── 📊 REPORTES_GENERADOS                               │
 │       │                                                         │
-│       └── 🔐 TOKENS_API (Integraciones)                       │
+│       ├── 🔐 TOKENS_API (Integraciones)                       │
+│       │                                                         │
+│       ├── 🇴🇩 DÍAS_FESTIVOS (Colombia - Automatización)           │
+│       │                                                         │
+│       ├── 📚 DOCUMENTACION_SISTEMA (Auto-documentación)        │
+│       │                                                         │
+│       └── 🏗️ ARQUITECTURA_SISTEMA (Componentes & Métricas)      │
 │                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+│  🔄 FUNCIONES EMPRESARIALES:                                   │
+│    • fn_dias_habiles() - Cálculo automático días laborales      │
+│    • fn_siguiente_dia_habil() - Automatización de fechas        │
+│    • fn_calcular_interes() - Cálculos financieros              │
+│                                                                 │
+│  ⚡ TRIGGERS AUTOMÁTICOS:                                       │
+│    • Actualización automática de saldos                       │
+│    • Validación de límites y restricciones                   │
+│    • Log automático de cambios críticos                        │
+│                                                                 │
+│  ⏰ EVENTOS PROGRAMADOS:                                        │
+│    • Mantenimiento automático diario                           │
+│    • Respaldo de seguridad semanal                             │
+│    • Limpieza de datos obsoletos                               │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---

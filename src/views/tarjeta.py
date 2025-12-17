@@ -275,5 +275,3 @@ if __name__ == "__main__":
     Inicia la aplicación Flet con la función main como target.
     """
     ft.app(target=main)
-
-

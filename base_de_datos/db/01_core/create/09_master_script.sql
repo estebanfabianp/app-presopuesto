@@ -111,7 +111,7 @@ VALUES (@install_id, 'ESTRUCTURA', 'INICIO_FASE', 'INICIADO',
 INSERT INTO install_log (install_id, phase, step, status, message) 
 VALUES (@install_id, 'ESTRUCTURA', 'DATABASE', 'INICIADO', 
         'Paso 1.1: Ejecutando 01_create_database.sql - Creando base de datos');
-SOURCE ../../../schemas/001_initial_tables.sql;
+SOURCE 01_create_database.sql;
 INSERT INTO install_log (install_id, phase, step, status, message) 
 VALUES (@install_id, 'ESTRUCTURA', 'DATABASE', 'EXITOSO', 
         'Base de datos app_presupuesto creada con configuración UTF-8');
@@ -119,8 +119,8 @@ VALUES (@install_id, 'ESTRUCTURA', 'DATABASE', 'EXITOSO',
 -- PASO 1.2: Crear tablas básicas
 INSERT INTO install_log (install_id, phase, step, status, message) 
 VALUES (@install_id, 'ESTRUCTURA', 'TABLES', 'INICIADO', 
-        'Paso 1.2: Ejecutando schemas - Creando tablas del sistema');
-SOURCE ../../../schemas/002_financial_tables.sql;
+        'Paso 1.2: Ejecutando 02_create_tables.sql - Creando tablas del sistema');
+SOURCE 02_create_tables.sql;
 
 -- Verificamos cuántas tablas se crearon exitosamente
 SELECT COUNT(*) INTO @table_count 
@@ -134,8 +134,8 @@ VALUES (@install_id, 'ESTRUCTURA', 'TABLES', 'EXITOSO',
 -- PASO 1.3: Crear índices y optimizaciones
 INSERT INTO install_log (install_id, phase, step, status, message) 
 VALUES (@install_id, 'ESTRUCTURA', 'INDEXES', 'INICIADO', 
-        'Paso 1.3: Ejecutando indexes.sql - Optimizando rendimiento');
-SOURCE ../../../schemas/indexes.sql;
+        'Paso 1.3: Ejecutando 03_create_indexes.sql - Optimizando rendimiento');
+SOURCE 03_create_indexes.sql;
 INSERT INTO install_log (install_id, phase, step, status, message) 
 VALUES (@install_id, 'ESTRUCTURA', 'INDEXES', 'EXITOSO', 
         'Índices creados - Sistema optimizado para consultas rápidas');
@@ -153,8 +153,8 @@ VALUES (@install_id, 'RELACIONES', 'INICIO_FASE', 'INICIADO',
 -- PASO 2.1: Crear restricciones y claves foráneas
 INSERT INTO install_log (install_id, phase, step, status, message) 
 VALUES (@install_id, 'RELACIONES', 'CONSTRAINTS', 'INICIADO', 
-        'Paso 2.1: Ejecutando constraints.sql - Garantizando integridad de datos');
-SOURCE ../../../schemas/constraints.sql;
+        'Paso 2.1: Ejecutando 04_foreign_keys.sql - Garantizando integridad de datos');
+SOURCE 04_foreign_keys.sql;
 INSERT INTO install_log (install_id, phase, step, status, message) 
 VALUES (@install_id, 'RELACIONES', 'CONSTRAINTS', 'EXITOSO', 
         'Restricciones establecidas - Integridad referencial activa');
@@ -162,8 +162,8 @@ VALUES (@install_id, 'RELACIONES', 'CONSTRAINTS', 'EXITOSO',
 -- PASO 2.2: Crear vistas del sistema
 INSERT INTO install_log (install_id, phase, step, status, message) 
 VALUES (@install_id, 'RELACIONES', 'VIEWS', 'INICIADO', 
-        'Paso 2.2: Ejecutando views.sql - Creando vistas del sistema');
-SOURCE ../../../schemas/views.sql;
+        'Paso 2.2: Ejecutando 11_create_view.sql - Creando vistas del sistema');
+SOURCE 11_create_view.sql;
 
 -- Verificamos cuántas vistas se crearon
 SELECT COUNT(*) INTO @view_count 
@@ -183,11 +183,25 @@ INSERT INTO install_log (install_id, phase, step, status, message)
 VALUES (@install_id, 'PROGRAMACION', 'INICIO_FASE', 'INICIADO', 
         'Fase 3: Instalando lógica de negocio - El cerebro del sistema');
 
--- PASO 3.1: Crear procedimientos almacenados
+-- PASO 3.1: Crear funciones del sistema
+INSERT INTO install_log (install_id, phase, step, status, message) 
+VALUES (@install_id, 'PROGRAMACION', 'FUNCTIONS', 'INICIADO', 
+        'Paso 3.1: Ejecutando 06_functions.sql - Instalando funciones de negocio');
+SOURCE 06_functions.sql;
+
+-- PASO 3.2: Crear procedimientos almacenados
 INSERT INTO install_log (install_id, phase, step, status, message) 
 VALUES (@install_id, 'PROGRAMACION', 'PROCEDURES', 'INICIADO', 
-        'Paso 3.1: Ejecutando procedures - Instalando procedimientos de negocio');
-SOURCE ../../../procedures/financial_procedures.sql;
+        'Paso 3.2: Ejecutando 05_stored_procedures.sql - Instalando procedimientos almacenados');
+SOURCE 05_stored_procedures.sql;
+
+-- Verificamos cuántas funciones se crearon
+SELECT COUNT(*) INTO @func_count 
+FROM information_schema.routines 
+WHERE routine_schema = 'app_presupuesto' AND routine_type = 'FUNCTION';
+INSERT INTO install_log (install_id, phase, step, status, message) 
+VALUES (@install_id, 'PROGRAMACION', 'FUNCTIONS', 'EXITOSO', 
+        CONCAT('Funciones creadas: ', @func_count, ' - Incluye funciones de días hábiles'));
 
 -- Verificamos cuántos procedimientos se crearon
 SELECT COUNT(*) INTO @proc_count 
@@ -195,14 +209,13 @@ FROM information_schema.routines
 WHERE routine_schema = 'app_presupuesto' AND routine_type = 'PROCEDURE';
 INSERT INTO install_log (install_id, phase, step, status, message) 
 VALUES (@install_id, 'PROGRAMACION', 'PROCEDURES', 'EXITOSO', 
-        CONCAT('Procedimientos creados: ', @proc_count, ' - Operaciones de negocio disponibles'));
+        CONCAT('Procedimientos creados: ', @proc_count, ' - Operaciones de negocio y documentación disponibles'));
 
--- PASO 3.2: Crear triggers automáticos
+-- PASO 3.3: Crear triggers automáticos
 INSERT INTO install_log (install_id, phase, step, status, message) 
 VALUES (@install_id, 'PROGRAMACION', 'TRIGGERS', 'INICIADO', 
-        'Paso 3.2: Ejecutando triggers - Instalando automatización de saldos');
-SOURCE ../../../triggers/audit_triggers.sql;
-SOURCE ../../../triggers/calculation_triggers.sql;
+        'Paso 3.3: Ejecutando 07_triggers.sql - Instalando automatización de saldos');
+SOURCE 07_triggers.sql;
 
 -- Verificamos cuántos triggers se crearon
 SELECT COUNT(*) INTO @trigger_count 
@@ -213,37 +226,50 @@ VALUES (@install_id, 'PROGRAMACION', 'TRIGGERS', 'EXITOSO',
         CONCAT('Triggers creados: ', @trigger_count, ' - Saldos se actualizan automáticamente'));
 
 -- =================================================================
--- FASE 4: MIGRACIÓN Y MANTENIMIENTO
--- Explicación: Ejecutamos migraciones y configuramos mantenimiento
+-- FASE 4: DOCUMENTACIÓN Y CONFIGURACIÓN AVANZADA
+-- Explicación: Agregamos comentarios, documentación y configuración
 -- =================================================================
 
 SET @phase_start = NOW();
 INSERT INTO install_log (install_id, phase, step, status, message) 
-VALUES (@install_id, 'MIGRACION', 'INICIO_FASE', 'INICIADO', 
-        'Fase 4: Ejecutando migraciones - Aplicando cambios de esquema');
+VALUES (@install_id, 'CONFIGURACION', 'INICIO_FASE', 'INICIADO', 
+        'Fase 4: Configurando documentación y sistemas avanzados');
 
--- PASO 4.1: Ejecutar migraciones en orden
+-- PASO 4.1: Agregar comentarios de documentación
 INSERT INTO install_log (install_id, phase, step, status, message) 
-VALUES (@install_id, 'MIGRACION', 'MIGRATIONS', 'INICIADO', 
-        'Paso 4.1: Ejecutando migraciones - Actualizando esquema');
+VALUES (@install_id, 'CONFIGURACION', 'COMMENTS', 'INICIADO', 
+        'Paso 4.1: Ejecutando 10_add_comments.sql - Agregando documentación');
+SOURCE 10_add_comments.sql;
+INSERT INTO install_log (install_id, phase, step, status, message) 
+VALUES (@install_id, 'CONFIGURACION', 'COMMENTS', 'EXITOSO', 
+        'Comentarios agregados - Sistema completamente documentado');
 
--- Ejecutar migraciones existentes en orden secuencial
-SOURCE ../../../migrations/001_create_base_tables.sql;
-SOURCE ../../../migrations/002_add_ai_features.sql;
-SOURCE ../../../migrations/003_optimize_indexes.sql;
+-- PASO 4.2: Crear sistema de documentación
+INSERT INTO install_log (install_id, phase, step, status, message) 
+VALUES (@install_id, 'CONFIGURACION', 'DOC_TABLES', 'INICIADO', 
+        'Paso 4.2: Ejecutando 13_create_documentation_tables.sql - Sistema de documentación');
+SOURCE 13_create_documentation_tables.sql;
+INSERT INTO install_log (install_id, phase, step, status, message) 
+VALUES (@install_id, 'CONFIGURACION', 'DOC_TABLES', 'EXITOSO', 
+        'Tablas de documentación creadas');
 
+-- PASO 4.3: Crear procedimientos de documentación
 INSERT INTO install_log (install_id, phase, step, status, message) 
-VALUES (@install_id, 'MIGRACION', 'MIGRATIONS', 'EXITOSO', 
-        'Migraciones aplicadas - Esquema actualizado a la versión más reciente');
+VALUES (@install_id, 'CONFIGURACION', 'DOC_PROCEDURES', 'INICIADO', 
+        'Paso 4.3: Ejecutando 14_documentation_procedures.sql - Procedimientos de reportes');
+SOURCE 14_documentation_procedures.sql;
+INSERT INTO install_log (install_id, phase, step, status, message) 
+VALUES (@install_id, 'CONFIGURACION', 'DOC_PROCEDURES', 'EXITOSO', 
+        'Procedimientos de documentación configurados');
 
--- PASO 4.2: Configurar procedimientos de mantenimiento
+-- PASO 4.4: Crear eventos programados (opcional)
 INSERT INTO install_log (install_id, phase, step, status, message) 
-VALUES (@install_id, 'MIGRACION', 'MAINTENANCE', 'INICIADO', 
-        'Paso 4.2: Configurando mantenimiento automático');
-SOURCE ../../../procedures/maintenance_procedures.sql;
+VALUES (@install_id, 'CONFIGURACION', 'EVENTS', 'INICIADO', 
+        'Paso 4.4: Ejecutando 08_events_jobs.sql - Eventos programados');
+SOURCE 08_events_jobs.sql;
 INSERT INTO install_log (install_id, phase, step, status, message) 
-VALUES (@install_id, 'MIGRACION', 'MAINTENANCE', 'EXITOSO', 
-        'Procedimientos de mantenimiento configurados');
+VALUES (@install_id, 'CONFIGURACION', 'EVENTS', 'EXITOSO', 
+        'Eventos de mantenimiento configurados');
 
 -- =================================================================
 -- FASE 5: DATOS INICIALES Y CONFIGURACIÓN
@@ -255,23 +281,22 @@ INSERT INTO install_log (install_id, phase, step, status, message)
 VALUES (@install_id, 'DATOS', 'INICIO_FASE', 'INICIADO', 
         'Fase 5: Cargando datos iniciales - Preparando sistema para uso');
 
--- PASO 5.1: Cargar datos de ejemplo y configuración
+-- PASO 5.1: Cargar datos iniciales y configuración
 INSERT INTO install_log (install_id, phase, step, status, message) 
 VALUES (@install_id, 'DATOS', 'SEED_DATA', 'INICIADO', 
-        'Paso 5.1: Cargando datos de ejemplo y configuración');
-
--- Cargar datos desde los archivos seeds existentes
-SOURCE ../../../seeds/demo_users.sql;
-SOURCE ../../../seeds/sample_data.sql;
-SOURCE ../../../seeds/categories.sql;
+        'Paso 5.1: Ejecutando ../seed/insert_initial_data.sql - Cargando datos del sistema');
+SOURCE ../seed/insert_initial_data.sql;
 
 -- Verificamos que los datos se cargaron correctamente
-SELECT COUNT(*) INTO @user_count FROM app_presupuesto.persona WHERE activo = 1;
+SELECT COUNT(*) INTO @user_count FROM app_presupuesto.persona WHERE estado = 1;
 SELECT COUNT(*) INTO @cat_count FROM app_presupuesto.categoria;
+SELECT COUNT(*) INTO @const_count FROM app_presupuesto.constantes;
+SELECT COUNT(*) INTO @festivo_count FROM app_presupuesto.dias_festivos;
 
 INSERT INTO install_log (install_id, phase, step, status, message) 
 VALUES (@install_id, 'DATOS', 'SEED_DATA', 'EXITOSO', 
-        CONCAT('Datos cargados - Usuarios: ', IFNULL(@user_count, 0), ', Categorías: ', IFNULL(@cat_count, 0)));
+        CONCAT('Datos cargados - Usuarios: ', IFNULL(@user_count, 0), ', Categorías: ', IFNULL(@cat_count, 0), 
+               ', Constantes: ', IFNULL(@const_count, 0), ', Días festivos: ', IFNULL(@festivo_count, 0)));
 
 -- =================================================================
 -- FASE 6: SISTEMAS EMPRESARIALES OPCIONALES
@@ -321,7 +346,7 @@ VALUES (@install_id, 'VALIDACION', 'INTEGRITY_CHECK', 'INICIADO',
 -- Verificar que las tablas principales existen
 SELECT COUNT(*) INTO @critical_tables FROM information_schema.tables 
 WHERE table_schema = 'app_presupuesto' 
-AND table_name IN ('persona', 'cuenta', 'movimiento', 'categoria', 'presupuesto');
+AND table_name IN ('persona', 'cuenta', 'movimiento', 'categoria', 'presupuesto', 'constantes', 'dias_festivos', 'documentacion_sistema');
 
 IF @critical_tables < 5 THEN
     INSERT INTO install_log (install_id, phase, step, status, message) 
@@ -382,11 +407,14 @@ SELECT
 SELECT 
     '📊 COMPONENTES INSTALADOS' AS seccion,
     IFNULL(@table_count, 0) AS tablas_creadas,
+    IFNULL(@func_count, 0) AS funciones_creadas,
     IFNULL(@proc_count, 0) AS procedimientos_creados,
     IFNULL(@trigger_count, 0) AS triggers_creados,
     IFNULL(@view_count, 0) AS vistas_creadas,
-    IFNULL(@user_count, 0) AS usuarios_demo,
+    IFNULL(@user_count, 0) AS usuarios_sistema,
     IFNULL(@cat_count, 0) AS categorias_base,
+    IFNULL(@const_count, 0) AS constantes_configuracion,
+    IFNULL(@festivo_count, 0) AS dias_festivos_colombia,
     @critical_tables AS tablas_criticas_ok;
 
 -- REPORTE 3: Log detallado por fases
@@ -424,10 +452,11 @@ SELECT
         ELSE 
             '❌ Revisar errores arriba y ejecutar nuevamente'
     END AS paso_1,
-    '⚙️ Ajustar configuraciones en base a necesidades específicas' AS paso_2,
-    '🔒 Configurar permisos de usuario según roles requeridos' AS paso_3,
-    '📊 Ejecutar src/views/main.py para iniciar la aplicación' AS paso_4,
-    '📚 Revisar documentación en README.md para uso completo' AS paso_5;
+    '⚙️ Ajustar configuraciones en tabla constantes según necesidades' AS paso_2,
+    '🔒 Configurar permisos de usuario y crear cuenta inicial' AS paso_3,
+    '📄 Ejecutar: python src/views/main.py para iniciar aplicación' AS paso_4,
+    '📚 Usar CALL sp_generar_reporte_documentacion() para ayuda' AS paso_5,
+    '🔍 Revisar documentación en README.md para uso completo' AS paso_6;
 
 -- REPORTE 6: Información técnica del sistema
 SELECT 
@@ -444,22 +473,27 @@ SELECT
 -- =================================================================
 
 SELECT 
-    '🎓 MEJORES PRÁCTICAS IMPLEMENTADAS' AS titulo,
+    '🎓 MEJORES PRÁCTICAS IMPLEMENTADAS EN ESTE PROYECTO' AS titulo,
     'Transacciones atómicas - Todo se confirma o todo se revierte' AS practica_1,
     'Logging detallado - Cada paso documentado para debugging' AS practica_2,
     'Verificaciones previas - Validar prerrequisitos antes de instalar' AS practica_3,
-    'Orden de instalación - Estructura → Relaciones → Lógica → Datos' AS practica_4,
+    'Orden lógico - Tablas → FK → Índices → Funciones → Triggers → Vistas' AS practica_4,
     'Manejo de errores - Rollback automático ante cualquier falla' AS practica_5,
-    'Reportes completos - Información detallada del resultado' AS practica_6,
-    'Modularidad - Cada componente en archivos separados' AS practica_7,
-    'Documentación - Comentarios explicativos para aprendizaje' AS practica_8;
+    'Sistema de documentación - Reportes automáticos de arquitectura' AS practica_6,
+    'Modularidad - Cada componente en archivos numerados secuencialmente' AS practica_7,
+    'Comentarios completos - Documentación embebida en base de datos' AS practica_8,
+    'Funciones de negocio - Días hábiles, cálculos financieros automatizados' AS practica_9,
+    'Sistema de eventos - Mantenimiento automático programado' AS practica_10;
 
 -- =================================================================
 -- ✅ INSTALACIÓN FINALIZADA
 -- Sistema app-presupuesto v0.7.1 - Listo para desarrollo y uso
+-- Incluye: Sistema completo de documentación, funciones de días hábiles,
+--          eventos programados, triggers automatizados y vistas consolidadas
 -- 
 -- Para usar el sistema:
 -- 1. python src/views/main.py (aplicación principal)
--- 2. python src/views/login.py (sistema de autenticación)
--- 3. Revisar documentación en README.md
+-- 2. CALL sp_generar_reporte_documentacion(); (ayuda del sistema)
+-- 3. Revisar tabla constantes para configuración
+-- 4. Consultar README.md para documentación completa
 -- =================================================================

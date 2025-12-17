@@ -8,7 +8,7 @@ consistencia en la interfaz.
 Clases:
     ResumenView: Vista principal que muestra el resumen financiero completo
 
-Autor: [esteban patiño]  
+Autor: [esteban patiño]
 Fecha: [30-sep-2025]
 Versión: 2.0 - Refactorizado con componentes reutilizables
 """
@@ -25,68 +25,68 @@ from sidebar import create_sidebar_menu
 class ResumenView:
     """
     Vista principal del resumen financiero.
-    
+
     Esta clase gestiona la vista principal de la aplicación que muestra:
     - Barra de encabezado con breadcrumbs y acciones
     - Tarjetas de resumen financiero
     - Tablas de datos financieros
     - Gráfico de ingresos vs gastos
     - Layout de dos columnas responsivo
-    
+
     Attributes:
         page (ft.Page): Referencia a la página principal de Flet
         sidebar_menu (LeftSidebarMenu): Instancia del menú lateral reutilizable
     """
-    
+
     def __init__(self, page: ft.Page) -> None:
         """
         Inicializa la vista de resumen.
-        
+
         Args:
             page (ft.Page): La página principal de la aplicación Flet
         """
         self.page = page
-        
+
         # Crear el menú lateral usando el componente reutilizable
         self.sidebar_menu = create_sidebar_menu(
             page=page,
             selected_index=1,  # "Resumen Financiero" está seleccionado
             user_data={
                 "name": "John Doe",
-                "email": "john.doe@email.com", 
+                "email": "john.doe@email.com",
                 "avatar_initials": "JD",
                 "avatar_color": "#2196F3"
             },
             navigation_callback=self.handle_navigation
         )
-    
+
     def handle_navigation(self, route: str, index: int) -> None:
         """
         Maneja la navegación desde el menú lateral.
-        
+
         Args:
             route (str): Ruta de destino
             index (int): Índice del elemento seleccionado
         """
         print(f"Navegando desde resumen a: {route} (índice: {index})")
-        
+
         # Aquí se puede implementar lógica específica de navegación
         # Por ejemplo, guardar estado antes de navegar, validaciones, etc.
-        
+
         # Navegación por defecto
         if route == "/login":
             self.page.go("/login")
         elif route:
             self.page.go(route)
-    
+
     def create_header_bar(self) -> ft.Container:
         """
         Crea la barra de encabezado con breadcrumbs y acciones de usuario.
-        
+
         Incluye:
         - Breadcrumbs de navegación
         - Botones de acción (actualizar, notificaciones, ayuda)
-        
+
         Returns:
             ft.Container: Contenedor con la barra de encabezado completa
         """
@@ -98,10 +98,10 @@ class ResumenView:
                     ft.Text(" / ", color="#666666"),
                     ft.Text("Resumen Financiero", size=16, weight="bold", color="#333333"),
                 ], tight=True),
-                
+
                 # Spacer para empujar los botones a la derecha
                 ft.Container(expand=True),
-                
+
                 # Acciones de usuario
                 ft.Row([
                     ft.IconButton(
@@ -128,32 +128,32 @@ class ResumenView:
             padding=ft.padding.symmetric(horizontal=24, vertical=16),
             border=ft.border.only(bottom=ft.BorderSide(1, "#E0E0E0"))
         )
-    
+
     def refresh_data(self) -> None:
         """Actualiza los datos del dashboard."""
         print("Actualizando datos del resumen...")
         # TODO: Implementar actualización real de datos
-        
+
     def show_notifications(self) -> None:
         """Muestra el panel de notificaciones."""
         print("Mostrando notificaciones...")
         # TODO: Implementar panel de notificaciones
-        
+
     def show_help(self) -> None:
         """Muestra el sistema de ayuda."""
         print("Mostrando ayuda...")
         # TODO: Implementar sistema de ayuda
-    
+
     def create_summary_cards(self) -> ft.Container:
         """
         Crea las tarjetas de resumen financiero mejoradas.
-        
+
         Cada tarjeta incluye:
         - Ícono representativo
         - Título del tipo de cuenta
         - Monto principal
         - Indicador de cambio porcentual
-        
+
         Returns:
             ft.Container: Contenedor con todas las tarjetas de resumen
         """
@@ -196,7 +196,7 @@ class ResumenView:
                 "change_positive": True
             },
         ]
-        
+
         cards: List[ft.Container] = []
         for data in cards_data:
             card = ft.Container(
@@ -204,8 +204,8 @@ class ResumenView:
                     # Fila superior con ícono e indicador de cambio
                     ft.Row([
                         ft.Icon(
-                            data["icon"], 
-                            size=24, 
+                            data["icon"],
+                            size=24,
                             color=data["color"]
                         ),
                         ft.Container(expand=True),  # Spacer
@@ -224,19 +224,19 @@ class ResumenView:
                     ]),
                     # Título de la tarjeta
                     ft.Text(
-                        data["title"], 
-                        size=14, 
+                        data["title"],
+                        size=14,
                         weight="w500",
                         color="#666666"
                     ),
                     # Monto principal
                     ft.Text(
-                        data["amount"], 
-                        size=20, 
-                        weight="bold", 
+                        data["amount"],
+                        size=20,
+                        weight="bold",
                         color="#333333"
                     ),
-                ], 
+                ],
                 spacing=8,
                 alignment="start"
                 ),
@@ -254,28 +254,28 @@ class ResumenView:
                 )
             )
             cards.append(card)
-        
+
         return ft.Container(
             content=ft.Row(cards, spacing=0, expand=False, alignment="center"),
             margin=ft.margin.only(bottom=32)
         )
-    
+
     def create_data_table(
-        self, 
-        title: str, 
-        columns: List[ft.DataColumn], 
-        rows: List[ft.DataRow], 
+        self,
+        title: str,
+        columns: List[ft.DataColumn],
+        rows: List[ft.DataRow],
         icon: Optional[str] = None
     ) -> ft.Container:
         """
         Crea una tabla de datos mejorada con header personalizado.
-        
+
         Args:
             title (str): Título de la tabla
             columns (List[ft.DataColumn]): Lista de columnas de la tabla
             rows (List[ft.DataRow]): Lista de filas de datos
             icon (Optional[str]): Ícono opcional para el header
-            
+
         Returns:
             ft.Container: Contenedor con la tabla completa
         """
@@ -296,7 +296,7 @@ class ResumenView:
                     ]),
                     margin=ft.margin.only(bottom=16)
                 ),
-                
+
                 # Tabla con estilo profesional
                 ft.Container(
                     content=ft.DataTable(
@@ -324,14 +324,14 @@ class ResumenView:
             ]),
             margin=ft.margin.only(bottom=32)
         )
-        
+
     def create_income_vs_expense_chart(self) -> ft.Container:
         """
         Crea un gráfico visual de ingresos vs gastos de los últimos 30 días.
-        
+
         Si Plotly está disponible, genera datos realistas y configura un gráfico completo.
         Si no está disponible, muestra una representación visual simplificada.
-        
+
         Returns:
             ft.Container: Contenedor con el gráfico o su representación visual
         """
@@ -355,7 +355,7 @@ class ResumenView:
                         color="#666666",
                         text_align="center"
                     ),
-                ], 
+                ],
                 horizontal_alignment="center",
                 spacing=8
                 ),
@@ -377,20 +377,20 @@ class ResumenView:
         dates: List[str] = []
         ingresos: List[int] = []
         gastos: List[int] = []
-        
+
         for i in range(29, -1, -1):
             date = today - datetime.timedelta(days=i)
             dates.append(date.strftime("%d/%m"))
-            
+
             # Generar datos más realistas con variabilidad
             base_income = random.randint(200, 500)
             base_expense = random.randint(150, 450)
-            
+
             # Añadir variabilidad de fin de semana (más gastos, menos ingresos)
             if date.weekday() >= 5:  # Sábado y domingo
                 base_expense = int(base_expense * 1.3)
                 base_income = int(base_income * 0.7)
-            
+
             ingresos.append(base_income)
             gastos.append(base_expense)
 
@@ -413,7 +413,7 @@ class ResumenView:
                     ]),
                     margin=ft.margin.only(bottom=16)
                 ),
-                
+
                 # Gráfico simplificado usando contenedores
                 ft.Container(
                     content=ft.Column([
@@ -422,7 +422,7 @@ class ResumenView:
                             content=ft.Column([
                                 ft.Text("Ingresos vs Gastos", size=16, weight="bold", color="#333333"),
                                 ft.Container(height=10),
-                                
+
                                 # Barras de ejemplo para simular el gráfico
                                 ft.Row([
                                     ft.Container(
@@ -443,9 +443,9 @@ class ResumenView:
                                         alignment=ft.alignment.center
                                     ),
                                 ], alignment="center"),
-                                
+
                                 ft.Container(height=20),
-                                
+
                                 # Estadísticas calculadas
                                 ft.Column([
                                     ft.Row([
@@ -461,9 +461,9 @@ class ResumenView:
                                         ft.Text("Balance promedio: +$40/día", size=12, color="#333333")
                                     ], tight=True),
                                 ], spacing=5),
-                                
+
                                 ft.Container(height=15),
-                                
+
                                 # Indicador de tendencia
                                 ft.Container(
                                     content=ft.Row([
@@ -474,7 +474,7 @@ class ResumenView:
                                     border_radius=6,
                                     padding=8
                                 )
-                            ], 
+                            ],
                             horizontal_alignment="center",
                             spacing=0
                             ),
@@ -500,7 +500,7 @@ class ResumenView:
     def create_main_content(self) -> ft.Container:
         """
         Crea el contenido principal de la vista de resumen.
-        
+
         Estructura del contenido:
         1. Header bar con breadcrumbs y acciones
         2. Título y fecha de última actualización
@@ -508,7 +508,7 @@ class ResumenView:
         4. Layout de dos columnas:
            - Izquierda: Tablas de datos financieros
            - Derecha: Gráfico y tablas de resumen
-        
+
         Returns:
             ft.Container: Contenedor con todo el contenido principal
         """
@@ -516,7 +516,7 @@ class ResumenView:
             content=ft.Column([
                 # Header bar
                 self.create_header_bar(),
-                
+
                 # Contenido principal con scroll
                 ft.Container(
                     content=ft.Column([
@@ -524,8 +524,8 @@ class ResumenView:
                         ft.Container(
                             content=ft.Column([
                                 ft.Text(
-                                    "Resumen Financiero", 
-                                    size=28, 
+                                    "Resumen Financiero",
+                                    size=28,
                                     weight="bold",
                                     color="#333333"
                                 ),
@@ -537,10 +537,10 @@ class ResumenView:
                             ], spacing=4),
                             margin=ft.margin.only(bottom=32)
                         ),
-                        
+
                         # Tarjetas de resumen
                         self.create_summary_cards(),
-                        
+
                         # Layout principal con dos columnas
                         ft.Row([
                             # Columna izquierda - Tablas principales (60% del ancho)
@@ -572,7 +572,7 @@ class ResumenView:
                                         ],
                                         icon="account_balance"
                                     ),
-                                    
+
                                     # Tabla de Tarjetas de Crédito
                                     self.create_data_table(
                                         "Tarjetas de Crédito",
@@ -599,7 +599,7 @@ class ResumenView:
                                         ],
                                         icon="credit_card"
                                     ),
-                                    
+
                                     # Tabla de Préstamos
                                     self.create_data_table(
                                         "Préstamos",
@@ -626,7 +626,7 @@ class ResumenView:
                                         ],
                                         icon="trending_down"
                                     ),
-                                    
+
                                     # Tabla de Fondos de Inversión
                                     self.create_data_table(
                                         "Fondos de Inversión",
@@ -652,9 +652,9 @@ class ResumenView:
                                             ),
                                         ],
                                         icon="trending_up"
-                                    ),   
-                                    
-                                    # Tabla de Deuda Financiada    
+                                    ),
+
+                                    # Tabla de Deuda Financiada
                                     self.create_data_table(
                                         "Deuda Financiada",
                                         [
@@ -702,14 +702,14 @@ class ResumenView:
                                 expand=2,
                                 margin=ft.margin.only(right=24)
                             ),
-                            
+
                             # Columna derecha - Gráfico y tablas de resumen (40% del ancho)
                             ft.Container(
                                 content=ft.Column([
                                     # Gráfico de ingresos vs gastos
                                     self.create_income_vs_expense_chart(),
-                                    
-                                    # Tabla de Próxima Transacción 
+
+                                    # Tabla de Próxima Transacción
                                     self.create_data_table(
                                         "Próxima Transacción",
                                         [
@@ -734,8 +734,8 @@ class ResumenView:
                                             ),
                                         ],
                                         icon="schedule"
-                                    ),   
-                                    
+                                    ),
+
                                     # Top Categorías del Mes
                                     self.create_data_table(
                                         "Top Categorías del Mes",
@@ -758,8 +758,8 @@ class ResumenView:
                                             ),
                                         ],
                                         icon="category"
-                                    ),   
-                                    
+                                    ),
+
                                     # Deuda Programada
                                     self.create_data_table(
                                         "Deuda Programada",
@@ -774,9 +774,9 @@ class ResumenView:
                                                     ft.DataCell(ft.Text("Banco")),
                                                     ft.DataCell(ft.Text("$5,000.00", weight="w500")),
                                                     ft.DataCell(ft.IconButton(
-                                                        icon="play_circle", 
-                                                        icon_color="#4CAF50", 
-                                                        tooltip="Iniciar pago", 
+                                                        icon="play_circle",
+                                                        icon_color="#4CAF50",
+                                                        tooltip="Iniciar pago",
                                                         on_click=lambda e: print("Pagar banco")
                                                     )),
                                                 ]
@@ -786,22 +786,22 @@ class ResumenView:
                                                     ft.DataCell(ft.Text("Luz")),
                                                     ft.DataCell(ft.Text("$3,000.00", weight="w500")),
                                                     ft.DataCell(ft.IconButton(
-                                                        icon="pause_circle", 
-                                                        icon_color="#FF9800", 
-                                                        tooltip="Pausar pago", 
+                                                        icon="pause_circle",
+                                                        icon_color="#FF9800",
+                                                        tooltip="Pausar pago",
                                                         on_click=lambda e: print("Pausar luz")
                                                     )),
                                                 ]
                                             ),
                                         ],
                                         icon="payment"
-                                    ),   
+                                    ),
                                 ], spacing=0),
                                 expand=1
                             ),
                         ], spacing=0, expand=True),
-                        
-                    ], 
+
+                    ],
                     scroll=ft.ScrollMode.AUTO,
                     spacing=0
                     ),
@@ -815,7 +815,7 @@ class ResumenView:
     def build(self) -> ft.Container:
         """
         Construye la vista completa del resumen financiero usando componentes reutilizables.
-        
+
         Returns:
             ft.Container: Vista completa lista para ser añadida a la página
         """
@@ -836,16 +836,16 @@ class ResumenView:
 def resumen_view(page: ft.Page) -> ft.View:
     """
     Función principal que retorna la vista de resumen financiero.
-    
+
     Args:
         page (ft.Page): La página principal proporcionada por Flet
-        
+
     Returns:
         ft.View: Vista del resumen financiero con componentes reutilizables
     """
     # Crear la vista
     resumen = ResumenView(page)
-    
+
     # Retornar ft.View
     return ft.View(
         route="/resumen",
@@ -859,7 +859,7 @@ def resumen_view(page: ft.Page) -> ft.View:
 def main(page: ft.Page) -> None:
     """
     Función principal para ejecutar la aplicación de forma independiente.
-    
+
     Args:
         page (ft.Page): La página principal proporcionada por Flet
     """
@@ -871,23 +871,21 @@ def main(page: ft.Page) -> None:
     page.window.min_height = 700
     page.padding = 0
     page.spacing = 0
-    
+
     # Configuración del tema
     page.theme_mode = ft.ThemeMode.LIGHT
     page.fonts = {
         "Inter": "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
     }
     page.theme = ft.Theme(font_family="Inter")
-    
+
     # Crear y mostrar la vista
     page.add(resumen_view(page))
 
 if __name__ == "__main__":
     """
     Punto de entrada de la aplicación.
-    
+
     Inicia la aplicación Flet con la función main como target.
     """
     ft.app(target=main)
-
-

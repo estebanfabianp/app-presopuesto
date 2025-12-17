@@ -1,6 +1,7 @@
-# 📚 API Reference - App Presupuesto
+# 📚 API Reference - App Presupuesto v0.7.1
+**Sistema Empresarial de Gestión Financiera**
 
-Documentación completa de la API interna del sistema de gestión financiera personal. Esta documentación cubre todas las funciones, controladores y servicios disponibles en la arquitectura MVC optimizada.
+Documentación completa de la API interna del sistema empresarial de gestión financiera personal. Esta documentación cubre todas las funciones, controladores, servicios y funciones de base de datos disponibles en la arquitectura MVC optimizada.
 
 ---
 
@@ -8,12 +9,15 @@ Documentación completa de la API interna del sistema de gestión financiera per
 
 1. [Visión General](#-visión-general)
 2. [Sistema de Autenticación](#-sistema-de-autenticación)
-3. [Controladores Principales](#-controladores-principales)
-4. [Modelos de Datos](#-modelos-de-datos)
-5. [Utilidades y Helpers](#-utilidades-y-helpers)
-6. [Códigos de Error](#-códigos-de-error)
-7. [Ejemplos de Uso](#-ejemplos-de-uso)
-8. [Best Practices](#-best-practices)
+3. [Funciones de Base de Datos Empresariales](#-funciones-de-base-de-datos-empresariales)
+4. [Procedimientos Almacenados](#-procedimientos-almacenados)
+5. [Controladores Principales](#-controladores-principales)
+6. [Modelos de Datos](#-modelos-de-datos)
+7. [Sistema de Documentación](#-sistema-de-documentación)
+8. [Utilidades y Helpers](#-utilidades-y-helpers)
+9. [Códigos de Error](#-códigos-de-error)
+10. [Ejemplos de Uso](#-ejemplos-de-uso)
+11. [Best Practices](#-best-practices)
 
 ---
 
@@ -27,6 +31,10 @@ La API interna de App Presupuesto sigue el patrón **MVC (Model-View-Controller)
 📊 VIEW LAYER (Presentación)
     ↓
 🎮 CONTROLLER LAYER (Lógica de Negocio)  
+    ↓
+🗄️ DATABASE LAYER (Funciones Empresariales)
+    ↓
+📊 AUTOMATION LAYER (Triggers & Events)
     ↓
 🗄️ MODEL LAYER (Datos y Persistencia)
 ```
@@ -50,6 +58,99 @@ Tuple[bool, str] = (is_valid, error_message)
 - **AuthenticationError**: Errores de autenticación
 - **DatabaseError**: Errores de acceso a datos
 - **BusinessLogicError**: Errores de lógica de negocio
+
+---
+
+## 🏢 Funciones de Base de Datos Empresariales
+
+### 📅 Funciones de Días Hábiles
+
+#### `fn_dias_habiles(fecha_inicio, fecha_fin)`
+Calcula días hábiles entre dos fechas excluyendo festivos de Colombia.
+
+**Sintaxis:**
+```sql
+SELECT fn_dias_habiles('2024-01-01', '2024-01-31') as dias_habiles;
+```
+
+**Parámetros:**
+- `fecha_inicio` (DATE): Fecha inicial del período
+- `fecha_fin` (DATE): Fecha final del período
+
+**Retorna:** INT - Número de días hábiles
+
+**Ejemplo:**
+```sql
+-- Días hábiles en enero 2024
+SELECT fn_dias_habiles('2024-01-01', '2024-01-31') as dias_enero;
+-- Resultado: 22 días hábiles
+```
+
+#### `fn_siguiente_dia_habil(fecha_referencia)`
+Obtiene el siguiente día hábil después de una fecha dada.
+
+**Sintaxis:**
+```sql
+SELECT fn_siguiente_dia_habil(CURDATE()) as proximo_dia_habil;
+```
+
+**Parámetros:**
+- `fecha_referencia` (DATE): Fecha de referencia
+
+**Retorna:** DATE - Siguiente día hábil
+
+**Ejemplo:**
+```sql
+-- Si hoy es viernes, devuelve el lunes siguiente
+SELECT fn_siguiente_dia_habil('2024-12-20') as siguiente;
+-- Resultado: 2024-12-23 (lunes)
+```
+
+### 💰 Funciones de Cálculo Financiero
+
+#### `fn_calcular_interes_simple(monto, tasa, dias)`
+Calcula interés simple para un período dado.
+
+**Sintaxis:**
+```sql
+SELECT fn_calcular_interes_simple(1000000, 0.18, 30) as interes;
+```
+
+**Parámetros:**
+- `monto` (DECIMAL): Capital inicial
+- `tasa` (DECIMAL): Tasa de interés anual (0.18 = 18%)
+- `dias` (INT): Número de días
+
+**Retorna:** DECIMAL - Valor del interés calculado
+
+---
+
+## 📊 Procedimientos Almacenados
+
+### 📚 Sistema de Documentación
+
+#### `sp_generar_reporte_documentacion()`
+Genera reporte completo de documentación del sistema.
+
+**Sintaxis:**
+```sql
+CALL sp_generar_reporte_documentacion();
+```
+
+**Descripción:**
+Produce un reporte detallado con:
+- Cobertura de documentación por tabla
+- Campos sin documentar
+- Métricas de calidad de documentación
+- Recomendaciones de mejora
+
+#### `sp_generar_reporte_arquitectura()`
+Genera análisis de arquitectura y métricas del sistema.
+
+**Sintaxis:**
+```sql
+CALL sp_generar_reporte_arquitectura();
+```
 
 ---
 

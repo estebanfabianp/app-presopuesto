@@ -1,6 +1,7 @@
 # App Presupuesto 💰
+**v0.7.1 - Sistema de Gestión Financiera Empresarial**
 
-Aplicación completa de gestión financiera personal desarrollada con Flet y arquitectura MVC. Sistema integral con dashboard interactivo, análisis de datos avanzado, autenticación robusta y funcionalidades de IA para categorización automática y análisis predictivo financiero.
+Aplicación completa de gestión financiera personal desarrollada con Flet y arquitectura MVC. Sistema integral con dashboard interactivo, análisis de datos avanzado, autenticación robusta, sistema de base de datos empresarial automatizado y funcionalidades de IA para categorización automática y análisis predictivo financiero.
 
 ## 📋 Descripción
 
@@ -122,30 +123,32 @@ app-presupuesto/
 │       ├── helpers.py           # 🔧 Funciones auxiliares generales
 │       ├── exceptions.py        # ⚠️ Excepciones personalizadas
 │       └── logger.py            # 📝 Sistema de logging avanzado
-├── database/                    # 🗄️ Esquemas y Scripts de Base de Datos
-│   ├── schemas/                 # 📋 Definiciones de esquemas
-│   │   ├── 001_initial_tables.sql       # Tablas principales del sistema
-│   │   ├── 002_financial_tables.sql     # Tablas financieras específicas
-│   │   ├── 003_ai_tables.sql           # Tablas para funcionalidades IA
-│   │   ├── indexes.sql                  # Índices optimizados
-│   │   ├── constraints.sql              # Restricciones y relaciones
-│   │   └── views.sql                    # Vistas optimizadas
-│   ├── migrations/              # 🔄 Scripts de migración
-│   │   ├── 001_create_base_tables.sql
-│   │   ├── 002_add_ai_features.sql
-│   │   └── 003_optimize_indexes.sql
-│   ├── procedures/              # ⚡ Procedimientos almacenados
-│   │   ├── financial_procedures.sql     # Procedimientos financieros
-│   │   ├── reporting_procedures.sql     # Procedimientos de reportes
-│   │   └── maintenance_procedures.sql   # Mantenimiento automático
-│   ├── triggers/                # 🎯 Triggers automáticos
-│   │   ├── audit_triggers.sql           # Triggers de auditoría
-│   │   ├── calculation_triggers.sql     # Cálculos automáticos
-│   │   └── validation_triggers.sql      # Validaciones de datos
-│   └── seeds/                   # 🌱 Datos de ejemplo
-│       ├── demo_users.sql               # Usuarios de demostración
-│       ├── sample_data.sql              # Datos financieros de ejemplo
-│       └── categories.sql               # Categorías predefinidas
+├── base_de_datos/               # 🗄️ Sistema de Base de Datos Empresarial
+│   ├── db/                      # 📊 Scripts de Base de Datos Organizados
+│   │   ├── init_db.bat         # 🚀 Script automático de instalación (Windows)
+│   │   ├── VALIDATION_SUMMARY.md # ✅ Documentación de validación
+│   │   └── 01_core/            # 🏗️ Scripts principales organizados
+│   │       ├── create/         # 📋 Scripts de creación secuencial
+│   │       │   ├── 01_create_database.sql    # Base de datos principal
+│   │       │   ├── 02_create_tables.sql      # Tablas del sistema
+│   │       │   ├── 03_create_indexes.sql     # Índices optimizados
+│   │       │   ├── 04_foreign_keys.sql       # Relaciones y constraints
+│   │       │   ├── 05_stored_procedures.sql  # Procedimientos almacenados
+│   │       │   ├── 06_functions.sql          # Funciones de negocio
+│   │       │   ├── 07_triggers.sql           # Triggers automáticos
+│   │       │   ├── 08_events_jobs.sql        # Mantenimiento programado
+│   │       │   ├── 09_master_script.sql      # Script maestro de instalación
+│   │       │   ├── 10_add_comments.sql       # Documentación de tablas
+│   │       │   ├── 11_create_view.sql        # Vistas del sistema
+│   │       │   ├── 13_create_documentation_tables.sql # Sistema documentación
+│   │       │   ├── 14_documentation_procedures.sql    # Reportes automáticos
+│   │       │   └── insert_initial_data.sql   # Datos iniciales y configuración
+│   │       ├── drop/           # 🗑️ Scripts de eliminación
+│   │       │   └── 99_drop_all_objects.sql   # Eliminación completa validada
+│   │       └── seed/           # 🌱 Datos iniciales
+│   │           └── (incluido en insert_initial_data.sql)
+│   └── raw/                     # 📁 Datos sin procesar
+│       └── movimientos_simulados.csv    # Datos de prueba CSV
 ├── tests/                       # 🧪 Suite de Pruebas Completa
 │   ├── __init__.py
 │   ├── conftest.py             # Configuración global de pytest
@@ -272,14 +275,22 @@ cp .env.example .env
 # DB_PASSWORD=tu_password
 # SECRET_KEY=tu_clave_secreta_muy_segura
 
-# Ejecutar setup automático de base de datos
-python scripts/setup.py
+# MÉTODO 1: Instalación automática con script maestro (RECOMENDADO)
+cd base_de_datos/db/01_core/create
+mysql -u root -p < 09_master_script.sql
 
-# O configuración manual paso a paso:
-mysql -u root -p -e "CREATE DATABASE app_presupuesto CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-mysql -u root -p app_presupuesto < database/schemas/001_initial_tables.sql
-mysql -u root -p app_presupuesto < database/schemas/002_financial_tables.sql
-python scripts/seed_database.py
+# MÉTODO 2: Instalación automática con batch (Windows)
+cd base_de_datos/db
+init_db.bat
+
+# MÉTODO 3: Instalación manual paso a paso
+mysql -u root -p < base_de_datos/db/01_core/create/01_create_database.sql
+mysql -u root -p < base_de_datos/db/01_core/create/02_create_tables.sql
+# ... (continuar con archivos en orden numérico)
+mysql -u root -p app_presupuesto < base_de_datos/db/01_core/create/insert_initial_data.sql
+
+# Verificar instalación
+mysql -u root -p app_presupuesto -e "CALL sp_generar_reporte_documentacion();"
 ```
 
 ### 3. Configuración de Desarrollo (Opcional):
@@ -334,7 +345,16 @@ OCR_ENABLED=False
 
 ## 🆕 Funcionalidades Implementadas (v0.7.1+)
 
-### 🔐 Sistema de Autenticación Optimizado:
+### �️ Sistema de Base de Datos Empresarial:
+- **Instalación Automatizada**: Script maestro con logging completo y rollback automático
+- **Arquitectura Modular**: 14 archivos organizados secuencialmente con separación de responsabilidades
+- **Sistema de Documentación**: Tablas dedicadas para documentación técnica y arquitectura
+- **Funciones de Negocio**: Cálculo automático de días hábiles considerando festivos de Colombia
+- **Triggers Inteligentes**: Automatización de cálculos financieros y mantenimiento de datos
+- **Eventos Programados**: Mantenimiento automático y limpieza de datos obsoletos
+- **Validación Completa**: Scripts de verificación y reportes automáticos de instalación
+
+### �🔐 Sistema de Autenticación Optimizado:
 - **Controlador Refactorizado**: `persona_controller.py` v1.4.0 con eliminación de funciones redundantes
 - **Gestión de Sesiones Centralizada**: Sistema global de variables de sesión con estado persistente
 - **Validación de Permisos Granular**: Control de acceso por funcionalidad con roles específicos
@@ -868,6 +888,7 @@ Contribution Levels & Rewards:
 <br>
 
 ---
+[![linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](https://github.com/pylint-dev/pylint)
 
 **📧 Contact**: estebanfabianp@gmail.com  
 **🐙 GitHub**: [FinanceAI-Labs/app-presupuesto](https://github.com/FinanceAI-Labs/app-presupuesto)  

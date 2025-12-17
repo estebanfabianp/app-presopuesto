@@ -258,39 +258,35 @@ RECOMENDACIONES DE USO
 */
 
 -- =================================================================
--- CREACIÓN DE TABLA DE DOCUMENTACIÓN (OPCIONAL)
--- Para mantener documentación técnica en la BD
+-- COMENTARIOS PARA TABLA DIAS_FESTIVOS
+-- Descripción: Documentación detallada de la tabla de días festivos
 -- =================================================================
 
-CREATE TABLE IF NOT EXISTS `documentacion_sistema` (
-  `id_doc` int(11) NOT NULL AUTO_INCREMENT COMMENT 'ID único de documentación',
-  `tipo` enum('TABLA','VISTA','PROCEDIMIENTO','FUNCION','TRIGGER','EVENTO') NOT NULL COMMENT 'Tipo de objeto documentado',
-  `nombre_objeto` varchar(100) NOT NULL COMMENT 'Nombre del objeto de BD',
-  `descripcion_corta` varchar(255) NOT NULL COMMENT 'Descripción breve del propósito',
-  `descripcion_larga` text DEFAULT NULL COMMENT 'Documentación detallada',
-  `casos_uso` text DEFAULT NULL COMMENT 'Casos de uso principales',
-  `ejemplos` text DEFAULT NULL COMMENT 'Ejemplos de consultas o uso',
-  `consideraciones` text DEFAULT NULL COMMENT 'Consideraciones especiales',
-  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp() COMMENT 'Fecha de documentación',
-  `fecha_actualizacion` datetime DEFAULT NULL ON UPDATE current_timestamp() COMMENT 'Última actualización',
-  `version` varchar(20) DEFAULT '1.0' COMMENT 'Versión de la documentación',
-  PRIMARY KEY (`id_doc`),
-  UNIQUE KEY `uk_doc_objeto` (`tipo`, `nombre_objeto`),
-  KEY `idx_doc_tipo` (`tipo`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='Documentación técnica del sistema de base de datos';
+-- Tabla: dias_festivos - Gestión de días festivos
+ALTER TABLE `dias_festivos` COMMENT = 'Gestión de días festivos nacionales, regionales y empresariales para cálculos de días hábiles';
+ALTER TABLE `dias_festivos`
+  MODIFY `id_festivo` int(11) NOT NULL AUTO_INCREMENT COMMENT 'Identificador único del día festivo',
+  MODIFY `nombre` varchar(100) NOT NULL COMMENT 'Nombre del día festivo (Navidad, Día del Trabajo, etc.)',
+  MODIFY `fecha` date NOT NULL COMMENT 'Fecha específica del festivo en formato YYYY-MM-DD',
+  MODIFY `tipo_festivo` enum('NACIONAL','REGIONAL','LOCAL','RELIGIOSO','CIVIL','EMPRESARIAL') NOT NULL DEFAULT 'NACIONAL' COMMENT 'Clasificación del tipo de festivo',
+  MODIFY `es_recurrente` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'Indica si se repite cada año (ej: Navidad=1, Semana Santa=0)',
+  MODIFY `mes` tinyint(2) DEFAULT NULL COMMENT 'Mes del festivo para recurrentes (1-12, NULL para no recurrentes)',
+  MODIFY `dia` tinyint(2) DEFAULT NULL COMMENT 'Día del mes para festivos fijos (1-31, NULL para variables)',
+  MODIFY `pais` varchar(10) NOT NULL DEFAULT 'CO' COMMENT 'Código ISO del país (CO=Colombia, US=Estados Unidos, etc.)',
+  MODIFY `region` varchar(50) DEFAULT NULL COMMENT 'Región/departamento específico (Antioquia, Cundinamarca, NULL=nacional)',
+  MODIFY `descripcion` text DEFAULT NULL COMMENT 'Descripción detallada e información histórica del festivo',
+  MODIFY `es_puente` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Indica si es un puente festivo (1=sí, 0=no)',
+  MODIFY `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp() COMMENT 'Fecha de registro en el sistema',
+  MODIFY `fecha_actualizacion` datetime DEFAULT NULL ON UPDATE current_timestamp() COMMENT 'Última fecha de modificación',
+  MODIFY `creado_por` varchar(50) DEFAULT 'SISTEMA' COMMENT 'Usuario o sistema que creó el registro',
+  MODIFY `estado` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'Estado del registro (1=Activo, 0=Inactivo)';
 
 -- =================================================================
--- INSERTAR DOCUMENTACIÓN INICIAL ACTUALIZADA
+-- FINALIZACIÓN DE COMENTARIOS
 -- =================================================================
 
--- Limpiar documentación anterior
-DELETE FROM `documentacion_sistema`;
-
--- Insertar documentación completa del sistema
-INSERT INTO `documentacion_sistema` (`tipo`, `nombre_objeto`, `descripcion_corta`, `descripcion_larga`, `casos_uso`, `ejemplos`, `consideraciones`) VALUES
-
--- TABLAS PRINCIPALES
-('TABLA', 'movimiento', 'Registro principal de transacciones financieras', 'Tabla central que almacena todos los movimientos financieros con triggers automáticos para actualizar saldos de cuentas. Incluye categorización automática y manual, notas descriptivas y vinculación con beneficiarios.', 'Dashboard principal, reportes de gastos, análisis de flujo de caja, categorización ML', 'SELECT * FROM v_movimientos_detalle WHERE fecha_creacion >= CURDATE() - INTERVAL 30 DAY', 'Los triggers actualizan automáticamente los saldos. No modificar directamente sin considerar impacto en triggers.'),
+-- Script completado exitosamente
+SELECT 'COMENTARIOS DE TABLAS ACTUALIZADOS EXITOSAMENTE' AS resultado;
 
 ('TABLA', 'cuenta', 'Cuentas bancarias y productos financieros', 'Gestión de cuentas con saldo automático calculado por triggers al insertar/actualizar/eliminar movimientos. Soporte para múltiples monedas y tipos de cuenta.', 'Gestión de patrimonio, control de saldos, reportes de cuentas, dashboard financiero', 'CALL sp_recalcular_saldo_cuenta(1); SELECT * FROM v_cuenta_saldos WHERE id_persona = 1', 'El campo saldo_inicial se actualiza automáticamente. Para recálculo manual usar sp_recalcular_saldo_cuenta.'),
 
@@ -559,6 +555,34 @@ VALUES ('SISTEMA', 'FECHA_ULTIMA_DOCUMENTACION', NOW(), 'DATE', 'Fecha de la úl
 ON DUPLICATE KEY UPDATE 
     valor = NOW(),
     fecha_actualizacion = NOW();
+
+-- =================================================================
+-- COMENTARIOS PARA TABLA DIAS_FESTIVOS
+-- Descripción: Documentación detallada de la tabla de días festivos
+-- =================================================================
+
+-- Tabla: dias_festivos - Gestión de días festivos
+ALTER TABLE `dias_festivos` COMMENT = 'Gestión de días festivos nacionales, regionales y empresariales para cálculos de días hábiles';
+ALTER TABLE `dias_festivos`
+  MODIFY `id_festivo` int(11) NOT NULL AUTO_INCREMENT COMMENT 'Identificador único del día festivo',
+  MODIFY `nombre` varchar(100) NOT NULL COMMENT 'Nombre del día festivo (Navidad, Día del Trabajo, etc.)',
+  MODIFY `fecha` date NOT NULL COMMENT 'Fecha específica del festivo en formato YYYY-MM-DD',
+  MODIFY `tipo_festivo` enum('NACIONAL','REGIONAL','LOCAL','RELIGIOSO','CIVIL','EMPRESARIAL') NOT NULL DEFAULT 'NACIONAL' COMMENT 'Clasificación del tipo de festivo',
+  MODIFY `es_recurrente` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'Indica si se repite cada año (ej: Navidad=1, Semana Santa=0)',
+  MODIFY `mes` tinyint(2) DEFAULT NULL COMMENT 'Mes del festivo para recurrentes (1-12, NULL para no recurrentes)',
+  MODIFY `dia` tinyint(2) DEFAULT NULL COMMENT 'Día del mes para festivos fijos (1-31, NULL para variables)',
+  MODIFY `pais` varchar(10) NOT NULL DEFAULT 'CO' COMMENT 'Código ISO del país (CO=Colombia, US=Estados Unidos, etc.)',
+  MODIFY `region` varchar(50) DEFAULT NULL COMMENT 'Región/departamento específico (Antioquia, Cundinamarca, NULL=nacional)',
+  MODIFY `descripcion` text DEFAULT NULL COMMENT 'Descripción detallada e información histórica del festivo',
+  MODIFY `es_puente` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Indica si es un puente festivo (1=sí, 0=no)',
+  MODIFY `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp() COMMENT 'Fecha de registro en el sistema',
+  MODIFY `fecha_actualizacion` datetime DEFAULT NULL ON UPDATE current_timestamp() COMMENT 'Última fecha de modificación',
+  MODIFY `creado_por` varchar(50) DEFAULT 'SISTEMA' COMMENT 'Usuario o sistema que creó el registro',
+  MODIFY `estado` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'Estado del registro (1=Activo, 0=Inactivo)';
+
+-- Insertar documentación de tabla dias_festivos en el sistema
+INSERT INTO `documentacion_sistema` (`tipo`, `nombre_objeto`, `descripcion_corta`, `descripcion_larga`, `casos_uso`, `ejemplos`, `consideraciones`) VALUES
+('TABLA', 'dias_festivos', 'Gestión de días festivos para cálculos de días hábiles', 'Tabla especializada en el almacenamiento y gestión de días festivos nacionales, regionales y empresariales. Soporta festivos fijos (como Navidad), trasladables (Ley Emiliani en Colombia) y variables (Semana Santa). Incluye clasificación por tipo, ámbito geográfico y funcionalidades para automatizar cálculos de días hábiles en el sistema financiero.', 'Cálculo de días hábiles, fechas de vencimiento, nóminas, reportes que excluyan festivos, automatización de pagos', 'SELECT * FROM dias_festivos WHERE pais = \"CO\" AND YEAR(fecha) = 2025; -- Festivos Colombia 2025', 'Considerar la Ley Emiliani para festivos trasladables en Colombia. Actualizar anualmente los festivos variables como Semana Santa. Los índices están optimizados para consultas por fecha y tipo.');
 
 -- Verificar documentación completa
 SELECT 

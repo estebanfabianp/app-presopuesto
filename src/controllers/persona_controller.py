@@ -16,9 +16,9 @@ Autor: Esteban Fabian
 Versión: 1.3.0 - Optimizada
 Fecha: 2024
 """
-
-from models.persona_model import PersonaModel
 from typing import Tuple, Optional, Dict, Any, List
+from models.persona_model import PersonaModel
+
 
 # Variable global para almacenar la sesión activa
 _sesion_activa: Optional[Dict[str, Any]] = None

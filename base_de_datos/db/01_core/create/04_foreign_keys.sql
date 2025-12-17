@@ -1,7 +1,7 @@
 -- =================================================================
--- CLAVES FORÁNEAS
+-- CLAVES FORÁNEAS E ÍNDICES
 -- Proyecto: app-presupuesto
--- Descripción: Definición de relaciones entre tablas
+-- Descripción: Definición de relaciones entre tablas e índices de rendimiento
 -- =================================================================
 
 -- Relaciones de tabla accion

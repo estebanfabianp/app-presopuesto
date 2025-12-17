@@ -118,6 +118,23 @@ ALTER TABLE `estado_tarjeta`
 ALTER TABLE `moneda`
   MODIFY `codigo` char(3) NOT NULL;
 
+-- =================================================================
+-- ÍNDICES PARA TABLA DIAS_FESTIVOS
+-- Descripción: Índices optimizados para consultas de días festivos
+-- =================================================================
+
+-- Índices para tabla dias_festivos
+ALTER TABLE `dias_festivos`
+  ADD KEY `idx_fecha` (`fecha`),
+  ADD KEY `idx_tipo_pais` (`tipo_festivo`, `pais`),
+  ADD KEY `idx_mes_dia` (`mes`, `dia`),
+  ADD KEY `idx_estado_fecha` (`estado`, `fecha`),
+  ADD UNIQUE KEY `uk_festivo_fecha_tipo` (`fecha`, `tipo_festivo`, `pais`, `region`);
+
+-- AUTO_INCREMENT para tabla dias_festivos
+ALTER TABLE `dias_festivos`
+  MODIFY `id_festivo` int(11) NOT NULL AUTO_INCREMENT;
+
 ALTER TABLE `movimiento`
   MODIFY `id_movimiento` int(11) NOT NULL AUTO_INCREMENT;
 

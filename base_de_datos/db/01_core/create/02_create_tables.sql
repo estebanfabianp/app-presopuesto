@@ -174,4 +174,36 @@ CREATE TABLE `movimiento` (
   PRIMARY KEY (`id_movimiento`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
+-- =================================================================
+-- Tabla: dias_festivos
+-- Descripción: Registro de días festivos nacionales, regionales y empresariales
+-- Propósito: Control de días no hábiles para cálculos de fechas laborales
+-- Características:
+--   * Soporte para festivos fijos y variables (Semana Santa, etc.)
+--   * Clasificación por tipo y ámbito geográfico
+--   * Gestión de festivos recurrentes por año
+--   * Habilitación/deshabilitación dinámica
+-- Relaciones: Ninguna (tabla independiente)
+-- Uso: Mejorar funciones de días hábiles existentes
+-- =================================================================
+DROP TABLE IF EXISTS `dias_festivos`;
+CREATE TABLE `dias_festivos` (
+  `id_festivo` int(11) NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(100) NOT NULL,
+  `fecha` date NOT NULL,
+  `tipo_festivo` enum('NACIONAL','REGIONAL','LOCAL','RELIGIOSO','CIVIL','EMPRESARIAL') NOT NULL DEFAULT 'NACIONAL',
+  `es_recurrente` tinyint(1) NOT NULL DEFAULT 1,
+  `mes` tinyint(2) DEFAULT NULL,
+  `dia` tinyint(2) DEFAULT NULL,
+  `pais` varchar(10) NOT NULL DEFAULT 'CO',
+  `region` varchar(50) DEFAULT NULL,
+  `descripcion` text DEFAULT NULL,
+  `es_puente` tinyint(1) NOT NULL DEFAULT 0,
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `creado_por` varchar(50) DEFAULT 'SISTEMA',
+  `estado` tinyint(1) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id_festivo`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
 -- ...existing code for remaining tables...
