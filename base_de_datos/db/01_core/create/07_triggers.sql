@@ -262,4 +262,15 @@ BEGIN
   WHERE id_prestamo = OLD.prestamo_id_prestamo;
 END$$
 
+/*CREATE TRIGGER tr_alerta_gasto_alto aplicarlo en la tabla de movimientos personales
+AFTER INSERT ON mis_transacciones
+FOR EACH ROW
+BEGIN
+    -- Si gastas más de X en día no hábil (probablemente entretenimiento)
+    IF NEW.monto > (SELECT valor FROM constantes WHERE clave = 'LIMITE_OCIO') 
+       AND fn_es_dia_habil(NEW.fecha) = 0 THEN
+        INSERT INTO alertas_personales (mensaje, fecha) 
+        VALUES ('Gasto alto en día no hábil - revisar', NOW());
+    END IF;
+END;/*
 DELIMITER ;

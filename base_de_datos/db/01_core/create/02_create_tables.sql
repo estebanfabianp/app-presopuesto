@@ -206,4 +206,13 @@ CREATE TABLE `dias_festivos` (
   PRIMARY KEY (`id_festivo`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
+
+CREATE TABLE mis_logros (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    logro VARCHAR(100),
+    descripcion TEXT,
+    fecha_desbloqueado DATE,
+    icono VARCHAR(50)
+);
+
 -- ...existing code for remaining tables...

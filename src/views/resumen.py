@@ -16,10 +16,16 @@ Versión: 2.0 - Refactorizado con componentes reutilizables
 import flet as ft
 import datetime
 import random
+import sys
+import os
 from typing import List, Optional, Dict, Any
 
 # Importar el componente de sidebar reutilizable
-from sidebar import create_sidebar_menu
+from .sidebar import create_sidebar_menu
+
+# Agregar el path para importar los controladores
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from business.services.producto_controller import obtener_resumen_productos_por_usuario, obtener_productos_por_usuario
 
 
 class ResumenView:
@@ -38,14 +44,18 @@ class ResumenView:
         sidebar_menu (LeftSidebarMenu): Instancia del menú lateral reutilizable
     """
 
-    def __init__(self, page: ft.Page) -> None:
+    def __init__(self, page: ft.Page, user_id: int = 1) -> None:
         """
         Inicializa la vista de resumen.
 
         Args:
             page (ft.Page): La página principal de la aplicación Flet
+            user_id (int): ID del usuario para obtener sus productos
         """
         self.page = page
+        self.user_id = user_id
+        self.productos_usuario = []
+        self.resumen_productos = {}
 
         # Crear el menú lateral usando el componente reutilizable
         self.sidebar_menu = create_sidebar_menu(
@@ -59,6 +69,9 @@ class ResumenView:
             },
             navigation_callback=self.handle_navigation
         )
+        
+        # Cargar datos del usuario al inicializar
+        self.cargar_datos_usuario()
 
     def handle_navigation(self, route: str, index: int) -> None:
         """
@@ -129,10 +142,74 @@ class ResumenView:
             border=ft.border.only(bottom=ft.BorderSide(1, "#E0E0E0"))
         )
 
+    def cargar_datos_usuario(self) -> None:
+        """
+        Carga los datos financieros del usuario desde la base de datos.
+        """
+        try:
+            print(f"Cargando datos para el usuario ID: {self.user_id}")
+            
+            # Obtener productos del usuario
+            self.productos_usuario = obtener_productos_por_usuario(self.user_id)
+            
+            # Obtener resumen agrupado
+            self.resumen_productos = obtener_resumen_productos_por_usuario(self.user_id)
+            
+            print(f"Productos cargados: {len(self.productos_usuario)}")
+            print("Datos cargados exitosamente")
+            
+        except Exception as e:
+            print(f"Error al cargar datos del usuario: {str(e)}")
+            # Usar datos de ejemplo en caso de error
+            self.productos_usuario = []
+            self.resumen_productos = {
+                'cuentas_bancarias': {'total': 0, 'cantidad': 0, 'productos': []},
+                'tarjetas_credito': {'total': 0, 'cantidad': 0, 'productos': []},
+                'prestamos': {'total': 0, 'cantidad': 0, 'productos': []},
+                'fondos_inversion': {'total': 0, 'cantidad': 0, 'productos': []},
+                'total_patrimonio': 0
+            }
+
+    def obtener_productos_usuario_por_tipo(self, tipo_producto: str) -> List[Dict[str, Any]]:
+        """
+        Obtiene productos específicos del usuario por tipo.
+        
+        Args:
+            tipo_producto (str): Tipo de producto ('cuenta_bancaria', 'tarjeta_credito', 'prestamo', 'fondo_inversion')
+        
+        Returns:
+            List[Dict[str, Any]]: Lista de productos del tipo especificado
+        """
+        return [p for p in self.productos_usuario if p.get('tipo_producto') == tipo_producto]
+        
+    def obtener_balance_total_usuario(self) -> Dict[str, float]:
+        """
+        Calcula el balance total del usuario.
+        
+        Returns:
+            Dict[str, float]: Balance total con activos, pasivos y patrimonio neto
+        """
+        resumen = self.resumen_productos
+        
+        activos = (resumen.get('cuentas_bancarias', {}).get('total', 0) + 
+                  resumen.get('fondos_inversion', {}).get('total', 0) +
+                  resumen.get('tarjetas_credito', {}).get('total', 0))
+        
+        pasivos = resumen.get('prestamos', {}).get('total', 0)
+        
+        patrimonio_neto = activos - pasivos
+        
+        return {
+            'activos': activos,
+            'pasivos': pasivos,
+            'patrimonio_neto': patrimonio_neto
+        }
+
     def refresh_data(self) -> None:
         """Actualiza los datos del dashboard."""
         print("Actualizando datos del resumen...")
-        # TODO: Implementar actualización real de datos
+        self.cargar_datos_usuario()
+        # TODO: Actualizar la UI con los nuevos datos
 
     def show_notifications(self) -> None:
         """Muestra el panel de notificaciones."""
@@ -146,7 +223,7 @@ class ResumenView:
 
     def create_summary_cards(self) -> ft.Container:
         """
-        Crea las tarjetas de resumen financiero mejoradas.
+        Crea las tarjetas de resumen financiero mejoradas usando datos reales del usuario.
 
         Cada tarjeta incluye:
         - Ícono representativo
@@ -157,42 +234,49 @@ class ResumenView:
         Returns:
             ft.Container: Contenedor con todas las tarjetas de resumen
         """
-        # Datos de configuración para las tarjetas
+        # Usar datos reales del usuario o valores por defecto
+        resumen = self.resumen_productos
+        
+        # Datos de configuración para las tarjetas con valores reales
         cards_data: List[Dict[str, Any]] = [
             {
                 "title": "Cuentas Bancarias",
-                "amount": "$12,500.00",
+                "amount": f"${resumen.get('cuentas_bancarias', {}).get('total', 0):,.2f}",
+                "count": resumen.get('cuentas_bancarias', {}).get('cantidad', 0),
                 "icon": "account_balance",
                 "color": "#2196F3",  # Azul
                 "bg_color": "#E3F2FD",
-                "change": "+2.5%",
+                "change": "+2.5%",  # TODO: Calcular cambio real
                 "change_positive": True
             },
             {
                 "title": "Préstamos",
-                "amount": "$5,200.00",
+                "amount": f"${resumen.get('prestamos', {}).get('total', 0):,.2f}",
+                "count": resumen.get('prestamos', {}).get('cantidad', 0),
                 "icon": "trending_down",
                 "color": "#F44336",  # Rojo
                 "bg_color": "#FFEBEE",
-                "change": "-1.2%",
+                "change": "-1.2%",  # TODO: Calcular cambio real
                 "change_positive": False
             },
             {
                 "title": "Tarjetas de Crédito",
-                "amount": "$2,800.00",
+                "amount": f"${resumen.get('tarjetas_credito', {}).get('total', 0):,.2f}",
+                "count": resumen.get('tarjetas_credito', {}).get('cantidad', 0),
                 "icon": "credit_card",
                 "color": "#FF9800",  # Naranja
                 "bg_color": "#FFF3E0",
-                "change": "+5.1%",
+                "change": "+5.1%",  # TODO: Calcular cambio real
                 "change_positive": True
             },
             {
                 "title": "Fondos",
-                "amount": "$8,000.00",
+                "amount": f"${resumen.get('fondos_inversion', {}).get('total', 0):,.2f}",
+                "count": resumen.get('fondos_inversion', {}).get('cantidad', 0),
                 "icon": "trending_up",
                 "color": "#4CAF50",  # Verde
                 "bg_color": "#E8F5E9",
-                "change": "+8.3%",
+                "change": "+8.3%",  # TODO: Calcular cambio real
                 "change_positive": True
             },
         ]
@@ -222,13 +306,21 @@ class ResumenView:
                             padding=ft.padding.symmetric(horizontal=8, vertical=4)
                         )
                     ]),
-                    # Título de la tarjeta
-                    ft.Text(
-                        data["title"],
-                        size=14,
-                        weight="w500",
-                        color="#666666"
-                    ),
+                    # Título de la tarjeta con contador
+                    ft.Row([
+                        ft.Text(
+                            data["title"],
+                            size=14,
+                            weight="w500",
+                            color="#666666"
+                        ),
+                        ft.Text(
+                            f"({data.get('count', 0)})",
+                            size=12,
+                            weight="w400",
+                            color="#999999"
+                        ),
+                    ], tight=True),
                     # Monto principal
                     ft.Text(
                         data["amount"],
@@ -497,6 +589,175 @@ class ResumenView:
             margin=ft.margin.only(bottom=32)
         )
 
+    def create_cuentas_bancarias_table(self) -> ft.Container:
+        """
+        Crea la tabla de cuentas bancarias usando datos reales del usuario.
+        """
+        productos_cuentas = self.resumen_productos.get('cuentas_bancarias', {}).get('productos', [])
+        
+        if not productos_cuentas:
+            # Si no hay productos, mostrar mensaje
+            rows = [
+                ft.DataRow(
+                    cells=[
+                        ft.DataCell(ft.Text("No hay cuentas bancarias registradas", style=ft.TextStyle(italic=True, color="#666666"))),
+                        ft.DataCell(ft.Text("--", color="#666666")),
+                        ft.DataCell(ft.Text("--", color="#666666")),
+                    ]
+                )
+            ]
+        else:
+            rows = []
+            for producto in productos_cuentas:
+                rows.append(
+                    ft.DataRow(
+                        cells=[
+                            ft.DataCell(ft.Text(producto.get('nombre', 'Cuenta sin nombre'))),
+                            ft.DataCell(ft.Text(f"${producto.get('saldo_actual', 0):,.2f}", weight="w500")),
+                            ft.DataCell(ft.Text(f"${producto.get('saldo_disponible', 0):,.2f}", weight="w500")),
+                        ]
+                    )
+                )
+        
+        return self.create_data_table(
+            "Cuentas Bancarias",
+            [
+                ft.DataColumn(ft.Text("Cuenta Bancaria", weight="bold")),
+                ft.DataColumn(ft.Text("Saldo Actual", weight="bold")),
+                ft.DataColumn(ft.Text("Saldo Disponible", weight="bold")),
+            ],
+            rows,
+            icon="account_balance"
+        )
+
+    def create_tarjetas_credito_table(self) -> ft.Container:
+        """
+        Crea la tabla de tarjetas de crédito usando datos reales del usuario.
+        """
+        productos_tarjetas = self.resumen_productos.get('tarjetas_credito', {}).get('productos', [])
+        
+        if not productos_tarjetas:
+            rows = [
+                ft.DataRow(
+                    cells=[
+                        ft.DataCell(ft.Text("No hay tarjetas de crédito registradas", style=ft.TextStyle(italic=True, color="#666666"))),
+                        ft.DataCell(ft.Text("--", color="#666666")),
+                        ft.DataCell(ft.Text("--", color="#666666")),
+                    ]
+                )
+            ]
+        else:
+            rows = []
+            for producto in productos_tarjetas:
+                limite = producto.get('limite_credito', 0)
+                saldo_usado = limite - producto.get('saldo_disponible', 0)
+                rows.append(
+                    ft.DataRow(
+                        cells=[
+                            ft.DataCell(ft.Text(producto.get('nombre', 'Tarjeta sin nombre'))),
+                            ft.DataCell(ft.Text(f"${producto.get('saldo_disponible', 0):,.2f}", weight="w500", color="#4CAF50")),
+                            ft.DataCell(ft.Text(f"${saldo_usado:,.2f}", weight="w500", color="#F44336")),
+                        ]
+                    )
+                )
+        
+        return self.create_data_table(
+            "Tarjetas de Crédito",
+            [
+                ft.DataColumn(ft.Text("Tarjeta", weight="bold")),
+                ft.DataColumn(ft.Text("Límite Disponible", weight="bold")),
+                ft.DataColumn(ft.Text("Saldo Utilizado", weight="bold")),
+            ],
+            rows,
+            icon="credit_card"
+        )
+
+    def create_prestamos_table(self) -> ft.Container:
+        """
+        Crea la tabla de préstamos usando datos reales del usuario.
+        """
+        productos_prestamos = self.resumen_productos.get('prestamos', {}).get('productos', [])
+        
+        if not productos_prestamos:
+            rows = [
+                ft.DataRow(
+                    cells=[
+                        ft.DataCell(ft.Text("No hay préstamos registrados", style=ft.TextStyle(italic=True, color="#666666"))),
+                        ft.DataCell(ft.Text("--", color="#666666")),
+                        ft.DataCell(ft.Text("--", color="#666666")),
+                    ]
+                )
+            ]
+        else:
+            rows = []
+            for producto in productos_prestamos:
+                # Para préstamos, calcular cuota estimada (esto podría venir de otra tabla)
+                cuota_estimada = abs(producto.get('saldo_actual', 0)) * 0.05  # Estimación del 5%
+                rows.append(
+                    ft.DataRow(
+                        cells=[
+                            ft.DataCell(ft.Text(producto.get('nombre', 'Préstamo sin nombre'))),
+                            ft.DataCell(ft.Text(f"${abs(producto.get('saldo_actual', 0)):,.2f}", weight="w500", color="#F44336")),
+                            ft.DataCell(ft.Text(f"${cuota_estimada:,.2f}", weight="w500")),
+                        ]
+                    )
+                )
+        
+        return self.create_data_table(
+            "Préstamos",
+            [
+                ft.DataColumn(ft.Text("Préstamo", weight="bold")),
+                ft.DataColumn(ft.Text("Saldo Pendiente", weight="bold")),
+                ft.DataColumn(ft.Text("Cuota Estimada", weight="bold")),
+            ],
+            rows,
+            icon="trending_down"
+        )
+
+    def create_fondos_inversion_table(self) -> ft.Container:
+        """
+        Crea la tabla de fondos de inversión usando datos reales del usuario.
+        """
+        productos_fondos = self.resumen_productos.get('fondos_inversion', {}).get('productos', [])
+        
+        if not productos_fondos:
+            rows = [
+                ft.DataRow(
+                    cells=[
+                        ft.DataCell(ft.Text("No hay fondos de inversión registrados", style=ft.TextStyle(italic=True, color="#666666"))),
+                        ft.DataCell(ft.Text("--", color="#666666")),
+                        ft.DataCell(ft.Text("--", color="#666666")),
+                    ]
+                )
+            ]
+        else:
+            rows = []
+            for producto in productos_fondos:
+                # Calcular rendimiento estimado basado en tasa de interés
+                tasa = producto.get('tasa_interes', 0)
+                saldo = producto.get('saldo_actual', 0)
+                rendimiento = saldo * (tasa / 100) / 12  # Rendimiento mensual estimado
+                rows.append(
+                    ft.DataRow(
+                        cells=[
+                            ft.DataCell(ft.Text(producto.get('nombre', 'Fondo sin nombre'))),
+                            ft.DataCell(ft.Text(f"${saldo:,.2f}", weight="w500")),
+                            ft.DataCell(ft.Text(f"+${rendimiento:,.2f}", color="#4CAF50", weight="bold")),
+                        ]
+                    )
+                )
+        
+        return self.create_data_table(
+            "Fondos de Inversión",
+            [
+                ft.DataColumn(ft.Text("Fondo", weight="bold")),
+                ft.DataColumn(ft.Text("Valor Actual", weight="bold")),
+                ft.DataColumn(ft.Text("Rendimiento Est.", weight="bold")),
+            ],
+            rows,
+            icon="trending_up"
+        )
+
     def create_main_content(self) -> ft.Container:
         """
         Crea el contenido principal de la vista de resumen.
@@ -546,113 +807,17 @@ class ResumenView:
                             # Columna izquierda - Tablas principales (60% del ancho)
                             ft.Container(
                                 content=ft.Column([
-                                    # Tabla de Cuentas Bancarias
-                                    self.create_data_table(
-                                        "Cuentas Bancarias",
-                                        [
-                                            ft.DataColumn(ft.Text("Cuenta Bancaria", weight="bold")),
-                                            ft.DataColumn(ft.Text("Saldo", weight="bold")),
-                                            ft.DataColumn(ft.Text("Saldo Conciliado", weight="bold")),
-                                        ],
-                                        [
-                                            ft.DataRow(
-                                                cells=[
-                                                    ft.DataCell(ft.Text("Banco Nacional - Cuenta Corriente")),
-                                                    ft.DataCell(ft.Text("$7,500.00", weight="w500")),
-                                                    ft.DataCell(ft.Text("$7,200.00", weight="w500")),
-                                                ]
-                                            ),
-                                            ft.DataRow(
-                                                cells=[
-                                                    ft.DataCell(ft.Text("Banco Popular - Caja de Ahorro")),
-                                                    ft.DataCell(ft.Text("$5,000.00", weight="w500")),
-                                                    ft.DataCell(ft.Text("$4,950.00", weight="w500")),
-                                                ]
-                                            ),
-                                        ],
-                                        icon="account_balance"
-                                    ),
+                                    # Tabla de Cuentas Bancarias - Datos reales
+                                    self.create_cuentas_bancarias_table(),
 
-                                    # Tabla de Tarjetas de Crédito
-                                    self.create_data_table(
-                                        "Tarjetas de Crédito",
-                                        [
-                                            ft.DataColumn(ft.Text("Tarjeta", weight="bold")),
-                                            ft.DataColumn(ft.Text("Límite Disponible", weight="bold")),
-                                            ft.DataColumn(ft.Text("Saldo Utilizado", weight="bold")),
-                                        ],
-                                        [
-                                            ft.DataRow(
-                                                cells=[
-                                                    ft.DataCell(ft.Text("Tarjeta de Crédito - Visa")),
-                                                    ft.DataCell(ft.Text("$2,499.00", weight="w500", color="#4CAF50")),
-                                                    ft.DataCell(ft.Text("$1,501.00", weight="w500", color="#F44336")),
-                                                ]
-                                            ),
-                                            ft.DataRow(
-                                                cells=[
-                                                    ft.DataCell(ft.Text("Tarjeta de Crédito - Mastercard")),
-                                                    ft.DataCell(ft.Text("$990.00", weight="w500", color="#4CAF50")),
-                                                    ft.DataCell(ft.Text("$1,310.00", weight="w500", color="#F44336")),
-                                                ]
-                                            ),
-                                        ],
-                                        icon="credit_card"
-                                    ),
+                                    # Tabla de Tarjetas de Crédito - Datos reales
+                                    self.create_tarjetas_credito_table(),
 
-                                    # Tabla de Préstamos
-                                    self.create_data_table(
-                                        "Préstamos",
-                                        [
-                                            ft.DataColumn(ft.Text("Préstamo", weight="bold")),
-                                            ft.DataColumn(ft.Text("Saldo Pendiente", weight="bold")),
-                                            ft.DataColumn(ft.Text("Cuota Mensual", weight="bold")),
-                                        ],
-                                        [
-                                            ft.DataRow(
-                                                cells=[
-                                                    ft.DataCell(ft.Text("Préstamo Personal - Banco Nacional")),
-                                                    ft.DataCell(ft.Text("$3,200.00", weight="w500", color="#F44336")),
-                                                    ft.DataCell(ft.Text("$150.00", weight="w500")),
-                                                ]
-                                            ),
-                                            ft.DataRow(
-                                                cells=[
-                                                    ft.DataCell(ft.Text("Préstamo Auto - Banco Popular")),
-                                                    ft.DataCell(ft.Text("$2,000.00", weight="w500", color="#F44336")),
-                                                    ft.DataCell(ft.Text("$120.00", weight="w500")),
-                                                ]
-                                            ),
-                                        ],
-                                        icon="trending_down"
-                                    ),
+                                    # Tabla de Préstamos - Datos reales
+                                    self.create_prestamos_table(),
 
-                                    # Tabla de Fondos de Inversión
-                                    self.create_data_table(
-                                        "Fondos de Inversión",
-                                        [
-                                            ft.DataColumn(ft.Text("Fondo", weight="bold")),
-                                            ft.DataColumn(ft.Text("Valor Actual", weight="bold")),
-                                            ft.DataColumn(ft.Text("Rendimiento", weight="bold")),
-                                        ],
-                                        [
-                                            ft.DataRow(
-                                                cells=[
-                                                    ft.DataCell(ft.Text("Fondo - Renta Variable")),
-                                                    ft.DataCell(ft.Text("$5,000.00", weight="w500")),
-                                                    ft.DataCell(ft.Text("+$200.00", color="#4CAF50", weight="bold")),
-                                                ]
-                                            ),
-                                            ft.DataRow(
-                                                cells=[
-                                                    ft.DataCell(ft.Text("Fondo - Renta Fija")),
-                                                    ft.DataCell(ft.Text("$3,000.00", weight="w500")),
-                                                    ft.DataCell(ft.Text("+$70.00", color="#4CAF50", weight="bold")),
-                                                ]
-                                            ),
-                                        ],
-                                        icon="trending_up"
-                                    ),
+                                    # Tabla de Fondos de Inversión - Datos reales
+                                    self.create_fondos_inversion_table(),
 
                                     # Tabla de Deuda Financiada
                                     self.create_data_table(
@@ -833,18 +998,19 @@ class ResumenView:
             expand=True
         )
 
-def resumen_view(page: ft.Page) -> ft.View:
+def resumen_view(page: ft.Page, user_id: int = 1) -> ft.View:
     """
     Función principal que retorna la vista de resumen financiero.
 
     Args:
         page (ft.Page): La página principal proporcionada por Flet
+        user_id (int): ID del usuario para obtener sus productos
 
     Returns:
         ft.View: Vista del resumen financiero con componentes reutilizables
     """
-    # Crear la vista
-    resumen = ResumenView(page)
+    # Crear la vista con el ID del usuario
+    resumen = ResumenView(page, user_id)
 
     # Retornar ft.View
     return ft.View(
