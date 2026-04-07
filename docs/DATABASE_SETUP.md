@@ -96,7 +96,7 @@ El script automáticamente mostrará:
   - Días festivos Colombia: 18
 
 🎯 PRÓXIMOS PASOS:
-  1. Ejecutar: python src/views/main.py
+  1. Ejecutar: python main.py
   2. Usar: CALL sp_generar_reporte_documentacion();
   3. Configurar constantes según necesidades
 ```
@@ -344,4 +344,4 @@ CALL sp_generar_reporte_documentacion();
 
 **¡Instalación Completa!** 🎉
 
-El sistema está listo para usar con `python src/views/main.py`
+El sistema está listo para usar con `python main.py`

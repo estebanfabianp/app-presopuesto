@@ -37,7 +37,7 @@ pytest tests/performance/ -v
 pip install pyinstaller
 
 # Crear ejecutable
-pyinstaller --onefile --windowed --icon=assets/icon.ico src/views/main.py
+pyinstaller --onefile --windowed --icon=assets/icon.ico main.py
 
 # Ejecutable en dist/main.exe
 ```
@@ -46,7 +46,7 @@ pyinstaller --onefile --windowed --icon=assets/icon.ico src/views/main.py
 
 ```bash
 # Crear app bundle
-pyinstaller --onefile --windowed --icon=assets/icon.icns src/views/main.py
+pyinstaller --onefile --windowed --icon=assets/icon.icns main.py
 
 # Crear DMG (opcional)
 hdiutil create -volname "App Presupuesto" -srcfolder dist/ -ov app-presupuesto.dmg
@@ -56,7 +56,7 @@ hdiutil create -volname "App Presupuesto" -srcfolder dist/ -ov app-presupuesto.d
 
 ```bash
 # Crear ejecutable
-pyinstaller --onefile src/views/main.py
+pyinstaller --onefile main.py
 
 # Crear AppImage (opcional)
 # Requiere appimagetool
@@ -79,7 +79,7 @@ COPY assets/ ./assets/
 
 EXPOSE 8080
 
-CMD ["python", "src/views/main.py"]
+CMD ["python", "main.py"]
 ```
 
 ### Docker Compose
@@ -104,7 +104,7 @@ services:
 
 ```bash
 # Crear Procfile
-echo "web: python src/views/main.py" > Procfile
+echo "web: python main.py" > Procfile
 
 # Crear app
 heroku create app-presupuesto

@@ -16,7 +16,10 @@ import flet as ft
 import datetime
 from typing import List, Optional, Dict, Any
 
-from sidebar import create_sidebar_menu
+try:
+    from .sidebar import create_sidebar_menu
+except ImportError:
+    from sidebar import create_sidebar_menu
 
 
 class TransferenciasView:
@@ -45,7 +48,8 @@ class TransferenciasView:
         
         self.sidebar_menu = create_sidebar_menu(
             page=page,
-            selected_index=4,  # "Transferencias" está seleccionado
+            selected_index=4,  # "Transferencias" está seleccionado
+
             navigation_callback=self.handle_navigation
         )
     

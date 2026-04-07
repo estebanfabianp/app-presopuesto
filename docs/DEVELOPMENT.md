@@ -432,7 +432,7 @@ ft.app(target=main, view=ft.AppView.FLET_APP)
 pip install pyinstaller
 
 # Crear ejecutable
-pyinstaller --onefile --windowed src/views/main.py
+pyinstaller --onefile --windowed main.py
 
 # El ejecutable estará en dist/
 ```

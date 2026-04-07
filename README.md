@@ -48,183 +48,40 @@ Sistema avanzado de gestión financiera personal con interfaz gráfica moderna c
 
 ```
 app-presupuesto/
-├── src/                           # 🚀 Código fuente principal
-│   ├── views/                     # 🖥️ Capa de Presentación (UI Layer)
-│   │   ├── __init__.py
-│   │   ├── main.py               # 🎯 Enrutador principal con gestión de estado
-│   │   ├── login.py              # 🔐 Vista de autenticación optimizada
-│   │   ├── resumen.py            # 📊 Dashboard financiero ejecutivo
-│   │   ├── budget.py             # 💰 Gestión de presupuestos y categorías
-│   │   ├── investments.py        # 📈 Panel de inversiones y rentabilidad
-│   │   ├── transactions.py       # 💸 Gestión de transacciones
-│   │   ├── accounts.py           # 🏦 Administración de cuentas bancarias
-│   │   ├── reports.py            # 📋 Generador de reportes avanzados
-│   │   ├── settings.py           # ⚙️ Configuración de usuario y aplicación
-│   │   └── components/           # 🧩 Componentes UI reutilizables
-│   │       ├── __init__.py
-│   │       ├── sidebar.py        # 🗂️ Menú lateral profesional
-│   │       ├── tables.py         # 📊 Tablas interactivas avanzadas
-│   │       ├── charts.py         # 📈 Gráficos y visualizaciones
-│   │       ├── forms.py          # 📝 Formularios reutilizables
-│   │       ├── dialogs.py        # 💬 Diálogos y modales
-│   │       └── widgets.py        # 🎨 Widgets personalizados
-│   ├── controllers/              # 🎮 Capa de Lógica de Negocio
-│   │   ├── __init__.py
-│   │   ├── persona_controller.py # 👤 Gestión de usuarios y autenticación (v1.4.0)
-│   │   ├── budget_controller.py  # 💰 Lógica de presupuestos y gastos
-│   │   ├── transaction_controller.py # 💸 Gestión de transacciones
-│   │   ├── account_controller.py # 🏦 Control de cuentas bancarias
-│   │   ├── investment_controller.py # 📈 Gestión de inversiones
-│   │   ├── report_controller.py  # 📋 Generación de reportes
-│   │   ├── ml_controller.py      # 🤖 Controlador de Machine Learning
-│   │   └── analytics_controller.py # 📊 Análisis y métricas avanzadas
-│   ├── models/                   # 🗄️ Capa de Datos (Data Layer)
-│   │   ├── __init__.py
-│   │   ├── base_model.py         # 🔄 Modelo base con funcionalidades comunes
-│   │   ├── persona_model.py      # 👤 Modelo de usuario mejorado
-│   │   ├── account.py           # 🏦 Cuentas bancarias y tarjetas
-│   │   ├── transaction.py       # 💸 Transacciones y movimientos
-│   │   ├── budget.py            # 📊 Presupuestos y categorías
-│   │   ├── investment.py        # 📈 Inversiones y rentabilidad
-│   │   ├── debt.py              # 💳 Deudas y financiamientos
-│   │   ├── category.py          # 🏷️ Categorías y subcategorías
-│   │   └── report.py            # 📋 Modelos de reportes y métricas
-│   ├── database/                # 🔗 Capa de Acceso a Datos
-│   │   ├── __init__.py
-│   │   ├── connection.py        # 🔌 Pool de conexiones optimizado
-│   │   ├── base_repository.py   # 🏗️ Repositorio base con operaciones CRUD
-│   │   ├── queries.py           # 📝 Consultas SQL optimizadas y preparadas
-│   │   ├── migrations.py        # 🔄 Sistema de migraciones automático
-│   │   ├── triggers.py          # ⚡ Triggers y procedimientos almacenados
-│   │   └── seeders.py           # 🌱 Datos de prueba y ejemplos
-│   ├── ai/                      # 🤖 Módulos de Inteligencia Artificial
-│   │   ├── __init__.py
-│   │   ├── models/              # 🧠 Modelos de Machine Learning
-│   │   │   ├── categorization_model.py    # 🏷️ Modelo de categorización
-│   │   │   ├── prediction_model.py        # 📈 Modelos predictivos
-│   │   │   └── anomaly_model.py          # 🚨 Detección de anomalías
-│   │   ├── processors/          # ⚙️ Procesadores de datos
-│   │   │   ├── text_processor.py         # 📝 Procesamiento de texto NLP
-│   │   │   ├── ocr_processor.py          # 📸 Procesamiento OCR
-│   │   │   └── data_preprocessor.py      # 🔧 Preprocesamiento de datos
-│   │   ├── trainers/            # 🎓 Entrenamiento de modelos
-│   │   │   ├── model_trainer.py          # 🏋️ Entrenador principal
-│   │   │   └── evaluation.py             # 📊 Evaluación y métricas
-│   │   └── services/            # 🔧 Servicios de IA
-│   │       ├── categorization_service.py # 🏷️ Servicio de categorización
-│   │       ├── prediction_service.py     # 📈 Servicio predictivo
-│   │       └── recommendation_service.py # 💡 Motor de recomendaciones
-│   └── utils/                   # 🛠️ Utilidades y Helpers
-│       ├── __init__.py
-│       ├── security.py          # 🔒 Funciones de seguridad y encriptación
-│       ├── validators.py        # ✅ Validadores de entrada robustos
-│       ├── formatters.py        # 🎨 Formateadores de datos y monedas
-│       ├── constants.py         # 📋 Constantes y configuraciones
-│       ├── helpers.py           # 🔧 Funciones auxiliares generales
-│       ├── exceptions.py        # ⚠️ Excepciones personalizadas
-│       └── logger.py            # 📝 Sistema de logging avanzado
-├── base_de_datos/               # 🗄️ Sistema de Base de Datos Empresarial
-│   ├── db/                      # 📊 Scripts de Base de Datos Organizados
-│   │   ├── init_db.bat         # 🚀 Script automático de instalación (Windows)
-│   │   ├── VALIDATION_SUMMARY.md # ✅ Documentación de validación
-│   │   └── 01_core/            # 🏗️ Scripts principales organizados
-│   │       ├── create/         # 📋 Scripts de creación secuencial
-│   │       │   ├── 01_create_database.sql    # Base de datos principal
-│   │       │   ├── 02_create_tables.sql      # Tablas del sistema
-│   │       │   ├── 03_create_indexes.sql     # Índices optimizados
-│   │       │   ├── 04_foreign_keys.sql       # Relaciones y constraints
-│   │       │   ├── 05_stored_procedures.sql  # Procedimientos almacenados
-│   │       │   ├── 06_functions.sql          # Funciones de negocio
-│   │       │   ├── 07_triggers.sql           # Triggers automáticos
-│   │       │   ├── 08_events_jobs.sql        # Mantenimiento programado
-│   │       │   ├── 09_master_script.sql      # Script maestro de instalación
-│   │       │   ├── 10_add_comments.sql       # Documentación de tablas
-│   │       │   ├── 11_create_view.sql        # Vistas del sistema
-│   │       │   ├── 13_create_documentation_tables.sql # Sistema documentación
-│   │       │   ├── 14_documentation_procedures.sql    # Reportes automáticos
-│   │       │   └── insert_initial_data.sql   # Datos iniciales y configuración
-│   │       ├── drop/           # 🗑️ Scripts de eliminación
-│   │       │   └── 99_drop_all_objects.sql   # Eliminación completa validada
-│   │       └── seed/           # 🌱 Datos iniciales
-│   │           └── (incluido en insert_initial_data.sql)
-│   └── raw/                     # 📁 Datos sin procesar
-│       └── movimientos_simulados.csv    # Datos de prueba CSV
-├── tests/                       # 🧪 Suite de Pruebas Completa
-│   ├── __init__.py
-│   ├── conftest.py             # Configuración global de pytest
-│   ├── unit/                   # 🔬 Pruebas unitarias
-│   │   ├── test_models.py
-│   │   ├── test_controllers.py
-│   │   └── test_utils.py
-│   ├── integration/            # 🔗 Pruebas de integración
-│   │   ├── test_database.py
-│   │   ├── test_auth_flow.py
-│   │   └── test_ai_services.py
-│   ├── ui/                     # 🖥️ Pruebas de interfaz
-│   │   ├── test_login.py
-│   │   ├── test_dashboard.py
-│   │   └── test_components.py
-│   ├── performance/            # ⚡ Pruebas de rendimiento
-│   │   ├── test_load.py
-│   │   └── test_memory.py
-│   └── fixtures/               # 📦 Datos de prueba
-│       ├── sample_data.json
-│       └── test_images/
-├── docs/                       # 📚 Documentación Técnica Completa
-│   ├── README.md               # Documentación principal
-│   ├── INSTALLATION.md         # Guía de instalación detallada
-│   ├── API_REFERENCE.md        # Referencia completa de API
-│   ├── ARCHITECTURE.md         # Documentación de arquitectura
-│   ├── DATABASE_DESIGN.md      # Diseño de base de datos
-│   ├── AI_MODULES.md           # Documentación de módulos IA
-│   ├── DEPLOYMENT.md           # Guía de despliegue
-│   ├── CONTRIBUTING.md         # Guía para contribuidores
-│   ├── CHANGELOG.md            # Historial de cambios
-│   └── images/                 # Imágenes de documentación
-├── examples/                   # 📘 Ejemplos y Tutoriales
-│   ├── basic_usage.py          # Uso básico de la aplicación
-│   ├── custom_controllers.py   # Creación de controladores personalizados
-│   ├── ml_training.py          # Entrenamiento de modelos ML
-│   ├── custom_reports.py       # Creación de reportes personalizados
-│   └── api_examples.py         # Ejemplos de uso de API
-├── config/                     # ⚙️ Archivos de Configuración
-│   ├── __init__.py
-│   ├── settings.py             # Configuración principal
-│   ├── database.py             # Configuración de base de datos
-│   ├── logging.py              # Configuración de logging
-│   ├── ai_config.py            # Configuración de módulos IA
-│   └── environments/           # Configuraciones por entorno
-│       ├── development.py
-│       ├── testing.py
-│       └── production.py
-├── requirements/               # 📦 Dependencias Organizadas
-│   ├── base.txt               # Dependencias básicas
-│   ├── ai.txt                 # Dependencias de IA/ML
-│   ├── dev.txt                # Dependencias de desarrollo
-│   ├── test.txt               # Dependencias de testing
-│   └── prod.txt               # Dependencias de producción
-├── scripts/                    # 🔧 Scripts de Utilidades
-│   ├── setup.py               # Script de setup inicial
-│   ├── migrate.py             # Script de migraciones
-│   ├── seed_database.py       # Script de datos de ejemplo
-│   └── backup.py              # Script de respaldo
-├── docker/                     # 🐳 Configuración Docker
-│   ├── Dockerfile
-│   ├── docker-compose.yml
-│   ├── docker-compose.dev.yml
-│   └── nginx.conf
-├── .github/                    # 🔄 GitHub Actions y Templates
-│   ├── workflows/
-│   │   ├── ci.yml
-│   │   └── deploy.yml
-│   └── ISSUE_TEMPLATE.md
-├── .env.example               # 🔧 Template de variables de entorno
-├── .gitignore                 # 🚫 Exclusiones de Git
-├── .pylintrc                  # 📏 Configuración de Pylint
-├── pytest.ini                # 🧪 Configuración de Pytest
-├── setup.py                   # 📦 Configuración de paquete Python
-├── pyproject.toml             # 🛠️ Configuración moderna de Python
-└── README.md                  # 📄 Este archivo
+├── main.py                       # Punto de entrada principal de Flet
+├── src/                          # Código fuente de la aplicación
+│   ├── views/                    # Vistas Flet y enrutador principal
+│   │   ├── main.py               # Router de vistas
+│   │   ├── sidebar.py            # Navegación lateral
+│   │   ├── login.py
+│   │   ├── resumen.py
+│   │   ├── dashboard.py
+│   │   ├── nueva_transaccion.py
+│   │   ├── transferencias.py
+│   │   ├── constante.py
+│   │   └── legacy/               # Vistas archivadas u obsoletas
+│   ├── controllers/              # Controladores de aplicación
+│   ├── business/services/        # Servicios de negocio y ETL
+│   ├── data_access/              # Acceso a datos legado
+│   ├── database/                 # Configuración y conexión a BD
+│   ├── models/                   # Modelos de dominio
+│   ├── ml/                       # Modelos y predicciones ML
+│   └── utils/                    # Helpers y logger
+├── tests/
+│   ├── manual/                   # Scripts de prueba manual movidos desde la raíz
+│   └── *.py                      # Tests automáticos existentes
+├── scripts/
+│   ├── debug/                    # Scripts de depuración
+│   ├── verify/                   # Verificaciones de BD y vistas
+│   └── seed/                     # Carga de datos de prueba
+├── docs/
+│   ├── guides/                   # Guías puntuales de features
+│   ├── status/                   # Resúmenes y entregables
+│   ├── legacy/documentacion/     # Documentación histórica preservada
+│   └── *.md                      # Documentación principal vigente
+├── base_de_datos/                # Scripts SQL, jobs y datos base
+├── data/                         # Activos auxiliares de BD
+└── mockups/                      # Recursos visuales y prototipos
 ```
 
 ## 🛠️ Instalación y Configuración Detallada
@@ -311,15 +168,15 @@ pylint src/
 ### Iniciar la Aplicación:
 ```bash
 # Método principal (recomendado)
-python src/views/main.py
+python main.py
 
 # Modos alternativos para desarrollo:
 python src/views/login.py       # Login standalone para pruebas
 python src/views/resumen.py     # Dashboard directo (requiere sesión)
 
-# Con configuración específica:
-python src/views/main.py --env development
-python src/views/main.py --debug
+# Verificaciones manuales útiles:
+python scripts/verify/verify_data.py
+python scripts/verify/verify_view.py
 ```
 
 ### Variables de Entorno Importantes:

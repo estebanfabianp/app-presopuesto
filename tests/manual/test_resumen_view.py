@@ -7,8 +7,10 @@ import sys
 import os
 import flet as ft
 
-# Agregar el directorio src al path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+# Agregar la raíz del proyecto al path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.append(PROJECT_ROOT)
 
 def test_resumen_view():
     """
@@ -24,7 +26,7 @@ def test_resumen_view():
         
         try:
             # Importar la vista de resumen
-            from views.resumen import ResumenView
+            from src.views.resumen import ResumenView
             
             # Crear instancia de la vista con user_id = 1
             resumen_view = ResumenView(page, user_id=1)

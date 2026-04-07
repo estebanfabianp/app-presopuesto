@@ -60,7 +60,7 @@ def build(self) -> ft.Container:
 **Diagnóstico:**
 ```bash
 # Ejecutar con output de errores
-python src/views/main.py
+python main.py
 
 # Verificar dependencias
 pip list

@@ -104,12 +104,6 @@ class SystemConstantsView:
     """
     
     def __init__(self, page: ft.Page) -> None:
-        """
-        Inicializa la vista de constantes.
-        
-        Args:
-            page (ft.Page): Página Flet principal
-        """
         self.page = page
         self.db = DatabaseConnector()
         self.logger = logging.getLogger(__name__)
@@ -120,15 +114,20 @@ class SystemConstantsView:
         self.selected_constant: Optional[Constant] = None
         self.categories: List[str] = []
         
-        # Componentes UI reutilizables
-        self.sidebar_menu = create_sidebar_menu(
-            page=page,
-            selected_index=16,
-            navigation_callback=self.handle_navigation
-        )
+        # Sidebar
+        try:
+            self.sidebar_menu = create_sidebar_menu(
+                page=page,
+                selected_index=16,
+                navigation_callback=self.handle_navigation
+            )
+        except Exception as e:
+            self.logger.warning(f"Error creando sidebar: {e}")
+            self.sidebar_menu = None
         
-        # Contenedores dinámicos
-        self.table_container = ft.Container()
+        # Column simple que contiene el DataTable — sin scroll ni expand (igual que resumen.py)
+        self.table_list = ft.Column(controls=[], spacing=0)
+        
         self.search_field = ft.TextField(
             label="Buscar constante...",
             width=300,
@@ -142,7 +141,7 @@ class SystemConstantsView:
             on_change=self._on_category_filter
         )
         
-        self.status_text = ft.Text(value="", size=12)
+        self.status_text = ft.Text(value="", size=12, color=ft.Colors.RED_600)
         
         # Cargar datos iniciales
         self._load_constants()
@@ -162,6 +161,44 @@ class SystemConstantsView:
     # OPERACIONES DE CARGA (READ)
     # ====================================================================
     
+    def _ensure_constants_table_exists(self) -> bool:
+        """
+        Verifica si la tabla constantes existe, si no, la crea.
+        
+        Returns:
+            bool: True si la tabla existe o fue creada, False si hay error
+        """
+        try:
+            # Intentar crear la tabla si no existe
+            create_sql = """
+            CREATE TABLE IF NOT EXISTS constantes (
+                id_constante INT AUTO_INCREMENT PRIMARY KEY,
+                categoria VARCHAR(50) NOT NULL,
+                nombre VARCHAR(100) NOT NULL UNIQUE,
+                valor TEXT NOT NULL,
+                tipo_dato ENUM('STRING','INTEGER','DECIMAL','BOOLEAN','JSON','DATE') NOT NULL,
+                descripcion TEXT,
+                es_editable TINYINT(1) DEFAULT 1,
+                estado TINYINT(1) DEFAULT 1,
+                fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_categoria_estado (categoria, estado),
+                INDEX idx_nombre_estado (nombre, estado)
+            )
+            """
+            
+            conn = self.db.conn
+            if conn:
+                cursor = conn.cursor()
+                cursor.execute(create_sql)
+                conn.commit()
+                cursor.close()
+                self.logger.info("Tabla constantes verificada/creada correctamente")
+                return True
+        except Exception as e:
+            self.logger.warning(f"No se pudo crear tabla constantes: {e}")
+        
+        return False
+    
     def _load_constants(self) -> None:
         """
         Carga todas las constantes activas de la BD.
@@ -170,6 +207,9 @@ class SystemConstantsView:
         Las constantes se ordenan por categoría y nombre.
         """
         try:
+            # Asegurar que la tabla existe
+            self._ensure_constants_table_exists()
+            
             rows = self.db.execute_query(
                 """
                 SELECT id_constante, categoria, nombre, valor, tipo_dato,
@@ -178,30 +218,32 @@ class SystemConstantsView:
                 WHERE estado = 1
                 ORDER BY categoria, nombre
                 """
-            )
+            ) or []
             
-            self.constants = [
-                Constant(
-                    id_constante=int(r['id_constante']),
-                    categoria=str(r['categoria']),
-                    nombre=str(r['nombre']),
-                    valor=str(r['valor']),
-                    tipo_dato=ConstantType(r['tipo_dato']),
-                    descripcion=str(r['descripcion'] or ''),
-                    es_editable=bool(r['es_editable']),
-                    estado=bool(r['estado']),
-                    fecha_actualizacion=r.get('fecha_actualizacion')
-                )
-                for r in rows
-            ]
+            self.constants = []
+            for r in rows:
+                try:
+                    constant = Constant(
+                        id_constante=int(r['id_constante']),
+                        categoria=str(r['categoria']),
+                        nombre=str(r['nombre']),
+                        valor=str(r['valor']),
+                        tipo_dato=ConstantType(r['tipo_dato']),
+                        descripcion=str(r['descripcion'] or ''),
+                        es_editable=bool(r['es_editable']),
+                        estado=bool(r['estado']),
+                        fecha_actualizacion=r.get('fecha_actualizacion')
+                    )
+                    self.constants.append(constant)
+                except Exception as row_error:
+                    self.logger.warning(f"Error cargando constante {r.get('nombre')}: {row_error}")
             
             self.filtered_constants = self.constants.copy()
-            self._refresh_table()
             self.logger.info(f"Cargadas {len(self.constants)} constantes")
             
         except Exception as e:
-            self.logger.error(f"Error cargando constantes: {e}")
-            self._show_message(f"Error cargando datos: {str(e)}", ft.Colors.RED_600)
+            self.logger.error(f"Error cargando constantes: {e}", exc_info=True)
+            self._show_message(f"⚠️ Error cargando datos: {str(e)}", ft.Colors.ORANGE_700)
     
     def _load_categories(self) -> None:
         """
@@ -261,125 +303,97 @@ class SystemConstantsView:
     # INTERFAZ DE TABLA (PRESENTACIÓN)
     # ====================================================================
     
-    def _refresh_table(self) -> None:
-        """
-        Regenera la tabla DataTable con constantes filtradas.
-        
-        Incluye:
-        - Formateo automático de valores según tipo
-        - Colores por tipo de dato
-        - Acciones (editar/eliminar) con validaciones
-        - EmptyState si no hay datos
-        """
-        if not self.filtered_constants:
-            self.table_container.content = ft.Center(
-                content=ft.Column([
-                    ft.Icon(ft.Icons.INBOX, size=48, color="#CCCCCC"),
-                    ft.Text(
-                        "No hay constantes que mostrar",
-                        size=16,
-                        color="#999999"
-                    )
-                ], alignment="center", horizontal_alignment="center", spacing=8)
-            )
-            self.page.update()
-            return
-        
+    def _build_data_rows(self) -> List[ft.DataRow]:
+        """Construye la lista de filas de la tabla."""
         rows: List[ft.DataRow] = []
-        
         for const in self.filtered_constants:
             value_text = self._format_constant_value(const)
-            
             rows.append(
                 ft.DataRow(
                     cells=[
-                        # Nombre + Categoría
                         ft.DataCell(
                             ft.Column([
                                 ft.Text(const.nombre, weight="bold", size=13),
-                                ft.Text(
-                                    const.categoria,
-                                    size=11,
-                                    color="#999999"
-                                )
+                                ft.Text(const.categoria, size=11, color="#999999")
                             ], spacing=2)
                         ),
-                        # Valor
-                        ft.DataCell(ft.Text(value_text, selectable=True)),
-                        # Tipo (badge)
+                        ft.DataCell(ft.Text(value_text, selectable=True, size=13)),
                         ft.DataCell(
                             ft.Container(
-                                content=ft.Text(
-                                    const.tipo_dato.value,
-                                    size=11,
-                                    color="white",
-                                    weight="bold"
-                                ),
+                                content=ft.Text(const.tipo_dato.value, size=11, color="white", weight="bold"),
                                 bgcolor=self._get_type_color(const.tipo_dato),
                                 padding=ft.padding.symmetric(4, 8),
                                 border_radius=4
                             )
                         ),
-                        # Descripción truncada
                         ft.DataCell(
                             ft.Text(
                                 const.descripcion[:50] + "..." if len(const.descripcion) > 50 else const.descripcion,
-                                size=11,
-                                color="#666666"
+                                size=11, color="#666666"
                             )
                         ),
-                        # Acciones
                         ft.DataCell(
                             ft.Row([
                                 ft.IconButton(
                                     icon=ft.Icons.EDIT,
                                     icon_size=18,
                                     tooltip="Editar" if const.es_editable else "No editable",
-                                    on_click=lambda e, c=const: 
-                                        self._edit_constant_bottomsheet(c)
-                                        if c.es_editable
-                                        else self._show_message(
-                                            f"'{c.nombre}' no es editable",
-                                            ft.Colors.ORANGE_700
-                                        )
+                                    icon_color="#2196F3" if const.es_editable else "#CCCCCC",
+                                    on_click=lambda e, c=const: self._edit_constant_bottomsheet(c) if c.es_editable else None
                                 ),
                                 ft.IconButton(
                                     icon=ft.Icons.DELETE_OUTLINE,
                                     icon_size=18,
+                                    icon_color="#F44336",
                                     tooltip="Eliminar",
                                     on_click=lambda e, c=const: self._delete_constant(c)
                                 ),
-                            ], spacing=0)
+                            ], spacing=0, tight=True)
                         ),
                     ]
                 )
             )
+        return rows
+    
+    def _refresh_table(self) -> None:
+        """Actualiza el contenido de table_list en el árbol de controles."""
+        self.table_list.controls.clear()
         
-        table = ft.DataTable(
-            columns=[
-                ft.DataColumn(ft.Text("Nombre", weight="bold")),
-                ft.DataColumn(ft.Text("Valor", weight="bold")),
-                ft.DataColumn(ft.Text("Tipo", weight="bold")),
-                ft.DataColumn(ft.Text("Descripción", weight="bold")),
-                ft.DataColumn(ft.Text("Acciones", weight="bold")),
-            ],
-            rows=rows,
-            border=ft.border.all(1, "#E0E0E0"),
-            border_radius=8,
-            heading_row_color="#F5F5F5",
-            heading_row_height=50,
-            data_row_max_height=80,
-            horizontal_lines=ft.BorderSide(1, "#F0F0F0"),
-            vertical_lines=ft.BorderSide(1, "#F0F0F0"),
-        )
+        if not self.filtered_constants:
+            self.table_list.controls.append(
+                ft.Container(
+                    content=ft.Column([
+                        ft.Icon(ft.Icons.INBOX, size=64, color="#CCCCCC"),
+                        ft.Text("No hay constantes que mostrar", size=18, color="#999999", weight="w500"),
+                        ft.Text("Crea una nueva constante con el botón +", size=13, color="#BBBBBB")
+                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=16),
+                    alignment=ft.alignment.center,
+                    height=300
+                )
+            )
+        else:
+            table = ft.DataTable(
+                columns=[
+                    ft.DataColumn(ft.Text("Nombre", weight="bold", size=12)),
+                    ft.DataColumn(ft.Text("Valor", weight="bold", size=12)),
+                    ft.DataColumn(ft.Text("Tipo", weight="bold", size=12)),
+                    ft.DataColumn(ft.Text("Descripción", weight="bold", size=12)),
+                    ft.DataColumn(ft.Text("Acciones", weight="bold", size=12)),
+                ],
+                rows=self._build_data_rows(),
+                border=ft.border.all(1, "#E0E0E0"),
+                border_radius=8,
+                heading_row_color="#F5F5F5",
+                heading_row_height=50,
+                data_row_max_height=70,
+                horizontal_lines=ft.BorderSide(1, "#EEEEEE"),
+            )
+            self.table_list.controls.append(table)
         
-        self.table_container.content = ft.Container(
-            content=table,
-            padding=8,
-            bgcolor="white",
-            border_radius=12
-        )
-        self.page.update()
+        try:
+            self.page.update()
+        except:
+            pass
     
     # ====================================================================
     # EDICIÓN (UPDATE)
@@ -871,9 +885,12 @@ class SystemConstantsView:
             message: Mensaje a mostrar
             color: Color del texto
         """
-        self.status_text.value = message
-        self.status_text.color = color
-        self.page.update()
+        try:
+            self.status_text.value = message
+            self.status_text.color = color
+            self.page.update()
+        except Exception as e:
+            self.logger.debug(f"Error mostrando mensaje: {e}")
     
     def _build_header(self) -> ft.Container:
         """Construye la barra de encabezado."""
@@ -915,20 +932,36 @@ class SystemConstantsView:
         )
     
     def _build_main_content(self) -> ft.Container:
-        """Construye el contenido principal con encabezado, toolbar y tabla."""
+        """Construye el contenido principal siguiendo el patrón de resumen.py."""
         return ft.Container(
-            content=ft.Column([
-                self._build_header(),
-                self._build_toolbar(),
-                self.status_text,
-                ft.Container(
-                    content=self.table_container,
-                    expand=True,
-                    padding=16
-                ),
-            ], expand=True, spacing=0),
-            expand=True,
-            bgcolor="#F8F9FA"
+            expand=True,          # ← expand=True igual que en resumen.py
+            bgcolor="#F8F9FA",
+            content=ft.Column(
+                controls=[
+                    self._build_header(),
+                    self._build_toolbar(),
+                    ft.Container(
+                        expand=True,   # ← Container interior también expand=True
+                        padding=ft.padding.symmetric(horizontal=20, vertical=16),
+                        content=ft.Column(
+                            controls=[
+                                self.status_text,
+                                ft.Container(   # Tarjeta blanca con la tabla
+                                    content=self.table_list,
+                                    bgcolor="white",
+                                    border_radius=8,
+                                    padding=8,
+                                    border=ft.border.all(1, "#E0E0E0")
+                                ),
+                            ],
+                            spacing=8,
+                            scroll=ft.ScrollMode.AUTO,  # ← scroll en la Column interior
+                        ),
+                    ),
+                ],
+                spacing=0,
+                # SIN scroll y SIN expand en la Column exterior
+            )
         )
     
     # ====================================================================
@@ -936,36 +969,32 @@ class SystemConstantsView:
     # ====================================================================
     
     def build(self) -> ft.Container:
-        """
-        Construye la vista completa con sidebar y contenido principal.
+        """Construye la vista completa lista para ser insertada en ft.View."""
+        self._refresh_table()
         
-        Estructura:
-        - Row principal
-          - Sidebar (menú lateral)
-          - Stack (main content + FAB)
-            - Main content (header + toolbar + tabla)
-            - FAB (crear nueva constante)
-        """
-        return ft.Container(
-            content=ft.Row([
-                self.sidebar_menu.create_sidebar(),
-                ft.Stack([
-                    self._build_main_content(),
-                    ft.Column([
-                        ft.Container(expand=True),
-                        ft.Row([
-                            ft.Container(expand=True),
-                            ft.FloatingActionButton(
-                                icon=ft.Icons.ADD,
-                                on_click=lambda e: self._show_create_constantsheet(),
-                                tooltip="Nueva constante"
-                            ),
-                        ], expand=True),
-                    ], expand=True),
-                ], expand=True),
-            ], expand=True, spacing=0),
-            expand=True
+        self.page.floating_action_button = ft.FloatingActionButton(
+            icon=ft.Icons.ADD,
+            bgcolor="#2196F3",
+            on_click=lambda e: self._show_create_constantsheet(),
+            tooltip="Nueva constante"
         )
+        
+        content = self._build_main_content()
+        
+        if self.sidebar_menu:
+            return ft.Container(
+                expand=True,
+                content=ft.Row(
+                    controls=[
+                        self.sidebar_menu.create_sidebar(),
+                        content,
+                    ],
+                    spacing=0,
+                    expand=True,
+                ),
+            )
+        
+        return content
 
 
 # ========================================================================
@@ -973,24 +1002,16 @@ class SystemConstantsView:
 # ========================================================================
 
 def system_constants_view(page: ft.Page) -> ft.View:
-    """
-    Función que retorna la vista de constantes del sistema.
-    
-    Punto de entrada para la navegación de la aplicación.
-    
-    Args:
-        page (ft.Page): Página Flet principal
-    
-    Returns:
-        ft.View: Vista configurada para la ruta /constantes
-    """
+    """Función de entrada para navegación a /constantes."""
     view = SystemConstantsView(page)
+    built = view.build()
     
     return ft.View(
         route="/constantes",
-        controls=[view.build()],
+        controls=[built],
         padding=0,
-        spacing=0
+        bgcolor=ft.Colors.WHITE,
+        floating_action_button=page.floating_action_button
     )
 
 

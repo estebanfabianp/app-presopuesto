@@ -51,7 +51,7 @@ BD MySQL
 ```
 
 **Cambios existentes:**
-- `src/views/nueva_trasacion.py`: Agregados métodos `_load_excel_with_etl()` y `_load_excel_legacy()`
+- `src/views/nueva_transaccion.py`: Agregados métodos `_load_excel_with_etl()` y `_load_excel_legacy()`
   - Branching automático: tarjeta → ETL, cuenta → método antiguo
 
 **Próximo paso:** Abrir "Nueva Transacción" → "Tarjeta de Crédito" → "Carga Masiva"
@@ -230,7 +230,7 @@ python CONSTANTS_INTEGRATION_GUIDE.py
 ### 1. Para ETL
 
 **Ya está integrado en:**
-- ✅ `src/views/nueva_trasacion.py` - Método `_load_excel_with_etl()`
+- ✅ `src/views/nueva_transaccion.py` - Método `_load_excel_with_etl()`
 
 **Qué hacer:**
 - Abrir app

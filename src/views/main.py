@@ -103,24 +103,24 @@ def main(page: ft.Page) -> None:
 
     route_map = {
         "/login": [("login", "login_view")],
-        "/dashboard": [("dashboard", "dashboard_view"), ("dasvorad", "dashboard_view")],
+        "/dashboard": [("dashboard", "dashboard_view")],
         "/resumen": [("resumen", "resumen_view")],
-        "/transacciones/nueva": [("nueva_trasacion", "nueva_transaccion_view")],
+        "/transacciones/nueva": [("nueva_transaccion", "nueva_transaccion_view")],
         "/transacciones/historial": [("historia", "constantes_view")],
-        "/transferencias": [("transferencias", "transferencias_view"), ("tranferencia", "transferencias_view")],
+        "/transferencias": [("transferencias", "transferencias_view")],
         "/presupuestos": [("presupuesto", "constantes_view")],
-        "/metas": [("metas_ahorro", "metas_ahorro_view"), ("meta_ahorro", "constantes_view")],
+        "/metas": [("metas_ahorro", "metas_ahorro_view")],
         "/categorias": [("categoria", "constantes_view")],
         "/cuentas": [("cuenta_bancaria", "constantes_view")],
         "/tarjetas": [("tarjeta", "constantes_view")],
         "/inversiones": [("inversion", "constantes_view")],
-        "/analisis": [("analizis", "constantes_view")],
+        "/analisis": [("analisis", "constantes_view")],
         "/reportes": [("reporte", "constantes_view")],
         "/exportar": [("export", "constantes_view")],
         "/perfil": [("perfil", "perfil_view")],
         "/notificaciones": [("configuracion", "configuracion_view")],
         "/configuracion": [("configuracion", "configuracion_view")],
-        "/constantes": [("constante", "constantes_view")],
+        "/constantes": [("constante", "system_constants_view")],
     }
 
     def route_change(route) -> None:

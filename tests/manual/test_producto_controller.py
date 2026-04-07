@@ -6,10 +6,12 @@ Permite verificar que las funciones funcionen correctamente.
 import sys
 import os
 
-# Agregar el directorio src al path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+# Agregar la raíz del proyecto al path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.append(PROJECT_ROOT)
 
-from business.services.producto_controller import (
+from src.business.services.producto_controller import (
     obtener_productos_por_usuario,
     obtener_resumen_productos_por_usuario
 )
@@ -73,7 +75,7 @@ def test_conexion_bd():
     """
     print("\n3. Probando conexión a base de datos...")
     try:
-        from database.db_connector import DatabaseConnector
+        from src.database.db_connector import DatabaseConnector
         
         db = DatabaseConnector()
         if db.is_connected():

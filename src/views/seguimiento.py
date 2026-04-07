@@ -19,7 +19,10 @@ import random
 from typing import List, Optional, Dict, Any
 
 # Importar el componente de sidebar reutilizable
-from sidebar import create_sidebar_menu
+try:
+    from .sidebar import create_sidebar_menu
+except ImportError:
+    from sidebar import create_sidebar_menu
 
 
 class ConstantesView:
@@ -49,7 +52,8 @@ class ConstantesView:
         # Crear el menú lateral usando el componente reutilizable
         self.sidebar_menu = create_sidebar_menu(
             page=page,
-            selected_index=16,  # "Configuración" está seleccionado para constantes
+            selected_index=16,  # "Configuración" está seleccionado para constantes
+
             navigation_callback=self.handle_navigation
         )
     

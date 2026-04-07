@@ -94,7 +94,7 @@ nano .env  # o code .env para VS Code
 ### 5. Ejecutar la Aplicación
 ```bash
 # Ejecutar en modo de desarrollo
-python src/views/main.py
+python main.py
 
 # Si hay problemas de dependencias, usar el login directo:
 python src/views/login.py
@@ -306,7 +306,7 @@ Crear `.vscode/launch.json`:
             "name": "App Presupuesto - Main",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/src/views/main.py",
+            "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}/src"
@@ -534,7 +534,7 @@ COPY config/ config/
 COPY .env .env
 
 EXPOSE 8000
-CMD ["python", "src/views/main.py"]
+CMD ["python", "main.py"]
 ```
 
 #### docker-compose.yml

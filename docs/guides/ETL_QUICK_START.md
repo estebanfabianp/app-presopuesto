@@ -21,7 +21,7 @@ docs/
 test_etl_tarjeta.py (NUEVO - Script de prueba)
 
 src/views/
-└── nueva_trasacion.py (ACTUALIZADO - Integración ETL)
+└── nueva_transaccion.py (ACTUALIZADO - Integración ETL)
 ```
 
 ---
