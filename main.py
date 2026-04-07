@@ -1,6 +1,7 @@
-from app.config import create_app
+import flet as ft
 
-app = create_app()
+from src.views.main import main as views_main
 
-if __name__ == '__main__':
-    app.run(debug=True)
+
+if __name__ == "__main__":
+    ft.app(target=views_main)

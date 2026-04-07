@@ -15,7 +15,7 @@ INSERT INTO estado_prestamo (nombre) VALUES ('activo'), ('pagado'), ('vencido');
 INSERT INTO estado_tarjeta (nombre) VALUES ('activa'), ('bloqueada'), ('cancelada');
 
 -- Personas
-INSERT INTO persona (nombre, correo_electronico, usuario, hash_contrasena, fecha_creacion, activo)
+INSERT INTO persona (nombre, correo_electronico, usuario, clave, fecha_creacion, estado)
 VALUES
   ('Juan Pérez', 'juan@example.com', 'juanp', 'hash1', NOW(), 1),
   ('Ana Gómez', 'ana@example.com', 'anag', 'hash2', NOW(), 1);
@@ -51,7 +51,7 @@ VALUES
 INSERT INTO presupuesto_categoria (id_presupuesto, id_categoria) VALUES (1, 1), (1, 2);
 
 -- Préstamos
-INSERT INTO prestamo (fecha, id_estado, moneda, saldo_inicial, limite_credito, fecha_creacion, id_persona)
+INSERT INTO prestamo (fecha, id_estado, moneda, saldo_inicial, saldo_pendiente, fecha_creacion, id_persona)
 VALUES
   ('2024-01-01', 1, 'COP', 500000, 500000, NOW(), 1);
 

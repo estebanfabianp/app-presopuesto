@@ -163,3 +163,4 @@ supervisor==4.2.5             # Sistema control procesos
 # pip install -r requirements-prod.txt
 # ===================================================================
 flet>=0.21.0
+streamlit>=1.37.0

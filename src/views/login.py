@@ -27,37 +27,22 @@ import flet as ft
 
 # Sistema de importación simplificado
 try:
-    print("DEBUG [VIEW] - Intentando importación relativa...")
-    # Intentar importación relativa primero
     from ..controllers.persona_controller import iniciar_sesion
-    print("DEBUG [VIEW] - Importación relativa exitosa")
 except ImportError as e1:
-    print(f"DEBUG [VIEW] - Importación relativa falló: {e1}")
     try:
-        print("DEBUG [VIEW] - Intentando importación desde src...")
-        # Agregar path del directorio src al sys.path
         src_path = os.path.dirname(os.path.dirname(__file__))
         if src_path not in sys.path:
             sys.path.insert(0, src_path)
-        
         from controllers.persona_controller import iniciar_sesion
-        print("DEBUG [VIEW] - Importación desde src exitosa")
-    except ImportError as e2:
-        print(f"DEBUG [VIEW] - Importación desde src falló: {e2}")
+    except ImportError:
         try:
-            print("DEBUG [VIEW] - Último intento de importación...")
-            # Último intento: path absoluto del proyecto
             project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-            src_path = os.path.join(project_root, 'src')
+            src_path = os.path.join(project_root, "src")
             if src_path not in sys.path:
                 sys.path.insert(0, src_path)
-            
             from controllers.persona_controller import iniciar_sesion
-            print("DEBUG [VIEW] - Importación absoluta exitosa")
-        except ImportError as e3:
-            print(f"DEBUG [VIEW] - Todas las importaciones fallaron: {e3}")
-            print("Error: No se pudo importar iniciar_sesion del controlador")
-            raise ImportError("No se puede encontrar el módulo persona_controller")
+        except ImportError:
+            raise ImportError("No se puede encontrar el módulo persona_controller") from e1
 
 def login_view(page: ft.Page) -> ft.View:
     """
@@ -72,9 +57,6 @@ def login_view(page: ft.Page) -> ft.View:
     Returns:
         ft.View: Vista completa del formulario de login lista para mostrar
     """
-    
-    print("DEBUG [VIEW] - Inicializando vista de login")
-    print(f"DEBUG [VIEW] - Página recibida: {page is not None}")
     
     # Campos de entrada con mejor alineación
     name_input = ft.TextField(
@@ -113,10 +95,6 @@ def login_view(page: ft.Page) -> ft.View:
         """
         Maneja el evento de clic en el botón de inicio de sesión.
         """
-        print("\n" + "="*50)
-        print("DEBUG [VIEW] - INICIO DE PROCESO DE LOGIN")
-        print("="*50)
-        
         # Limpiar mensaje anterior
         result_text.value = ""
         result_text.color = "green"
@@ -125,74 +103,37 @@ def login_view(page: ft.Page) -> ft.View:
         username = name_input.value.strip() if name_input.value else ""
         password = password_input.value.strip() if password_input.value else ""
         
-        print(f"DEBUG [VIEW] - Datos del formulario:")
-        print(f"DEBUG [VIEW] - - Username: '{username}' (longitud: {len(username)})")
-        print(f"DEBUG [VIEW] - - password: {'*' * len(password)} (longitud: {len(password)})")
-        print(f"DEBUG [VIEW] - - Username vacío: {not username}")
-        print(f"DEBUG [VIEW] - - Password vacío: {not password}")
-        
         if not username or not password:
-            print("DEBUG [VIEW] - VALIDACIÓN FALLIDA: Campos vacíos detectados")
             result_text.value = "Por favor, completa todos los campos"
             result_text.color = "red"
             page.update()
-            print("DEBUG [VIEW] - Interfaz actualizada con mensaje de error")
             return
-        
-        print("DEBUG [VIEW] - Validación de campos exitosa")
-        
+
         try:
-            print("DEBUG [VIEW] - Llamando al controlador de autenticación...")
-            print("DEBUG [VIEW] - Función a llamar: iniciar_sesion")
-            
             # Llamar al controlador de autenticación con los parámetros correctos
             success, message, user_data = iniciar_sesion(username, password)
-            
-            print(f"DEBUG [VIEW] - RESPUESTA DEL CONTROLADOR:")
-            print(f"DEBUG [VIEW] - - Success: {success}")
-            print(f"DEBUG [VIEW] - - Message: '{message}'")
-            print(f"DEBUG [VIEW] - - User data presente: {user_data is not None}")
-            
-            if user_data:
-                print(f"DEBUG [VIEW] - Datos del usuario logueado:")
-                for key, value in user_data.items():
-                    if key == 'password':
-                        continue  # No imprimir contraseñas
-                    print(f"DEBUG [VIEW] - - {key}: {value}")
-            
+
             if success:
-                print("DEBUG [VIEW] - ✅ AUTENTICACIÓN EXITOSA")
                 # Autenticación exitosa
                 result_text.value = "¡Login exitoso! Redirigiendo..."
                 result_text.color = "green"
                 page.update()
-                print("DEBUG [VIEW] - Interfaz actualizada con mensaje de éxito")
                 
                 # Pequeña pausa para mostrar el mensaje de éxito
-                print("DEBUG [VIEW] - Esperando 0.5 segundos antes de redireccionar...")
                 import time
                 time.sleep(0.5)
                 
-                print("DEBUG [VIEW] - Iniciando redirección a /resumen")
                 # Navegar a la vista principal
                 page.go("/resumen")
-                print("DEBUG [VIEW] - Redirección ejecutada")
             else:
-                print("DEBUG [VIEW] - ❌ AUTENTICACIÓN FALLIDA")
                 # Error de autenticación
                 result_text.value = message or "Credenciales incorrectas"
                 result_text.color = "red"
                 
                 # Limpiar campo de contraseña por seguridad
                 password_input.value = ""
-                print("DEBUG [VIEW] - Campo de contraseña limpiado por seguridad")
                 
         except Exception as ex:
-            print("DEBUG [VIEW] - 🚨 EXCEPCIÓN CAPTURADA EN VISTA")
-            print(f"DEBUG [VIEW] - Tipo de excepción: {type(ex).__name__}")
-            print(f"DEBUG [VIEW] - Mensaje de excepción: {str(ex)}")
-            print(f"DEBUG [VIEW] - Representación completa: {repr(ex)}")
-            
             # Manejo de errores inesperados
             result_text.value = f"Error del sistema: {str(ex)}"
             result_text.color = "red"
@@ -200,9 +141,6 @@ def login_view(page: ft.Page) -> ft.View:
         finally:
             # Siempre actualizar la página
             page.update()
-            print("DEBUG [VIEW] - Página actualizada en finally")
-            print("DEBUG [VIEW] - FIN DEL PROCESO DE LOGIN")
-            print("="*50 + "\n")
 
     def on_text_field_submit(e: ft.ControlEvent) -> None:
         """Maneja el evento de presionar Enter en los campos de texto."""

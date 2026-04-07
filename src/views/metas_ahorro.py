@@ -1,4 +1,4 @@
-"""
+﻿"""
 Módulo de Vista de Metas de Ahorro
 
 Este módulo contiene la implementación de la vista de metas de ahorro
@@ -45,13 +45,7 @@ class MetasAhorroView:
         
         self.sidebar_menu = create_sidebar_menu(
             page=page,
-            selected_index=6,  # "Metas de Ahorro" está seleccionado
-            user_data={
-                "name": "John Doe",
-                "email": "john.doe@email.com", 
-                "avatar_initials": "JD",
-                "avatar_color": "#2196F3"
-            },
+            selected_index=6,  # "Metas de Ahorro" está seleccionado
             navigation_callback=self.handle_navigation
         )
     

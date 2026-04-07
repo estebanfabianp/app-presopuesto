@@ -25,6 +25,88 @@ import flet as ft
 from typing import Optional, Callable, Dict, Any
 
 
+def load_active_user_data() -> Dict[str, Any]:
+    """
+    Carga datos del usuario activo desde base de datos.
+
+    Returns:
+        Dict[str, Any]: Datos del usuario para el sidebar
+    """
+    default_data = {
+        "name": "Usuario",
+        "email": "usuario@email.com",
+        "avatar_initials": "US",
+        "avatar_color": "#2196F3"
+    }
+
+    try:
+        # Import local para evitar dependencias fuertes al importar el modulo.
+        from src.database.db_connector import DatabaseConnector
+
+        db = DatabaseConnector()
+        conn = db.conn
+        if not conn:
+            return default_data
+
+        cursor = conn.cursor(dictionary=True)
+
+        # Obtener usuario con estado activo (1 o 'activo')
+        try:
+            cursor.execute(
+                """
+                SELECT id_persona, nombre, apellido, correo_electronico
+                FROM persona
+                WHERE estado = 1 OR estado = 'activo'
+                ORDER BY id_persona DESC
+                LIMIT 1
+                """
+            )
+            row = cursor.fetchone()
+        except Exception:
+            row = None
+
+        # Si no hay usuario activo, obtener cualquiera
+        if not row:
+            try:
+                cursor.execute(
+                    """
+                    SELECT id_persona, nombre, apellido, correo_electronico
+                    FROM persona
+                    ORDER BY id_persona DESC
+                    LIMIT 1
+                    """
+                )
+                row = cursor.fetchone()
+            except Exception:
+                row = None
+
+        cursor.close()
+        conn.close()
+
+        if not row:
+            return default_data
+
+        nombre = (row.get("nombre") or "").strip()
+        apellido = (row.get("apellido") or "").strip()
+        correo = (row.get("correo_electronico") or "usuario@email.com").strip()
+        
+        # Si el correo es muy corto o malformado, usar default
+        if len(correo) < 3 or "@" not in correo:
+            correo = "usuario@email.com"
+        
+        full_name = f"{nombre} {apellido}".strip() or "Usuario"
+        initials = "".join([part[0] for part in full_name.split()[:2] if part]).upper() or "US"
+
+        return {
+            "name": full_name,
+            "email": correo,
+            "avatar_initials": initials,
+            "avatar_color": "#1976D2"
+        }
+    except Exception:
+        return default_data
+
+
 class LeftSidebarMenu:
     """
     Componente de menú lateral reutilizable para navegación de la aplicación.
@@ -62,14 +144,17 @@ class LeftSidebarMenu:
         self.page = page
         self.selected_index = selected_index
         self.navigation_callback = navigation_callback
-        
-        # Datos por defecto del usuario si no se proporcionan
-        self.user_data = user_data or {
-            "name": "Usuario Demo",
-            "email": "usuario@demo.com",
-            "avatar_initials": "UD",
-            "avatar_color": "#2196F3"
-        }
+
+        # Reemplaza placeholders por usuario activo real para todas las vistas.
+        placeholder_names = {"John Doe", "Usuario Demo", "Usuario"}
+        placeholder_emails = {"john.doe@email.com", "usuario@demo.com", "usuario@email.com"}
+        should_load_real_user = (
+            not user_data
+            or user_data.get("name") in placeholder_names
+            or user_data.get("email") in placeholder_emails
+        )
+
+        self.user_data = load_active_user_data() if should_load_real_user else user_data
         
         # Configuración del menú con badges dinámicos
         self.menu_items = [
@@ -253,14 +338,42 @@ class LeftSidebarMenu:
             route (str): Ruta de navegación
         """
         print(f"Navegando a: {section} ({route})")
-        
+
+        # Mapeo explicito por seccion para garantizar navegacion estable.
+        section_to_route = {
+            "Dashboard": "/dashboard",
+            "Resumen Financiero": "/resumen",
+            "Nueva Transacción": "/transacciones/nueva",
+            "Historial": "/transacciones/historial",
+            "Transferencias": "/transferencias",
+            "Presupuestos": "/presupuestos",
+            "Metas de Ahorro": "/metas",
+            "Categorías": "/categorias",
+            "Cuentas Bancarias": "/cuentas",
+            "Tarjetas de Crédito": "/tarjetas",
+            "Inversiones": "/inversiones",
+            "Análisis": "/analisis",
+            "Reportes": "/reportes",
+            "Exportar Datos": "/exportar",
+            "Perfil": "/perfil",
+            "Notificaciones": "/notificaciones",
+            "Configuración": "/configuracion",
+            "Constantes": "/constantes",
+            "Cerrar Sesión": "/login",
+        }
+
+        # Prioriza la ruta recibida en el item; si no existe, usa la ruta por sección.
+        target_route = route or section_to_route.get(section, "")
+
         # Navegaciones especiales
-        if route == "/login" or section == "Cerrar Sesión":
+        if target_route == "/login" or section == "Cerrar Sesión":
             self.page.go("/login")
-        elif route == "/constantes" or section == "Constantes":
+        elif target_route == "/constantes" or section == "Constantes":
             self.page.go("/constantes")
-        elif route:
-            self.page.go(route)
+        elif target_route == "/configuracion" or section == "Configuración":
+            self.page.go("/configuracion")
+        elif target_route:
+            self.page.go(target_route)
     
     def create_user_profile(self) -> ft.Container:
         """

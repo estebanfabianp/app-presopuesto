@@ -79,40 +79,64 @@ def obtener_productos_por_usuario(user_id: int) -> List[Dict[str, Any]]:
     """
     try:
         db_connector = DatabaseConnector()
-        
-        # Query simplificado - solo cuentas por ahora para que funcione
-        query = """
-        SELECT 
-            c.id_cuenta as id_producto,
-            'CUENTA' as tipo_producto,
-            c.nombre as nombre,
-            c.saldo_inicial as saldo_actual,
-            c.saldo_inicial as saldo_disponible,
-            0 as limite_credito,
-            0 as tasa_interes,
-            c.fecha_creacion as fecha_apertura,
-            'ACTIVO' as estado,
-            'Cuenta Bancaria' as tipo_display,
-            c.saldo_inicial as valor_efectivo
-        FROM cuenta c
-        WHERE c.id_persona = %s
-        ORDER BY c.nombre
+
+        # Estrategia principal: usar vista unificada de productos si existe
+        query_view = """
+        SELECT
+            id_producto,
+            tipo_producto,
+            nombre,
+            saldo_actual,
+            saldo_disponible,
+            limite_credito,
+            tasa_interes,
+            fecha_apertura,
+            estado,
+            tipo_display,
+            valor_efectivo
+        FROM v_producto_unificado
+        WHERE id_persona = %s
+        ORDER BY tipo_producto, nombre
         """
+
+        resultados = db_connector.execute_query(query_view, (user_id,))
         
-        resultados = db_connector.execute_query(query, (user_id,))
+        # Fallback: consulta simplificada si la vista no existe o retorna vacío
+        if not resultados:
+            query = """
+            SELECT 
+                c.id_cuenta as id_producto,
+                'cuenta_bancaria' as tipo_producto,
+                c.nombre as nombre,
+                c.saldo_inicial as saldo_actual,
+                c.saldo_inicial as saldo_disponible,
+                0 as limite_credito,
+                0 as tasa_interes,
+                c.fecha_creacion as fecha_apertura,
+                'ACTIVO' as estado,
+                'Cuenta Bancaria' as tipo_display,
+                c.saldo_inicial as valor_efectivo
+            FROM cuenta c
+            WHERE c.id_persona = %s
+            ORDER BY c.nombre
+            """
+
+            resultados = db_connector.execute_query(query, (user_id,))
         
         if not resultados:
             return []
             
         productos = []
         for row in resultados:
-            # Mapear el tipo de producto de la BD al formato esperado
-            tipo_mapeado = {
-                'CUENTA': 'cuenta_bancaria',
-                'TARJETA': 'tarjeta_credito',
-                'PRESTAMO': 'prestamo',
-                'ACTIVO': 'fondo_inversion'
-            }.get(row['tipo_producto'], 'otro')
+            tipo_mapeado = row['tipo_producto']
+
+            if tipo_mapeado in ('CUENTA', 'TARJETA', 'PRESTAMO', 'ACTIVO'):
+                tipo_mapeado = {
+                    'CUENTA': 'cuenta_bancaria',
+                    'TARJETA': 'tarjeta_credito',
+                    'PRESTAMO': 'prestamo',
+                    'ACTIVO': 'fondo_inversion'
+                }.get(tipo_mapeado, 'otro')
             
             producto = {
                 'id_producto': row['id_producto'],

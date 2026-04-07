@@ -1,3 +1,4 @@
+-- Active: 1756931757388@@127.0.0.1@3306@app_presupuesto
 # 💡 Estrategia de Evolución - App Presupuesto
 
 > **Hacia el Liderazgo Fintech en LATAM**
@@ -6,13 +7,13 @@
 
 ## 📋 Resumen Ejecutivo
 
-Este documento define la **estrategia integral** para la evolución de **app-presupuesto** desde su sólida base empresarial v0.7.1 hacia una **plataforma fintech líder en América Latina**.
+Este documento define la **estrategia integral** para la evolución de **app-presupuesto** desde su sólida base empresarial v0.7.1 hasta convertirse en la **plataforma fintech líder de América Latina**.
 
 ### 🎯 Objetivos Principales
-- Construir sobre la base empresarial ya implementada
-- Acelerar el desarrollo aprovechando la arquitectura existente
-- Diferenciarse mediante funcionalidades específicas para Colombia
-- Escalar hacia una plataforma fintech completa
+- Construir sobre la base empresarial ya implementada y optimizada
+- Acelerar el desarrollo aprovechando la arquitectura existente robusta
+- Diferenciarse mediante funcionalidades específicas del mercado colombiano
+- Escalar hacia una plataforma fintech integral y competitiva
 
 ---
 
@@ -96,14 +97,14 @@ Este documento define la **estrategia integral** para la evolución de **app-pre
 **Puntuación:** 4.9/5.0 | **Esfuerzo:** 1.5 semanas | **ROI:** 500% | **Estado:** ✅ Base Lista
 
 **Tareas de Implementación:**
-- [ ] **Dashboard Contextual:** Integrar sistema de sesiones `obtener_dato_sesion()` implementado
-- [ ] **Navegación Inteligente:** Conectar con permisos granulares v1.4.0 operativos
-- [ ] **Reportes Automáticos:** Usar `sp_generar_reporte_documentacion()` disponible
-- [ ] **Métricas en Tiempo Real:** Aprovechar funciones `fn_dias_habiles()` existentes
+- [x] **Dashboard Contextual:** Integrar el sistema de sesiones `obtener_dato_sesion()` ya implementado
+- [ ] **Navegación Inteligente:** Conectar con los permisos granulares v1.4.0 operativos
+- [ ] **Reportes Automáticos:** Utilizar `sp_generar_reporte_documentacion()` disponible
+- [ ] **Métricas en Tiempo Real:** Aprovechar las funciones `fn_dias_habiles()` existentes
 - [ ] **Widgets Modulares:** Extender patrones UI del login optimizado
 - [ ] **Diseño Responsivo:** Compatibilidad móvil/tablet/desktop
 
-**Meta:** 95% de usuarios acceden al dashboard en su primera sesión
+**Objetivo:** 95% de usuarios acceden al dashboard en su primera sesión
 
 #### 🆕 Ideas Exclusivas - Ventaja Competitiva Colombia
 
@@ -112,57 +113,57 @@ Este documento define la **estrategia integral** para la evolución de **app-pre
 - [ ] **Cálculos Localizados:** Usar `fn_dias_habiles()` para fechas exactas de vencimiento
 - [ ] **Reportes Colombianos:** Adaptados al calendario fiscal y festividades locales
 - [ ] **Configuración Dinámica:** Aprovechar tabla `constantes` para personalización sin código
-- [ ] **intereses en la tarjeta de credito:** la idea que cuando se ingrese el valor ya sea  por  un archivo mire los interese y realice el calculo de los mismos para ayudar al usuario y mire cuanto esta pagango
+- [ ] **Análisis de Intereses de Tarjetas de Crédito:** Implementar un sistema que, al ingresar valores (manualmente o por archivo), analice automáticamente los intereses y calcule el costo real, ayudando al usuario a comprender exactamente cuánto está pagando
 
 **📊 Inteligencia de Negocio Automatizada**
-- [ ] **Dashboard Auto-actualizable:** Conectar con triggers para métricas en tiempo real
-- [ ] **Reportes Programados:** Usar eventos del sistema para envío automático
-- [ ] **Análisis de Arquitectura:** Integrar `sp_generar_reporte_arquitectura()` en panel admin
-- [ ] **Métricas de Sistema:** Monitoring automático usando procedimientos implementados
+- [ ] **Dashboard Auto-actualizable:** Conectar con triggers para obtener métricas en tiempo real
+- [ ] **Reportes Programados:** Utilizar eventos del sistema para envío automático
+- [ ] **Análisis de Arquitectura:** Integrar `sp_generar_reporte_arquitectura()` en el panel de administración
+- [ ] **Métricas de Sistema:** Monitoreo automático usando procedimientos implementados
 
 #### 2. Sistema CRUD Empresarial
 **Patrón Base:** `persona_controller.py` v1.4.0 como plantilla optimizada y probada
-**Ventaja:** La base empresarial reduce el desarrollo en 60%
+**Ventaja:** La base empresarial reduce el tiempo de desarrollo en un 60%
 
 **Tareas de Implementación:**
-- [ ] **Gestión de Cuentas:** Reutilizar arquitectura MVC y triggers automáticos listos
-- [ ] **Validaciones Robustas:** Extender sistema de validación optimizado existente
-- [ ] **Estados Dinámicos:** Replicar patrón ACTIVA/INACTIVA/BLOQUEADA validado
-- [ ] **Auditoría Automática:** Usar triggers de logging implementados
+- [ ] **Gestión de Cuentas:** Reutilizar la arquitectura MVC y triggers automáticos ya listos
+- [ ] **Validaciones Robustas:** Extender el sistema de validación optimizado existente
+- [ ] **Estados Dinámicos:** Replicar el patrón ACTIVA/INACTIVA/BLOQUEADA ya validado
+- [ ] **Auditoría Automática:** Utilizar triggers de logging implementados
 - [ ] **Integridad Garantizada:** Aprovechar constraints y FK automáticos operativos
 
-**Meta de Rendimiento:** Operaciones CRUD <150ms, soporte para 10K+ cuentas
+**Objetivo de Rendimiento:** Operaciones CRUD <150ms, soporte para más de 10K cuentas
 
 #### 3. Motor de Transacciones Básico
 **Arquitectura:** `transaction_controller.py` siguiendo el patrón MVC establecido
 
 **Tareas de Implementación:**
-- [ ] **Registro Manual:** Sistema optimizado para captura de transacciones
+- [ ] **Registro Manual:** Sistema optimizado para la captura de transacciones
 - [ ] **Validaciones Integradas:** Utilizar `validar_sesion_y_permisos()` existente
-- [ ] **Autocompletado:** Sugerencias basadas en historial del usuario
-- [ ] **Categorización Base:** Sistema simple preparando futura IA
+- [ ] **Autocompletado:** Sugerencias basadas en el historial del usuario
+- [ ] **Categorización Base:** Sistema simple preparando la futura IA
 
-**Meta:** Registrar una transacción compleja en menos de 30 segundos
+**Objetivo:** Registrar una transacción compleja en menos de 30 segundos
 
 ### ⚡ Optimización de Rendimiento
 
 #### 1. Sistema de Caché Distribuido
 **Objetivo:** Mejorar los tiempos de respuesta aprovechando la infraestructura existente
 
-- [ ] **Integración Redis:** Capa sobre `obtener_dato_sesion()` existente
+- [ ] **Integración Redis:** Implementar capa de caché sobre `obtener_dato_sesion()` existente
 - [ ] **Estrategia Write-through:** TTL configurables por tipo de dato
 - [ ] **Invalidación Automática:** Sincronizada con `actualizar_datos_sesion()`
 
-**Meta:** 50% de reducción en latencia, 30% menos carga en BD
+**Meta:** 50% de reducción en latencia, 30% menos carga en base de datos
 
 #### 2. Optimización de Base de Datos
 **Objetivo:** Maximizar el rendimiento de la arquitectura MySQL existente
 
-- [ ] **Análisis de Consultas:** Perfilado del sistema de autenticación actual
-- [ ] **Índices Compuestos:** Optimizados para búsquedas multicriterio
-- [ ] **Particionamiento Temporal:** Por fecha para transacciones
+- [ ] **Análisis de Consultas:** Realizar perfilado del sistema de autenticación actual
+- [ ] **Índices Compuestos:** Optimizar para búsquedas multicriterio
+- [ ] **Particionamiento Temporal:** Implementar por fecha para transacciones
 
-**Meta:** Consultas frecuentes <100ms, 100+ conexiones concurrentes
+**Objetivo:** Consultas frecuentes <100ms, soporte para más de 100 conexiones concurrentes
 
 ---
 
@@ -181,9 +182,9 @@ Este documento define la **estrategia integral** para la evolución de **app-pre
 - [ ] **Modelos Ensemble:** Random Forest + SVM + Redes Neuronales con datos Colombia
 - [ ] **Retroalimentación Automática:** Usar eventos programados para reentrenamiento
 
-**Metas:**
-- Precisión del 90% (base de datos optimizada mejora rendimiento)
-- 80% reducción tiempo categorización + insights específicos de Colombia
+**Objetivos:**
+- Precisión del 90% (la base de datos optimizada mejora el rendimiento)
+- 80% de reducción en tiempo de categorización + insights específicos de Colombia
 
 #### 2. Sistema de Detección de Anomalías
 **Objetivo:** Identificar transacciones sospechosas y patrones extraños
@@ -194,7 +195,7 @@ Este documento define la **estrategia integral** para la evolución de **app-pre
 - [ ] **Puntuación de Riesgo:** Calificación en tiempo real por transacción
 - [ ] **Alertas Inteligentes:** Notificaciones de transacciones sospechosas
 
-**Meta:** 92% detección de anomalías, <1% falsos positivos
+**Objetivo:** 92% de detección de anomalías, <1% de falsos positivos
 
 #### 3. Pronóstico de Flujo de Caja
 **Objetivo:** Predicciones financieras precisas usando IA avanzada
@@ -205,7 +206,7 @@ Este documento define la **estrategia integral** para la evolución de **app-pre
 - [ ] **Detección de Estacionalidad:** Patrones estacionales y cíclicos automáticos
 - [ ] **Análisis de Escenarios:** Simulación Monte Carlo de diferentes escenarios
 
-**Meta:** 80% precisión predicciones a 30 días, 70% a 60 días
+**Objetivo:** 80% de precisión en predicciones a 30 días, 70% a 60 días
 
 ### 📊 Dashboard de Analytics Avanzado
 
@@ -219,7 +220,7 @@ Este documento define la **estrategia integral** para la evolución de **app-pre
 - [ ] **Análisis Temporal:** Series de tiempo con zoom, pan y selección de períodos
 - [ ] **Exportación:** PNG, PDF, SVG de alta calidad para reportes
 
-**Meta:** 80% de usuarios interactúan activamente con visualizaciones
+**Objetivo:** 80% de usuarios interactúan activamente con las visualizaciones
 
 #### 2. Sistema de Reportes Automáticos
 **Objetivo:** Generación y distribución inteligente de reportes personalizados
@@ -230,7 +231,7 @@ Este documento define la **estrategia integral** para la evolución de **app-pre
 - [ ] **Multiformato:** PDF ejecutivo, Excel detallado, dashboard web interactivo
 - [ ] **Distribución Inteligente:** Integración con Email, Slack, Microsoft Teams
 
-**Meta:** 60% de usuarios configuran reportes automáticos
+**Objetivo:** 60% de usuarios configuran reportes automáticos
 
 #### 3. Análisis Comparativo Temporal
 **Objetivo:** Herramientas avanzadas para análisis de tendencias financieras
@@ -242,7 +243,7 @@ Este documento define la **estrategia integral** para la evolución de **app-pre
 - [ ] **Detección de Tendencias:** Identificación automática de patrones de crecimiento
 - [ ] **Alertas Inteligentes:** Notificaciones proactivas de incrementos anómalos
 
-**Meta:** Facilitar decisiones basadas en análisis de datos históricos precisos
+**Objetivo:** Facilitar la toma de decisiones basada en análisis de datos históricos precisos
 
 ### 🔌 Ecosistema de APIs
 
@@ -403,6 +404,7 @@ Este documento define la **estrategia integral** para la evolución de **app-pre
 - [ ] **Navegación por Voz:** Comandos de voz para operaciones principales
 - [ ] **Alto Contraste:** Temas visuales para usuarios con baja visión
 - [ ] **Texto Ampliable:** Escalado de fuentes sin pérdida de funcionalidad
+- [ ] **Aumentos Programados:** Permitir establecer aumentos automáticos programados, como suscripciones y pagos recurrentes 
 
 **Meta:** Cumplimiento WCAG 2.1 AA para accesibilidad universal
 
@@ -475,14 +477,14 @@ Este documento define la **estrategia integral** para la evolución de **app-pre
 
 ## 🔧 Evolución del Stack Tecnológico
 
-### Actual v0.7.1 (Optimizado):
+### Stack Actual v0.7.1 (Optimizado):
 ```yaml
-UI: Flet + Material Design (Rendimiento optimizado)
-Business: Python MVC + Controladores Optimizados
-Data: MySQL + Pool de Conexiones + Índices Optimizados
-Security: bcrypt + Validación Robusta + Sesiones Globales
-Documentation: 100% Funciones Core + Ejemplos
-Testing: Manual Exhaustivo + Planes de Automatización
+Interfaz de Usuario: Flet + Material Design (rendimiento optimizado)
+Lógica de Negocio: Python MVC + controladores optimizados
+Base de Datos: MySQL + pool de conexiones + índices optimizados
+Seguridad: bcrypt + validación robusta + sesiones globales
+Documentación: 100% funciones core + ejemplos prácticos
+Pruebas: testing manual exhaustivo + planes de automatización
 ```
 
 ### Target v0.9.0 (Inteligencia):
@@ -512,11 +514,11 @@ Geography: Multirregión LATAM
 ## 🎯 Estrategia de Ejecución 2026
 
 ### Q1: Consolidación (Construir Profundidad)
-- **Estrategia:** Aprovechar la fundación existente para funcionalidades core
-- **Foco:** Dashboard + CRUD aprovechando patrones arquitectónicos
-- **Optimización:** Rendimiento construyendo sobre cache y BD actuales
-- **🎯 Hito:** Demo funcional completo para inversores
-- **📊 KPI Crítico:** 90% de tasa de finalización de onboarding
+- **Estrategia:** Aprovechar la fundación existente para desarrollar funcionalidades core
+- **Enfoque:** Dashboard + sistema CRUD aprovechando patrones arquitectónicos establecidos
+- **Optimización:** Mejorar rendimiento construyendo sobre caché y base de datos actuales
+- **🎯 Hito Principal:** Demo funcional completo para presentar a inversores
+- **📊 KPI Crítico:** 90% de tasa de finalización exitosa del onboarding
 
 ### Q2: Diferenciación (Construir Inteligencia)
 - **Estrategia:** IA de categorización usando patrones de validación existentes
@@ -590,10 +592,10 @@ Geography: Multirregión LATAM
 - **ROI Esperado:** 500%+ (base de datos automatizada reduce desarrollo)
 
 **💰 PRIORIDAD #2: Sistema de Transacciones (Febrero 2026)**
-- **Objetivo:** CRUD completo aprovechando triggers automáticos
-- **Aprovecha:** Funciones de días hábiles + validaciones implementadas
-- **Timeline:** 2-3 semanas (triggers reducen lógica de negocio)
-- **Diferenciador:** Cálculos automáticos considerando calendario colombiano
+- **Objetivo:** Sistema CRUD completo aprovechando triggers automáticos existentes
+- **Aprovecha:** Funciones de días hábiles y validaciones ya implementadas
+- **Cronograma:** 2-3 semanas (los triggers reducen significativamente la lógica de negocio)
+- **Diferenciador:** Cálculos automáticos que consideran el calendario laboral colombiano
 
 **🏦 PRIORIDAD #3: Gestión de Cuentas (Marzo 2026)**
 - **Objetivo:** Sistema completo usando patrón persona_controller v1.4.0

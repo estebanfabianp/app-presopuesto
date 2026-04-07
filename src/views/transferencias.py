@@ -1,4 +1,4 @@
-"""
+﻿"""
 Módulo de Vista de Transferencias
 
 Este módulo contiene la implementación de la vista de transferencias bancarias
@@ -45,13 +45,7 @@ class TransferenciasView:
         
         self.sidebar_menu = create_sidebar_menu(
             page=page,
-            selected_index=4,  # "Transferencias" está seleccionado
-            user_data={
-                "name": "John Doe",
-                "email": "john.doe@email.com", 
-                "avatar_initials": "JD",
-                "avatar_color": "#2196F3"
-            },
+            selected_index=4,  # "Transferencias" está seleccionado
             navigation_callback=self.handle_navigation
         )
     

@@ -1,4 +1,4 @@
-
+﻿
 """
 Módulo de Vista de Constantes Financieras
 
@@ -50,13 +50,7 @@ class ConstantesView:
         # Crear el menú lateral usando el componente reutilizable
         self.sidebar_menu = create_sidebar_menu(
             page=page,
-            selected_index=16,  # "Configuración" está seleccionado para constantes
-            user_data={
-                "name": "John Doe",
-                "email": "john.doe@email.com", 
-                "avatar_initials": "JD",
-                "avatar_color": "#2196F3"
-            },
+            selected_index=16,  # "Configuración" está seleccionado para constantes
             navigation_callback=self.handle_navigation
         )
     
@@ -276,5 +270,6 @@ if __name__ == "__main__":
     Inicia la aplicación Flet con la función main como target.
     """
     ft.app(target=main)
+
 
 

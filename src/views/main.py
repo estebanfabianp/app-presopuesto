@@ -24,10 +24,17 @@ Fecha: [30-sep-2025]
 Versión: 1.0
 """
 
+import importlib
+
 import flet as ft
-from resumen import resumen_view
-from login import login_view
-from constante import constantes_view
+
+try:
+    from .resumen import resumen_view
+    from .login import login_view
+except ImportError:
+    # Soporta ejecución directa del archivo: python src/views/main.py
+    from resumen import resumen_view
+    from login import login_view
 
 def main(page: ft.Page) -> None:
     """
@@ -58,8 +65,63 @@ def main(page: ft.Page) -> None:
         - Cada cambio de ruta limpia las vistas anteriores
         - Las vistas se agregan dinámicamente según la ruta actual
     """
-    # Configuración del título de la ventana principal
-    page.title = "App con navegación entre vistas"
+    # Configuración base de la ventana principal
+    page.title = "App Presupuesto"
+
+    def create_404_view() -> ft.View:
+        return ft.View(
+            route="/404",
+            controls=[
+                ft.Container(
+                    expand=True,
+                    alignment=ft.alignment.center,
+                    content=ft.Column(
+                        [
+                            ft.Text("404", size=42, weight=ft.FontWeight.BOLD),
+                            ft.Text("Ruta no encontrada", size=18),
+                            ft.ElevatedButton("Ir a Resumen", on_click=lambda e: page.go("/resumen")),
+                        ],
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=12,
+                    ),
+                )
+            ],
+        )
+
+    def load_view(module_name: str, function_name: str) -> ft.View | None:
+        """Carga una vista dinamicamente y retorna None si no existe."""
+        candidates = [f"src.views.{module_name}", module_name]
+        for candidate in candidates:
+            try:
+                module = importlib.import_module(candidate)
+                view_fn = getattr(module, function_name, None)
+                if callable(view_fn):
+                    return view_fn(page)
+            except (ImportError, AttributeError, TypeError):
+                continue
+        return None
+
+    route_map = {
+        "/login": [("login", "login_view")],
+        "/dashboard": [("dashboard", "dashboard_view"), ("dasvorad", "dashboard_view")],
+        "/resumen": [("resumen", "resumen_view")],
+        "/transacciones/nueva": [("nueva_trasacion", "nueva_transaccion_view")],
+        "/transacciones/historial": [("historia", "constantes_view")],
+        "/transferencias": [("transferencias", "transferencias_view"), ("tranferencia", "transferencias_view")],
+        "/presupuestos": [("presupuesto", "constantes_view")],
+        "/metas": [("metas_ahorro", "metas_ahorro_view"), ("meta_ahorro", "constantes_view")],
+        "/categorias": [("categoria", "constantes_view")],
+        "/cuentas": [("cuenta_bancaria", "constantes_view")],
+        "/tarjetas": [("tarjeta", "constantes_view")],
+        "/inversiones": [("inversion", "constantes_view")],
+        "/analisis": [("analizis", "constantes_view")],
+        "/reportes": [("reporte", "constantes_view")],
+        "/exportar": [("export", "constantes_view")],
+        "/perfil": [("perfil", "perfil_view")],
+        "/notificaciones": [("configuracion", "configuracion_view")],
+        "/configuracion": [("configuracion", "configuracion_view")],
+        "/constantes": [("constante", "constantes_view")],
+    }
 
     def route_change(route) -> None:
         """
@@ -97,114 +159,23 @@ def main(page: ft.Page) -> None:
         # Limpiar todas las vistas existentes del historial
         page.views.clear()
 
-        # Determinar qué vista mostrar según la ruta actual
-        if page.route == "/login":
-            # Mostrar vista de autenticación
-            page.views.append(login_view(page))
-        elif page.route == "/dashboard":
-            try:
-                from dasvorad import dashboard_view
-                page.views.append(dashboard_view(page))
-            except ImportError:
-                print("Error: No se pudo importar dashboard_view")
-                page.views.append(create_404_view(page))
-        elif page.route == "/resumen":
-            # Mostrar vista de resumen financiero
-            page.views.append(resumen_view(page))
-        elif page.route == "/constantes":
-            # Mostrar vista de constantes financiero
-            page.views.append(constantes_view(page))
-        elif page.route == "/transacciones/nueva":
-            try:
-                from nueva_trasacion import nueva_transaccion_view
-                page.views.append(nueva_transaccion_view(page))
-            except ImportError:
-                print("Error: No se pudo importar nueva_transaccion_view")
-                page.views.append(create_404_view(page))
-        elif page.route == "/transferencias":
-            try:
-                from tranferencia import transferencias_view
-                page.views.append(transferencias_view(page))
-            except ImportError:
-                print("Error: No se pudo importar transferencias_view")
-                page.views.append(create_404_view(page))
-        elif page.route == "/configuracion":
-            try:
-                from configuracion import configuracion_view
-                page.views.append(configuracion_view(page))
-            except ImportError:
-                print("Error: No se pudo importar configuracion_view")
-                page.views.append(create_404_view(page))
-        elif page.route == "/perfil":
-            try:
-                from perfil import perfil_view
-                page.views.append(perfil_view(page))
-            except ImportError:
-                print("Error: No se pudo importar perfil_view")
-                page.views.append(create_404_view(page))
-        else:
-            # Manejo de rutas no encontradas (404)
-            page.views.append(create_404_view(page))
+        loaded_view = None
+        for module_name, function_name in route_map.get(page.route, []):
+            loaded_view = load_view(module_name, function_name)
+            if loaded_view is not None:
+                break
+
+        if loaded_view is None and page.route not in route_map:
+            loaded_view = create_404_view()
+
+        if loaded_view is None:
+            # Fallback seguro si la ruta existe pero su vista aun no esta implementada.
+            loaded_view = resumen_view(page)
+
+        page.views.append(loaded_view)
 
         # Actualizar la página para reflejar los cambios en la UI
         page.update()
-
-    def create_404_view(page: ft.Page) -> ft.View:
-        """
-        Crea una vista de error 404 para rutas no encontradas.
-        
-        Args:
-            page (ft.Page): Referencia a la página principal de Flet
-            
-        Returns:
-            ft.View: Vista de error 404 con opción de regresar al login
-        """
-        return ft.View(
-            route="/404",
-            controls=[
-                ft.Container(
-                    content=ft.Column([
-                        ft.Icon(
-                            ft.Icons.ERROR_OUTLINE,
-                            size=80,
-                            color=ft.Colors.RED_400
-                        ),
-                        ft.Text(
-                            "404",
-                            size=48,
-                            weight=ft.FontWeight.BOLD,
-                            color="#333333"
-                        ),
-                        ft.Text(
-                            "Página no encontrada",
-                            size=20,
-                            color="#666666"
-                        ),
-                        ft.Text(
-                            f"La ruta  no existe",
-                            size=14,
-                            color="#999999"
-                        ),
-                        ft.Container(height=30),
-                        ft.ElevatedButton(
-                            "Ir al Login",
-                            on_click=lambda e: page.go("/login"),
-                            bgcolor=ft.Colors.BLUE,
-                            color=ft.Colors.WHITE,
-                            width=200,
-                            height=40
-                        )
-                    ],
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    spacing=15
-                    ),
-                    alignment=ft.alignment.center,
-                    expand=True
-                )
-            ],
-            vertical_alignment=ft.MainAxisAlignment.CENTER,
-            horizontal_alignment=ft.CrossAxisAlignment.CENTER
-        )
 
     # Configurar el manejador de cambios de ruta
     page.on_route_change = route_change
@@ -213,7 +184,7 @@ def main(page: ft.Page) -> None:
     # Esto activa automáticamente route_change con la ruta "/login"
     page.go("/login")
 
-# Iniciar la aplicación Flet con la función main como punto de entrada
-# Esta línea ejecuta la aplicación y abre la ventana principal
-ft.app(target=main)
+# Iniciar la aplicación solo cuando este archivo se ejecuta directamente
+if __name__ == "__main__":
+    ft.app(target=main)
 

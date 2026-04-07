@@ -1,4 +1,4 @@
-"""
+﻿"""
 Módulo de Vista de Dashboard Principal
 
 Este módulo contiene la implementación de la vista del dashboard principal
@@ -48,13 +48,7 @@ class DashboardView:
         # Crear el menú lateral usando el componente reutilizable
         self.sidebar_menu = create_sidebar_menu(
             page=page,
-            selected_index=0,  # "Dashboard" está seleccionado
-            user_data={
-                "name": "John Doe",
-                "email": "john.doe@email.com", 
-                "avatar_initials": "JD",
-                "avatar_color": "#2196F3"
-            },
+            selected_index=0,  # "Dashboard" está seleccionado
             navigation_callback=self.handle_navigation
         )
     
@@ -241,3 +235,4 @@ def main(page: ft.Page) -> None:
 
 if __name__ == "__main__":
     ft.app(target=main)
+

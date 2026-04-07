@@ -3,5 +3,21 @@
 		{
 			"path": "."
 		}
-	]
+	],
+	"settings": {
+		"chat.tools.terminal.autoApprove": {
+			"/^C:/Users/Asus/Documents/GitHub/app-presopuesto/venv/Scripts/python\\.exe -m pytest tests/ -v$/": {
+				"approve": true,
+				"matchCommandLine": true
+			},
+			"/^C:/Users/Asus/Documents/GitHub/app-presopuesto/venv/Scripts/python\\.exe -m pytest test_producto_controller\\.py -v$/": {
+				"approve": true,
+				"matchCommandLine": true
+			},
+			"/^C:/Users/Asus/Documents/GitHub/app-presopuesto/venv/Scripts/python\\.exe -m pytest test_resumen_view\\.py -v$/": {
+				"approve": true,
+				"matchCommandLine": true
+			}
+		}
+	}
 }
