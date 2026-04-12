@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}Reportes - App Presupuesto{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header mb-4">
+        <h1 class="page-title"><i class="fas fa-file-pdf"></i> Reportes</h1>
+        <p class="text-muted mb-0">Análisis de tus movimientos de los últimos 6 meses.</p>
+    </div>
+
+    <!-- Balance mensual -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-chart-line"></i> Balance mensual</h5>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="cargarReporte()">
+                        <i class="fas fa-sync-alt"></i> Actualizar
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="loadingReporte" class="text-center py-4">
+                        <div class="spinner-border text-primary"></div>
+                        <p class="mt-2 text-muted">Cargando datos…</p>
+                    </div>
+                    <div style="position:relative; height:280px; display:none;" id="balanceContainer">
+                        <canvas id="balanceChart"></canvas>
+                    </div>
+                    <p id="noDataBalance" class="text-muted text-center py-4" style="display:none;">
+                        Sin movimientos para mostrar.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gastos por categoría -->
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-pie"></i> Gastos por categoría</h5>
+                </div>
+                <div class="card-body">
+                    <div style="position:relative; height:300px; display:none;" id="catContainer">
+                        <canvas id="catChart"></canvas>
+                    </div>
+                    <p id="noDataCat" class="text-muted text-center py-4" style="display:none;">
+                        Sin gastos por categoría.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-table"></i> Detalle por categoría</h5>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0" id="tablaCat" style="display:none;">
+                        <thead>
+                            <tr>
+                                <th>Categoría</th>
+                                <th class="text-end">Total gastos</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyCat"></tbody>
+                    </table>
+                    <p id="noDataCatTable" class="text-muted text-center py-4" style="display:none;">
+                        Sin datos.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let balanceChart = null;
+let catChart     = null;
+
+const COLORS = [
+    '#FF6384','#36A2EB','#FFCE56','#4BC0C0','#9966FF',
+    '#FF9F40','#C9CBCF','#71B37C','#A8DADC','#E7E9ED',
+];
+
+document.addEventListener('DOMContentLoaded', cargarReporte);
+
+async function cargarReporte() {
+    document.getElementById('loadingReporte').style.display = 'block';
+    document.getElementById('balanceContainer').style.display = 'none';
+    document.getElementById('noDataBalance').style.display   = 'none';
+    document.getElementById('catContainer').style.display    = 'none';
+    document.getElementById('noDataCat').style.display       = 'none';
+    document.getElementById('tablaCat').style.display        = 'none';
+    document.getElementById('noDataCatTable').style.display  = 'none';
+
+    try {
+        const data = await api.getReporteData();
+        document.getElementById('loadingReporte').style.display = 'none';
+
+        // --- Gráfico de balance mensual ---
+        if (data.months && data.months.length > 0) {
+            document.getElementById('balanceContainer').style.display = 'block';
+            const ctxB = document.getElementById('balanceChart').getContext('2d');
+            if (balanceChart) balanceChart.destroy();
+            balanceChart = new Chart(ctxB, {
+                type: 'line',
+                data: {
+                    labels: data.months,
+                    datasets: [{
+                        label: 'Balance',
+                        data: data.balance_trend,
+                        borderColor: '#0d6efd',
+                        backgroundColor: 'rgba(13,110,253,0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            ticks: { callback: v => formatCurrency(v) }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ` Balance: ${formatCurrency(ctx.parsed.y)}`
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            document.getElementById('noDataBalance').style.display = 'block';
+        }
+
+        // --- Gráfico de dona por categoría ---
+        if (data.categories && data.categories.length > 0) {
+            const labels = data.categories.map(c => c.nombre);
+            const values = data.categories.map(c => c.total);
+            const colors = COLORS.slice(0, labels.length);
+
+            document.getElementById('catContainer').style.display = 'block';
+            const ctxC = document.getElementById('catChart').getContext('2d');
+            if (catChart) catChart.destroy();
+            catChart = new Chart(ctxC, {
+                type: 'doughnut',
+                data: {
+                    labels,
+                    datasets: [{ data: values, backgroundColor: colors }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ` ${ctx.label}: ${formatCurrency(ctx.parsed)}`
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Tabla
+            document.getElementById('tbodyCat').innerHTML = data.categories.map(c => `
+                <tr>
+                    <td>${c.nombre}</td>
+                    <td class="text-end text-danger fw-semibold">${formatCurrency(c.total)}</td>
+                </tr>
+            `).join('');
+            document.getElementById('tablaCat').style.display = 'table';
+        } else {
+            document.getElementById('noDataCat').style.display      = 'block';
+            document.getElementById('noDataCatTable').style.display  = 'block';
+        }
+
+    } catch (err) {
+        document.getElementById('loadingReporte').style.display = 'none';
+        showToast('Error al cargar reporte: ' + (err.message || ''), 'danger');
+    }
+}
+</script>
+{% endblock %}

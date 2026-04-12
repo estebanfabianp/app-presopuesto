@@ -1,6 +1,46 @@
+# Entorno virtual
 venv/
+.venv/
+
+# Python cache
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Tests
 .pytest_cache/
-users.db
-scripts/debug/debug_output.txt
+.coverage
+htmlcov/
+
+# Bases de datos locales
+*.db
+*.sqlite3
+
+# Variables de entorno (¡nunca versionar!)
+.env
+.env.local
+.env.*.local
+
+# IDEs
+.vscode/settings.json
+.idea/
+*.suo
+*.user
+
+# Build / distribución
+dist/
+build/
+*.egg-info/
+
+# Logs
+*.log
+logs/
+
+# Artefactos debug heredados
+scripts/debug/
+mockups/
+
+# OS
+.DS_Store
+Thumbs.db

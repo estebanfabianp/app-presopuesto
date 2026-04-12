@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Exportar - App Presupuesto{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+	<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+		<div>
+			<h1 class="page-title mb-1"><i class="fas fa-file-export"></i> Exportar Datos</h1>
+			<p class="text-muted mb-0">Descarga de información financiera en formatos externos.</p>
+		</div>
+		<span class="badge bg-warning text-dark">En construcción</span>
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-body">
+			<h5 class="mb-3">Datos listos para exportar</h5>
+			<div class="row g-3">
+				<div class="col-md-4"><strong>Movimientos (30 días):</strong> <span id="kpiMovimientos">0</span></div>
+				<div class="col-md-4"><strong>Ingresos:</strong> <span id="kpiIngresos">$0.00</span></div>
+				<div class="col-md-4"><strong>Gastos:</strong> <span id="kpiGastos">$0.00</span></div>
+			</div>
+		</div>
+	</div>
+
+	<div class="alert alert-primary mb-0" role="alert">
+		<i class="fas fa-circle-info"></i>
+		Próximamente podrás exportar a CSV y PDF. Por ahora, usa la vista de transacciones y reportes para consulta.
+	</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+	try {
+		const summary = await api.getDashboardSummary();
+		document.getElementById('kpiMovimientos').textContent = summary.transacciones_recientes || 0;
+		document.getElementById('kpiIngresos').textContent = formatCurrency(summary.total_ingresos || 0);
+		document.getElementById('kpiGastos').textContent = formatCurrency(summary.total_gastos || 0);
+	} catch (error) {
+		console.error('Error cargando resumen en exportar:', error);
+	}
+});
+</script>
+{% endblock %}

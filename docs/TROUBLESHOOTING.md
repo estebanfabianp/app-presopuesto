@@ -1,117 +1,74 @@
-# Guía de Resolución de Problemas
+# Troubleshooting
 
-## 🐛 Problemas Comunes
+## La aplicación web no arranca
 
-### Error: "ModuleNotFoundError: No module named 'flet'"
+Verifica:
 
-**Síntomas:**
-```
-ModuleNotFoundError: No module named 'flet'
-```
-
-**Solución:**
-```bash
-# Verificar que el entorno virtual esté activado
-source venv/bin/activate  # Linux/macOS
-venv\Scripts\activate     # Windows
-
-# Instalar flet
-pip install flet
+```powershell
+python app.py
 ```
 
-### Error: "ImportError: cannot import name 'autenticar_usuario'"
+Problemas comunes:
 
-**Síntomas:**
-```
-ImportError: cannot import name 'autenticar_usuario' from 'controllers.persona_controller'
-```
+- dependencia faltante en `requirements.txt`,
+- puerto ocupado,
+- `.env` inconsistente,
+- error de conexión a MySQL/MariaDB.
 
-**Causas posibles:**
-1. Archivo `persona_controller.py` no existe
-2. Función no está definida
-3. Error en el path de importación
+## `GET /health` falla
 
-**Solución:**
-1. Verificar que existe `src/controllers/persona_controller.py`
-2. Verificar que la función está definida correctamente
-3. Usar importación relativa: `from ..controllers.persona_controller import autenticar_usuario`
+Pasos:
 
-### Error: "AttributeError: 'ResumenView' object has no attribute 'build'"
+1. confirma que `app.py` levantó sin excepciones,
+2. valida host y puerto,
+3. revisa errores de importación en `src/routes`.
 
-**Síntomas:**
-```
-AttributeError: 'ResumenView' object has no attribute 'build'
-```
+## El login devuelve 401
 
-**Solución:**
-Asegurar que la clase `ResumenView` tiene el método `build()`:
-```python
-def build(self) -> ft.Container:
-    return ft.Container(...)
-```
+Revisa:
 
-### Aplicación no se abre o se cierra inmediatamente
+- existencia del usuario en `persona`,
+- `estado = 1`,
+- contraseña correcta,
+- conectividad a base de datos.
 
-**Causas posibles:**
-1. Error en el código principal
-2. Dependencias faltantes
-3. Conflictos de versiones
+Recuerda que el modelo puede migrar contraseñas legacy al primer login exitoso.
 
-**Diagnóstico:**
-```bash
-# Ejecutar con output de errores
-python main.py
+## `init_db.bat` falla
 
-# Verificar dependencias
-pip list
-pip check
-```
+Verifica:
 
-## 🔧 Herramientas de Debug
+- cliente `mysql` en PATH,
+- servidor MySQL/MariaDB levantado,
+- credenciales válidas,
+- permisos para crear o usar `app_presupuesto`.
 
-### Logging Detallado
+Si la base ya existía, el batch debe entrar en modo `maintenance`.
 
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
+## La instalación `full` falla en MariaDB
 
-# En funciones críticas
-logger.debug(f"Autenticando usuario: {username}")
-```
+Estado conocido del proyecto:
 
-### Verificación de Entorno
+- algunos scripts históricos todavía no son totalmente idempotentes o portables,
+- el modo `maintenance` ya es seguro y reejecutable,
+- para una base nueva puede requerirse revisión puntual de scripts bajo `01_core/create`.
 
-```bash
-# Verificar versión de Python
-python --version
+## Flet falla por imports o vistas
 
-# Verificar pip
-pip --version
+Pasos:
 
-# Verificar entorno virtual
-which python  # Linux/macOS
-where python   # Windows
-```
+1. activa el entorno virtual,
+2. instala dependencias,
+3. revisa imports rotos en `src/views` y `src/controllers`,
+4. prueba también el modo web para aislar si el problema es solo de la UI heredada.
 
-## 💡 Tips de Performance
+## El ETL no procesa el Excel
 
-### Aplicación Lenta
+Revisa:
 
-1. **Reducir carga inicial:**
-   - Implementar lazy loading
-   - Cargar datos bajo demanda
+- ruta del archivo,
+- columnas mínimas esperadas,
+- tarjeta y persona existentes,
+- datos numéricos válidos.
 
-2. **Optimizar renderizado:**
-   - Evitar re-renders innecesarios
-   - Usar componentes ligeros
-
-### Alto Uso de Memoria
-
-1. **Liberar recursos:**
-   - Cerrar conexiones no utilizadas
-   - Limpiar referencias circulares
-
-2. **Optimizar datos:**
-   - Paginar tablas grandes
-   - Comprimir imágenes
+Consulta `docs/ETL_TARJETA_CREDITO.md` para el formato soportado.

@@ -1,271 +1,201 @@
-# 📚 API Reference - App Presupuesto v0.7.1
-**Sistema Empresarial de Gestión Financiera**
+# Referencia API
 
-Documentación completa de la API interna del sistema empresarial de gestión financiera personal. Esta documentación cubre todas las funciones, controladores, servicios y funciones de base de datos disponibles en la arquitectura MVC optimizada.
+Esta referencia cubre la capa web Flask actualmente disponible en el proyecto.
 
----
+## Base URL
 
-## 📋 Tabla de Contenidos
+En desarrollo local:
 
-1. [Visión General](#-visión-general)
-2. [Sistema de Autenticación](#-sistema-de-autenticación)
-3. [Funciones de Base de Datos Empresariales](#-funciones-de-base-de-datos-empresariales)
-4. [Procedimientos Almacenados](#-procedimientos-almacenados)
-5. [Controladores Principales](#-controladores-principales)
-6. [Modelos de Datos](#-modelos-de-datos)
-7. [Sistema de Documentación](#-sistema-de-documentación)
-8. [Utilidades y Helpers](#-utilidades-y-helpers)
-9. [Códigos de Error](#-códigos-de-error)
-10. [Ejemplos de Uso](#-ejemplos-de-uso)
-11. [Best Practices](#-best-practices)
-
----
-
-## 🔍 Visión General
-
-### Arquitectura de la API
-
-La API interna de App Presupuesto sigue el patrón **MVC (Model-View-Controller)** con las siguientes capas:
-
-```
-📊 VIEW LAYER (Presentación)
-    ↓
-🎮 CONTROLLER LAYER (Lógica de Negocio)  
-    ↓
-🗄️ DATABASE LAYER (Funciones Empresariales)
-    ↓
-📊 AUTOMATION LAYER (Triggers & Events)
-    ↓
-🗄️ MODEL LAYER (Datos y Persistencia)
+```text
+http://127.0.0.1:5000
 ```
 
-### Convenciones Generales
+Prefijo API:
 
-#### Tipos de Retorno Estándar
-```python
-# Patrón de respuesta para operaciones críticas
-Tuple[bool, str, Optional[Dict]] = (success, message, data)
-
-# Patrón de respuesta para consultas
-Optional[Dict] = data or None
-
-# Patrón de respuesta para validaciones
-Tuple[bool, str] = (is_valid, error_message)
+```text
+/api
 ```
 
-#### Manejo de Errores
-- **ValidationError**: Errores de validación de entrada
-- **AuthenticationError**: Errores de autenticación
-- **DatabaseError**: Errores de acceso a datos
-- **BusinessLogicError**: Errores de lógica de negocio
+## Autenticación
 
----
+La API usa JWT.
 
-## 🏢 Funciones de Base de Datos Empresariales
+Encabezado esperado:
 
-### 📅 Funciones de Días Hábiles
-
-#### `fn_dias_habiles(fecha_inicio, fecha_fin)`
-Calcula días hábiles entre dos fechas excluyendo festivos de Colombia.
-
-**Sintaxis:**
-```sql
-SELECT fn_dias_habiles('2024-01-01', '2024-01-31') as dias_habiles;
+```text
+Authorization: Bearer <token>
 ```
 
-**Parámetros:**
-- `fecha_inicio` (DATE): Fecha inicial del período
-- `fecha_fin` (DATE): Fecha final del período
+## Endpoints
 
-**Retorna:** INT - Número de días hábiles
+### Salud del servicio
 
-**Ejemplo:**
-```sql
--- Días hábiles en enero 2024
-SELECT fn_dias_habiles('2024-01-01', '2024-01-31') as dias_enero;
--- Resultado: 22 días hábiles
+#### `GET /health`
+
+Valida que la aplicación Flask esté levantada.
+
+Respuesta esperada:
+
+```json
+{"status":"ok","app":"presopuesto-flask"}
 ```
 
-#### `fn_siguiente_dia_habil(fecha_referencia)`
-Obtiene el siguiente día hábil después de una fecha dada.
+### Auth
 
-**Sintaxis:**
-```sql
-SELECT fn_siguiente_dia_habil(CURDATE()) as proximo_dia_habil;
-```
+#### `POST /api/auth/login`
 
-**Parámetros:**
-- `fecha_referencia` (DATE): Fecha de referencia
+Body:
 
-**Retorna:** DATE - Siguiente día hábil
-
-**Ejemplo:**
-```sql
--- Si hoy es viernes, devuelve el lunes siguiente
-SELECT fn_siguiente_dia_habil('2024-12-20') as siguiente;
--- Resultado: 2024-12-23 (lunes)
-```
-
-### 💰 Funciones de Cálculo Financiero
-
-#### `fn_calcular_interes_simple(monto, tasa, dias)`
-Calcula interés simple para un período dado.
-
-**Sintaxis:**
-```sql
-SELECT fn_calcular_interes_simple(1000000, 0.18, 30) as interes;
-```
-
-**Parámetros:**
-- `monto` (DECIMAL): Capital inicial
-- `tasa` (DECIMAL): Tasa de interés anual (0.18 = 18%)
-- `dias` (INT): Número de días
-
-**Retorna:** DECIMAL - Valor del interés calculado
-
----
-
-## 📊 Procedimientos Almacenados
-
-### 📚 Sistema de Documentación
-
-#### `sp_generar_reporte_documentacion()`
-Genera reporte completo de documentación del sistema.
-
-**Sintaxis:**
-```sql
-CALL sp_generar_reporte_documentacion();
-```
-
-**Descripción:**
-Produce un reporte detallado con:
-- Cobertura de documentación por tabla
-- Campos sin documentar
-- Métricas de calidad de documentación
-- Recomendaciones de mejora
-
-#### `sp_generar_reporte_arquitectura()`
-Genera análisis de arquitectura y métricas del sistema.
-
-**Sintaxis:**
-```sql
-CALL sp_generar_reporte_arquitectura();
-```
-
----
-
-## 🔐 Sistema de Autenticación
-
-### PersonaController v1.4.0
-
-Controlador principal para gestión de usuarios y autenticación con optimizaciones de performance y seguridad empresarial.
-
-#### Funciones de Autenticación Core
-
-##### `iniciar_sesion(username: str, password: str) -> Tuple[bool, str, Optional[Dict]]`
-
-Inicia sesión de usuario con validación completa y creación de sesión segura.
-
-**Parámetros:**
-- `username` (str): Nombre de usuario o email
-- `password` (str): Contraseña en texto plano
-
-**Returns:**
-```python
-(
-    success: bool,           # True si login exitoso
-    message: str,           # Mensaje descriptivo del resultado
-    session_data: Optional[Dict]  # Datos de sesión si exitoso
-)
-```
-
-**Validaciones Implementadas:**
-- ✅ Usuario existe en base de datos
-- ✅ Usuario en estado ACTIVO
-- ✅ Contraseña válida con bcrypt
-- ✅ Rate limiting para prevenir ataques
-- ✅ Logging de eventos de seguridad
-
-**Ejemplo de Uso:**
-```python
-from controllers.persona_controller import iniciar_sesion
-
-success, message, session = iniciar_sesion("usuario@email.com", "mi_password")
-if success:
-    print(f"Bienvenido: {session['nombre_completo']}")
-    print(f"Rol: {session['rol']}")
-else:
-    print(f"Error de login: {message}")
-```
-
-**Estructura de session_data:**
-```python
+```json
 {
-    'usuario_id': int,              # ID único del usuario
-    'persona_id': int,              # ID de la persona asociada  
-    'username': str,                # Nombre de usuario
-    'nombre_completo': str,         # Nombres + Apellidos
-    'email': str,                   # Email del usuario
-    'rol': str,                     # Rol: admin, user, guest
-    'activo': bool,                 # Estado de sesión activa
-    'fecha_login': datetime,        # Timestamp del login
-    'ultima_actividad': datetime,   # Última interacción
-    'permisos': List[str],          # Lista de permisos específicos
-    'token_seguridad': str,         # Token único de sesión
-    'expira_en': datetime,          # Timestamp de expiración
-    'configuracion': Dict,          # Configuraciones personalizadas
-    'estadisticas': Dict            # Métricas de uso
+  "email": "usuario@correo.com",
+  "password": "clave"
 }
 ```
 
----
+Respuesta exitosa:
 
-##### `cerrar_sesion() -> bool`
-
-Cierra sesión activa de forma segura con limpieza completa de datos.
-
-**Returns:**
-- `bool`: True si cierre exitoso, False si no había sesión activa
-
-**Acciones Realizadas:**
-- 🧹 Limpieza de variables globales de sesión
-- 📝 Logging del evento de logout
-- 🗄️ Actualización de última actividad en BD
-- 🔒 Invalidación de token de seguridad
-
-**Ejemplo:**
-```python
-from controllers.persona_controller import cerrar_sesion
-
-if cerrar_sesion():
-    print("Sesión cerrada exitosamente")
-else:
-    print("No había sesión activa")
+```json
+{
+  "token": "jwt-token",
+  "user": {
+    "id": 1,
+    "email": "usuario@correo.com",
+    "nombre": "Usuario",
+    "username": "usuario"
+  }
+}
 ```
 
----
+Notas:
 
-##### `verificar_sesion_activa() -> bool`
+- La autenticación se resuelve con `PersonaModel`.
+- El `identity` del JWT se emite como string por compatibilidad.
+- Si la contraseña está en formato legacy, puede migrarse automáticamente al primer login.
 
-Verifica si existe una sesión válida y activa con múltiples validaciones de seguridad.
+#### `GET /api/auth/me`
 
-**Returns:**
-- `bool`: True si hay sesión válida activa
+Devuelve el usuario autenticado a partir del token.
 
-**Validaciones Realizadas:**
-- ✅ Existencia de datos de sesión
-- ✅ Validez del token de seguridad  
-- ✅ Verificación de expiración
-- ✅ Estado activo del usuario en BD
-- ✅ Integridad de datos de sesión
+#### `POST /api/auth/logout`
 
-**Ejemplo:**
-```python
-from controllers.persona_controller import verificar_sesion_activa
+Respuesta simple de cierre de sesión del lado cliente.
 
-if verificar_sesion_activa():
-    print("Usuario autenticado correctamente")
-else:
-    # Redirigir a login
-    print("Sesión expirada o inválida")
+### Dashboard
+
+#### `GET /api/dashboard/summary`
+
+Entrega resumen del dashboard web.
+
+Estado actual:
+
+- endpoint operativo,
+- aún usa parte de datos demo.
+
+#### `GET /api/dashboard/gastos-por-categoria`
+
+Entrega estructura para gráficos de categorías.
+
+Estado actual:
+
+- endpoint operativo,
+- aún usa parte de datos demo.
+
+### Presupuesto
+
+#### `GET /api/presupuesto`
+
+Lista presupuestos del usuario autenticado.
+
+#### `GET /api/presupuesto/<id>`
+
+Obtiene un presupuesto específico.
+
+#### `POST /api/presupuesto`
+
+Crea presupuesto.
+
+Campos comunes:
+
+```json
+{
+  "nombre": "Presupuesto abril",
+  "descripcion": "Control mensual",
+  "monto": 1500000,
+  "periodo": "mensual",
+  "categoria": "Alimentación",
+  "fecha_inicio": "2026-04-01",
+  "fecha_fin": "2026-04-30"
+}
 ```
+
+#### `PUT /api/presupuesto/<id>`
+
+Actualiza presupuesto existente.
+
+#### `DELETE /api/presupuesto/<id>`
+
+Elimina presupuesto y su relación en `presupuesto_categoria`.
+
+### Transacciones
+
+#### `GET /api/transacciones`
+
+Lista movimientos del usuario.
+
+Query params soportados actualmente:
+
+- `limit`
+
+#### `POST /api/transacciones`
+
+Crea una transacción.
+
+Campos comunes:
+
+```json
+{
+  "descripcion": "Compra supermercado",
+  "categoria": "Compras",
+  "tipo": "gasto",
+  "monto": 120000,
+  "fecha": "2026-04-12"
+}
+```
+
+#### `PUT /api/transacciones/<id>`
+
+Actualiza una transacción existente.
+
+#### `DELETE /api/transacciones/<id>`
+
+Elimina la transacción.
+
+### Reportes
+
+#### `GET /api/reportes/data`
+
+Devuelve:
+
+- `months`
+- `balance_trend`
+- `categories`
+
+Fuente:
+
+- agregaciones SQL sobre `movimiento`, `cuenta`, `tipo_movimiento` y `categoria`.
+
+## Códigos de respuesta comunes
+
+- `200`: operación exitosa.
+- `201`: recurso creado.
+- `400`: petición inválida.
+- `401`: token ausente, inválido o expirado.
+- `404`: recurso no encontrado.
+- `500`: error interno.
+
+## Limitaciones actuales
+
+- La API web aún no cubre todos los módulos existentes en Flet.
+- El dashboard necesita terminar de conectarse a datos reales.
+- No hay documentación OpenAPI formal en el repositorio actual.

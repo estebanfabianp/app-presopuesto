@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Tarjetas - App Presupuesto{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+	<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+		<div>
+			<h1 class="page-title mb-1"><i class="fas fa-credit-card"></i> Tarjetas</h1>
+			<p class="text-muted mb-0">Gestión de tarjetas y consumos. Módulo en fase de integración.</p>
+		</div>
+		<span class="badge bg-warning text-dark">En construcción</span>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-md-3">
+			<div class="card h-100">
+				<div class="card-body">
+					<h6 class="text-muted">Tarjetas Activas</h6>
+					<h3 id="kpiTarjetas">0</h3>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4">
+			<div class="card h-100">
+				<div class="card-body">
+					<h6 class="text-muted">Compras del Mes</h6>
+					<h3 id="kpiGastosMes">$0.00</h3>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4">
+			<div class="card h-100">
+				<div class="card-body">
+					<h6 class="text-muted">Saldo Actual Tarjetas</h6>
+					<h3 id="kpiSaldo">$0.00</h3>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3">
+			<div class="card h-100">
+				<div class="card-body">
+					<h6 class="text-muted">Movimientos del Mes</h6>
+					<h3 id="kpiMovimientos">0</h3>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-header">
+			<h5 class="mb-0"><i class="fas fa-clock"></i> Últimos movimientos de tarjeta</h5>
+		</div>
+		<div class="card-body p-0">
+			<div class="table-responsive">
+				<table class="table table-hover mb-0">
+					<thead class="table-light">
+						<tr>
+							<th>Fecha</th>
+							<th>Estado</th>
+							<th>Nota</th>
+							<th class="text-end">Valor</th>
+						</tr>
+					</thead>
+					<tbody id="movimientosTarjetaBody">
+						<tr><td colspan="4" class="text-center text-muted py-3">Cargando...</td></tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+
+	<div class="card">
+		<div class="card-body">
+			<h5 class="mb-3">Próximos pasos del módulo</h5>
+			<p class="text-muted mb-3">Mientras se completa la interfaz específica de tarjetas, puedes gestionar tus movimientos y análisis desde estos accesos:</p>
+			<div class="d-flex flex-wrap gap-2">
+				<a href="/transacciones" class="btn btn-outline-primary btn-sm"><i class="fas fa-exchange-alt"></i> Ver transacciones</a>
+				<a href="/presupuestos" class="btn btn-outline-success btn-sm"><i class="fas fa-wallet"></i> Ver presupuestos</a>
+				<a href="/reportes" class="btn btn-outline-dark btn-sm"><i class="fas fa-chart-pie"></i> Ver reportes</a>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+	try {
+		const summary = await api.getTarjetasSummary();
+		document.getElementById('kpiTarjetas').textContent = summary.total_tarjetas || 0;
+		document.getElementById('kpiGastosMes').textContent = formatCurrency(summary.compras_mes || 0);
+		document.getElementById('kpiSaldo').textContent = formatCurrency(summary.saldo_actual_total || 0);
+		document.getElementById('kpiMovimientos').textContent = summary.movimientos_mes || 0;
+
+		const body = document.getElementById('movimientosTarjetaBody');
+		const rows = summary.movimientos_recientes || [];
+		if (rows.length === 0) {
+			body.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">Sin movimientos recientes</td></tr>';
+			return;
+		}
+
+		body.innerHTML = rows.map(r => `
+			<tr>
+				<td>${formatDate(r.fecha)}</td>
+				<td><span class="badge ${String(r.estado).toLowerCase() === 'compra' ? 'bg-danger' : 'bg-success'}">${r.estado}</span></td>
+				<td>${r.nota || '-'}</td>
+				<td class="text-end">${formatCurrency(r.valor || 0)}</td>
+			</tr>
+		`).join('');
+	} catch (error) {
+		console.error('Error cargando resumen en tarjetas:', error);
+	}
+});
+</script>
+{% endblock %}

@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}Presupuesto - App Presupuesto{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header mb-4 d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="page-title"><i class="fas fa-calculator"></i> Presupuestos</h1>
+            <p class="text-muted mb-0">Gestiona tus presupuestos por categoría y periodo.</p>
+        </div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalPresupuesto">
+            <i class="fas fa-plus"></i> Nuevo presupuesto
+        </button>
+    </div>
+
+    <!-- Tabla -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div id="loadingPresupuesto" class="text-center py-5">
+                <div class="spinner-border text-primary"></div>
+                <p class="mt-2 text-muted">Cargando presupuestos…</p>
+            </div>
+            <div id="emptyPresupuesto" class="text-center py-5" style="display:none;">
+                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                <p class="text-muted">No tienes presupuestos registrados.</p>
+            </div>
+            <table class="table table-hover mb-0" id="tablaPresupuesto" style="display:none;">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Categoría</th>
+                        <th class="text-end">Monto</th>
+                        <th>Periodo</th>
+                        <th>Vigencia</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyPresupuesto"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal nuevo/editar -->
+    <div class="modal fade" id="modalPresupuesto" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="formPresupuesto">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalPresupuestoTitle">Nuevo presupuesto</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="presupuestoId">
+                        <div class="mb-3">
+                            <label class="form-label">Nombre</label>
+                            <input type="text" class="form-control" id="presNombre" required placeholder="Ej: Alimentación marzo">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Categoría</label>
+                            <input type="text" class="form-control" id="presCategoria" placeholder="Ej: Alimentación">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Monto</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="presMonto" min="0" step="0.01" required placeholder="0.00">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Fecha inicio</label>
+                                <input type="date" class="form-control" id="presFechaInicio">
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Fecha fin</label>
+                                <input type="date" class="form-control" id="presFechaFin">
+                            </div>
+                        </div>
+                        <div id="formError" class="alert alert-danger" style="display:none;"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let presupuestoData = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+    cargarPresupuestos();
+
+    document.getElementById('formPresupuesto').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await guardarPresupuesto();
+    });
+
+    // Resetear modal al abrir para nuevo
+    document.getElementById('modalPresupuesto').addEventListener('show.bs.modal', (e) => {
+        if (!e.relatedTarget || !e.relatedTarget.dataset.id) {
+            resetForm();
+        }
+    });
+});
+
+async function cargarPresupuestos() {
+    const loading = document.getElementById('loadingPresupuesto');
+    const empty   = document.getElementById('emptyPresupuesto');
+    const tabla   = document.getElementById('tablaPresupuesto');
+    const tbody   = document.getElementById('tbodyPresupuesto');
+
+    loading.style.display = 'block';
+    empty.style.display   = 'none';
+    tabla.style.display   = 'none';
+
+    try {
+        presupuestoData = await api.getPresupuestos();
+        loading.style.display = 'none';
+
+        if (!presupuestoData.length) {
+            empty.style.display = 'block';
+            return;
+        }
+
+        tbody.innerHTML = presupuestoData.map(p => `
+            <tr>
+                <td>${p.nombre || '—'}</td>
+                <td>${p.categoria || '—'}</td>
+                <td class="text-end fw-semibold">${formatCurrency(p.monto)}</td>
+                <td><span class="badge bg-secondary">${p.periodo}</span></td>
+                <td class="small text-muted">
+                    ${p.fecha_inicio ? formatDate(p.fecha_inicio) : '?'} –
+                    ${p.fecha_fin   ? formatDate(p.fecha_fin)    : '?'}
+                </td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-primary me-1"
+                            data-bs-toggle="modal" data-bs-target="#modalPresupuesto"
+                            data-id="${p.id}" onclick="editarPresupuesto(${p.id})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger"
+                            onclick="eliminarPresupuesto(${p.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+
+        tabla.style.display = 'table';
+    } catch (err) {
+        loading.style.display = 'none';
+        showToast('Error al cargar presupuestos: ' + (err.message || ''), 'danger');
+    }
+}
+
+function resetForm() {
+    document.getElementById('presupuestoId').value = '';
+    document.getElementById('presNombre').value    = '';
+    document.getElementById('presCategoria').value = '';
+    document.getElementById('presMonto').value     = '';
+    document.getElementById('presFechaInicio').value = '';
+    document.getElementById('presFechaFin').value    = '';
+    document.getElementById('formError').style.display = 'none';
+    document.getElementById('modalPresupuestoTitle').textContent = 'Nuevo presupuesto';
+}
+
+function editarPresupuesto(id) {
+    const p = presupuestoData.find(x => x.id === id);
+    if (!p) return;
+    document.getElementById('presupuestoId').value = p.id;
+    document.getElementById('presNombre').value    = p.nombre || '';
+    document.getElementById('presCategoria').value = p.categoria || '';
+    document.getElementById('presMonto').value     = p.monto || '';
+    document.getElementById('presFechaInicio').value = p.fecha_inicio || '';
+    document.getElementById('presFechaFin').value    = p.fecha_fin    || '';
+    document.getElementById('modalPresupuestoTitle').textContent = 'Editar presupuesto';
+}
+
+async function guardarPresupuesto() {
+    const btn   = document.getElementById('btnGuardar');
+    const errEl = document.getElementById('formError');
+    errEl.style.display = 'none';
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando…';
+
+    const id = document.getElementById('presupuestoId').value;
+    const payload = {
+        nombre:       document.getElementById('presNombre').value.trim(),
+        categoria:    document.getElementById('presCategoria').value.trim() || null,
+        monto:        parseFloat(document.getElementById('presMonto').value) || 0,
+        fecha_inicio: document.getElementById('presFechaInicio').value || null,
+        fecha_fin:    document.getElementById('presFechaFin').value    || null,
+    };
+
+    try {
+        if (id) {
+            await api.updatePresupuesto(parseInt(id), payload);
+        } else {
+            await api.createPresupuesto(payload);
+        }
+        bootstrap.Modal.getInstance(document.getElementById('modalPresupuesto')).hide();
+        await cargarPresupuestos();
+        showToast('Presupuesto guardado correctamente.', 'success');
+    } catch (err) {
+        errEl.textContent = err.message || 'Error al guardar.';
+        errEl.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Guardar';
+    }
+}
+
+async function eliminarPresupuesto(id) {
+    if (!confirm('¿Eliminar este presupuesto?')) return;
+    try {
+        await api.deletePresupuesto(id);
+        await cargarPresupuestos();
+        showToast('Presupuesto eliminado.', 'success');
+    } catch (err) {
+        showToast('Error al eliminar: ' + (err.message || ''), 'danger');
+    }
+}
+</script>
+{% endblock %}

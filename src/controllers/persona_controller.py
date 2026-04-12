@@ -1,4 +1,4 @@
-"""
+﻿"""
 Controlador de Persona - Gestión de Usuarios y Sesiones
 ======================================================
 
@@ -190,43 +190,29 @@ def iniciar_sesion(username: str, password: str) -> Tuple[bool, str, Optional[Di
     """
     global _sesion_activa
     
-    print(f"DEBUG [CONTROLLER] - Iniciando proceso de login")
-    print(f"DEBUG [CONTROLLER] - Username recibido: '{username}'")
-    print(f"DEBUG [CONTROLLER] - password recibido: {'[PRESENTE]' if password else '[VACÍO]'}")
     
     if not username or not password:
-        print("DEBUG [CONTROLLER] - Validación fallida: campos vacíos")
         return False, "Usuario y contraseña son requeridos", None
     
     persona_model = PersonaModel()
-    print("DEBUG [CONTROLLER] - PersonaModel inicializado")
     
     try:
-        print("DEBUG [CONTROLLER] - Verificando credenciales en base de datos...")
         # Verificar credenciales
         if not persona_model.verificar_password(username, password):
-            print("DEBUG [CONTROLLER] - Credenciales incorrectas")
             return False, "Usuario o contraseña incorrecta", None
         
-        print("DEBUG [CONTROLLER] - Credenciales correctas, obteniendo datos del usuario...")
         # Obtener datos completos del usuario
         usuario_data = persona_model.get_usuario_by_username(username)
-        print(f"DEBUG [CONTROLLER] - Datos usuario obtenidos: {usuario_data is not None}")
         
         if not usuario_data:
-            print("DEBUG [CONTROLLER] - Error: no se pudieron obtener datos del usuario")
             return False, "Error al obtener datos del usuario", None
         
         persona_id = usuario_data.get('persona_id')
-        print(f"DEBUG [CONTROLLER] - Persona ID: {persona_id}")
         
         # Verificar que el usuario esté activo
-        print("DEBUG [CONTROLLER] - Verificando estado activo del usuario...")
         if not persona_model.persona_activa(persona_id):
-            print("DEBUG [CONTROLLER] - Usuario no está activo")
             return False, "El usuario no está activo", None
         
-        print("DEBUG [CONTROLLER] - Usuario activo, creando sesión...")
         # Crear datos de sesión
         _sesion_activa = {
             'usuario_id': usuario_data.get('id'),
@@ -240,22 +226,12 @@ def iniciar_sesion(username: str, password: str) -> Tuple[bool, str, Optional[Di
             'permisos': usuario_data.get('permisos', [])
         }
         
-        print(f"DEBUG [CONTROLLER] - Sesión creada exitosamente:")
-        print(f"DEBUG [CONTROLLER] - - Usuario ID: {_sesion_activa['usuario_id']}")
-        print(f"DEBUG [CONTROLLER] - - Persona ID: {_sesion_activa['persona_id']}")
-        print(f"DEBUG [CONTROLLER] - - Username: {_sesion_activa['username']}")
-        print(f"DEBUG [CONTROLLER] - - Nombre completo: {_sesion_activa['nombre_completo']}")
-        print(f"DEBUG [CONTROLLER] - - Rol: {_sesion_activa['rol']}")
-        print(f"DEBUG [CONTROLLER] - - Email: {_sesion_activa['email']}")
         
         return True, "Sesión iniciada correctamente", _sesion_activa
         
     except Exception as e:
-        print(f"DEBUG [CONTROLLER] - Excepción capturada: {type(e).__name__}: {str(e)}")
-        print(f"DEBUG [CONTROLLER] - Stack trace completo disponible si es necesario")
         return False, f"Error al iniciar sesión: {str(e)}", None
     finally:
-        print("DEBUG [CONTROLLER] - Cerrando conexión a base de datos")
         persona_model.close_connection()
 
 
@@ -268,17 +244,13 @@ def cerrar_sesion() -> Tuple[bool, str]:
     """
     global _sesion_activa
     
-    print("DEBUG [CONTROLLER] - Iniciando proceso de cierre de sesión")
-    print(f"DEBUG [CONTROLLER] - Sesión activa actual: {_sesion_activa is not None}")
     
     if _sesion_activa is None:
-        print("DEBUG [CONTROLLER] - No hay sesión activa para cerrar")
         return False, "No hay sesión activa"
     
     username_anterior = _sesion_activa.get('username', 'unknown')
     _sesion_activa = None
     
-    print(f"DEBUG [CONTROLLER] - Sesión cerrada para usuario: {username_anterior}")
     return True, "Sesión cerrada correctamente"
 
 
@@ -291,9 +263,6 @@ def verificar_sesion_activa() -> bool:
     """
     global _sesion_activa
     resultado = _sesion_activa is not None and _sesion_activa.get('activo', False)
-    print(f"DEBUG [CONTROLLER] - Verificación sesión activa: {resultado}")
-    if resultado:
-        print(f"DEBUG [CONTROLLER] - Usuario en sesión: {_sesion_activa.get('username', 'unknown')}")
     return resultado
 
 
@@ -304,11 +273,8 @@ def obtener_sesion_activa() -> Optional[Dict[str, Any]]:
     Returns:
         Optional[Dict[str, Any]]: Datos de sesión o None
     """
-    print("DEBUG [CONTROLLER] - Solicitando datos de sesión activa")
     if verificar_sesion_activa():
-        print("DEBUG [CONTROLLER] - Retornando datos de sesión activa")
         return _sesion_activa
-    print("DEBUG [CONTROLLER] - No hay sesión activa, retornando None")
     return None
 
 
@@ -383,20 +349,15 @@ def validar_sesion_y_permisos(permisos_requeridos: List[str] = None) -> Tuple[bo
     Returns:
         Tuple[bool, str]: (válido, mensaje)
     """
-    print(f"DEBUG [CONTROLLER] - Validando sesión y permisos: {permisos_requeridos}")
     
     if not verificar_sesion_activa():
-        print("DEBUG [CONTROLLER] - Validación fallida: no hay sesión activa")
         return False, "No hay sesión activa. Inicie sesión para continuar."
     
     if permisos_requeridos:
-        print(f"DEBUG [CONTROLLER] - Verificando permisos requeridos: {permisos_requeridos}")
         for permiso in permisos_requeridos:
             if not usuario_tiene_permiso(permiso):
-                print(f"DEBUG [CONTROLLER] - Permiso faltante: {permiso}")
                 return False, f"No tiene permisos suficientes. Requiere: {permiso}"
     
-    print("DEBUG [CONTROLLER] - Validación exitosa: sesión y permisos válidos")
     return True, "Sesión y permisos válidos"
 
 

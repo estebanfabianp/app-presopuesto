@@ -66,6 +66,20 @@ class ETLTarjetaCredito:
         'categoria': ['categoria', 'category', 'categoría'],
         'referencia': ['referencia', 'reference', 'ref', 'numero_referencia']
     }
+
+    INSERT_MOVIMIENTO_SQL = (
+        "INSERT INTO movimiento "
+        "(codigo, monto, id_tipo, id_estado, id_producto, id_categoria, "
+        "id_beneficiario, numero_transaccion, nota, fecha_creacion, id_cuenta) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+    )
+
+    INSERT_MOVIMIENTO_TARJETA_SQL = (
+        "INSERT INTO movimiento_tarjeta "
+        "(id_tarjeta, id_persona, fecha, valor, estado, nota, numero_transaccion, "
+        "id_categoria, id_beneficiario, saldo, cuotas) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+    )
     
     def __init__(self, db: Optional[DatabaseConnector] = None):
         """
@@ -382,26 +396,40 @@ class ETLTarjetaCredito:
             cursor = self.db.conn.cursor()
             
             for mov_data, mov_tarjeta_data in rows:
-                # INSERT en movimiento
-                mov_columns = ', '.join(mov_data.keys())
-                mov_placeholders = ', '.join(['%s'] * len(mov_data))
-                mov_values = list(mov_data.values())
-                
-                cursor.execute(
-                    f"INSERT INTO movimiento ({mov_columns}) VALUES ({mov_placeholders})",
-                    mov_values
+                # INSERT en movimiento (SQL estático para evitar construcción dinámica)
+                mov_values = (
+                    mov_data['codigo'],
+                    mov_data['monto'],
+                    mov_data['id_tipo'],
+                    mov_data['id_estado'],
+                    mov_data['id_producto'],
+                    mov_data['id_categoria'],
+                    mov_data['id_beneficiario'],
+                    mov_data['numero_transaccion'],
+                    mov_data['nota'],
+                    mov_data['fecha_creacion'],
+                    mov_data['id_cuenta'],
                 )
+
+                cursor.execute(self.INSERT_MOVIMIENTO_SQL, mov_values)
                 id_movimiento = int(cursor.lastrowid)
                 
-                # INSERT en movimiento_tarjeta
-                tarjeta_columns = ', '.join(mov_tarjeta_data.keys())
-                tarjeta_placeholders = ', '.join(['%s'] * len(mov_tarjeta_data))
-                tarjeta_values = list(mov_tarjeta_data.values())
-                
-                cursor.execute(
-                    f"INSERT INTO movimiento_tarjeta ({tarjeta_columns}) VALUES ({tarjeta_placeholders})",
-                    tarjeta_values
+                # INSERT en movimiento_tarjeta (SQL estático para evitar construcción dinámica)
+                tarjeta_values = (
+                    mov_tarjeta_data['id_tarjeta'],
+                    mov_tarjeta_data['id_persona'],
+                    mov_tarjeta_data['fecha'],
+                    mov_tarjeta_data['valor'],
+                    mov_tarjeta_data['estado'],
+                    mov_tarjeta_data['nota'],
+                    mov_tarjeta_data['numero_transaccion'],
+                    mov_tarjeta_data['id_categoria'],
+                    mov_tarjeta_data['id_beneficiario'],
+                    mov_tarjeta_data['saldo'],
+                    mov_tarjeta_data['cuotas'],
                 )
+
+                cursor.execute(self.INSERT_MOVIMIENTO_TARJETA_SQL, tarjeta_values)
             
             self.db.conn.commit()
             self.logger.info(f"Cargados {len(rows)} registros exitosamente")

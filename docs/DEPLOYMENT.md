@@ -1,226 +1,84 @@
 # Guía de Despliegue
 
-## 🚀 Preparación para Producción
+El proyecto todavía está principalmente orientado a desarrollo local, pero ya puede desplegarse en modo web Flask para pruebas internas o entornos controlados.
 
-### 1. Optimización del Código
+## Modalidades
 
-```bash
-# Limpiar archivos temporales
-find . -name "*.pyc" -delete
-find . -name "__pycache__" -type d -exec rm -rf {} +
+### Escritorio Flet
 
-# Verificar código
-black src/
-flake8 src/
-mypy src/
+Hoy se sigue ejecutando localmente con:
+
+```powershell
+python main.py
 ```
 
-### 2. Testing Completo
+No hay un pipeline formal de empaquetado mantenido en esta limpieza.
 
-```bash
-# Ejecutar todos los tests
-pytest tests/ -v --cov=src
+### Web Flask
 
-# Tests de integración
-pytest tests/integration/ -v
+Se ejecuta con:
 
-# Tests de rendimiento
-pytest tests/performance/ -v
+```powershell
+python app.py
 ```
 
-## 📦 Crear Ejecutable
+## Requisitos para despliegue web
+
+- Python 3.10+
+- MySQL/MariaDB accesible desde el host
+- Variables de entorno para Flask y JWT
+- Dependencias instaladas desde `requirements.txt`
+
+## Recomendación por entorno
 
 ### Windows
 
-```bash
-# Instalar PyInstaller
-pip install pyinstaller
+Usar `waitress` como servidor WSGI.
 
-# Crear ejecutable
-pyinstaller --onefile --windowed --icon=assets/icon.ico main.py
+Ejemplo:
 
-# Ejecutable en dist/main.exe
-```
-
-### macOS
-
-```bash
-# Crear app bundle
-pyinstaller --onefile --windowed --icon=assets/icon.icns main.py
-
-# Crear DMG (opcional)
-hdiutil create -volname "App Presupuesto" -srcfolder dist/ -ov app-presupuesto.dmg
+```powershell
+pip install waitress
+waitress-serve --host 0.0.0.0 --port 5000 app:create_app
 ```
 
 ### Linux
 
-```bash
-# Crear ejecutable
-pyinstaller --onefile main.py
+Usar `gunicorn` detrás de `nginx`.
 
-# Crear AppImage (opcional)
-# Requiere appimagetool
-```
-
-## 🐳 Docker Deployment
-
-### Dockerfile
-
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY src/ ./src/
-COPY assets/ ./assets/
-
-EXPOSE 8080
-
-CMD ["python", "main.py"]
-```
-
-### Docker Compose
-
-```yaml
-version: '3.8'
-services:
-  app-presupuesto:
-    build: .
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./data:/app/data
-    environment:
-      - DEBUG=False
-      - DATABASE_URL=sqlite:///data/app.db
-```
-
-## ☁️ Cloud Deployment
-
-### Heroku
+Ejemplo:
 
 ```bash
-# Crear Procfile
-echo "web: python main.py" > Procfile
-
-# Crear app
-heroku create app-presupuesto
-
-# Deploy
-git push heroku main
+gunicorn "app:create_app()" --bind 0.0.0.0:5000
 ```
 
-### AWS EC2
+## Variables mínimas
 
-```bash
-# Conectar a instancia
-ssh -i key.pem ubuntu@ec2-instance
-
-# Instalar dependencias
-sudo apt update
-sudo apt install python3-pip
-
-# Clonar y configurar
-git clone https://github.com/tu-usuario/app-presopuesto.git
-cd app-presupuesto
-pip3 install -r requirements.txt
-
-# Ejecutar como servicio
-sudo systemctl enable app-presupuesto
-sudo systemctl start app-presopuesto
+```env
+FLASK_ENV=production
+FLASK_DEBUG=False
+FLASK_HOST=0.0.0.0
+FLASK_PORT=5000
+SECRET_KEY=cambiar-en-produccion
+JWT_SECRET_KEY=cambiar-en-produccion
+DB_HOST=host-db
+DB_PORT=3306
+DB_NAME=app_presupuesto
+DB_USER=usuario
+DB_PASSWORD=clave
 ```
 
-## 🔒 Configuración de Seguridad
+## Pasos recomendados
 
-### Variables de Entorno
+1. Instalar dependencias.
+2. Verificar conectividad con la base.
+3. Ejecutar `init_db.bat` o el flujo SQL equivalente.
+4. Probar `GET /health`.
+5. Levantar el servicio WSGI.
+6. Exponerlo detrás de proxy reverso si aplica.
 
-```bash
-# .env
-DEBUG=False
-SECRET_KEY=your-secret-key-here
-DATABASE_URL=your-database-url
-ALLOWED_HOSTS=localhost,127.0.0.1
-```
+## Consideraciones
 
-### SSL/HTTPS
-
-```nginx
-# nginx.conf
-server {
-    listen 443 ssl;
-    server_name tu-dominio.com;
-    
-    ssl_certificate /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
-    
-    location / {
-        proxy_pass http://localhost:8080;
-    }
-}
-```
-
-## 📊 Monitoreo
-
-### Health Checks
-
-```python
-def health_check():
-    """Endpoint para verificar estado de la aplicación."""
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "version": "1.0.0"
-    }
-```
-
-### Logging en Producción
-
-```python
-import logging
-from logging.handlers import RotatingFileHandler
-
-# Configurar logging para producción
-handler = RotatingFileHandler('app.log', maxBytes=10000000, backupCount=5)
-handler.setFormatter(logging.Formatter(
-    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-))
-logger.addHandler(handler)
-logger.setLevel(logging.INFO)
-```
-
-## 🔄 CI/CD Pipeline
-
-### GitHub Actions
-
-```yaml
-# .github/workflows/deploy.yml
-name: Deploy
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Run tests
-        run: pytest
-
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to production
-        run: echo "Deploying to production..."
-```
+- No subas `.env`, `venv/` ni caches al repositorio.
+- La instalación `full` de BD debe validarse antes de producción en entornos MariaDB.
+- El módulo web sigue siendo una migración parcial; no todos los módulos del sistema están expuestos en HTML.

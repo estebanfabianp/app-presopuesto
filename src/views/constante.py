@@ -26,7 +26,7 @@ import datetime
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, List
+from typing import Dict, Optional, List
 
 import flet as ft
 
@@ -107,6 +107,7 @@ class SystemConstantsView:
         self.page = page
         self.db = DatabaseConnector()
         self.logger = logging.getLogger(__name__)
+        self.debug_terminal = True
         
         # Estado interno
         self.constants: List[Constant] = []
@@ -125,8 +126,13 @@ class SystemConstantsView:
             self.logger.warning(f"Error creando sidebar: {e}")
             self.sidebar_menu = None
         
-        # Column simple que contiene el DataTable — sin scroll ni expand (igual que resumen.py)
-        self.table_list = ft.Column(controls=[], spacing=0)
+        # Tarjeta fija de datos; su contenido se reemplaza en cada refresh.
+        self.table_card = ft.Container(
+            bgcolor="white",
+            border_radius=8,
+            padding=12,
+            border=ft.border.all(1, "#E0E0E0"),
+        )
         
         self.search_field = ft.TextField(
             label="Buscar constante...",
@@ -142,12 +148,21 @@ class SystemConstantsView:
         )
         
         self.status_text = ft.Text(value="", size=12, color=ft.Colors.RED_600)
+        self.summary_text = ft.Text(value="", size=12, color="#6B7280")
+        self.debug_text = ft.Text(value="DEBUG: iniciando...", size=12, color="#7C2D12")
+        self.debug_simple_grid = True
         
         # Cargar datos iniciales
         self._load_constants()
         self._load_categories()
+        self._debug_terminal("view initialized")
         
         self.logger.info("SystemConstantsView inicializada correctamente")
+
+    def _debug_terminal(self, message: str) -> None:
+        """Imprime trazas de depuración en terminal para seguimiento de la vista."""
+        if self.debug_terminal:
+            print(f"[DEBUG CONST] {message}", flush=True)
     
     def handle_navigation(self, route: str, index: int) -> None:
         """Maneja navegación desde el sidebar."""
@@ -239,6 +254,12 @@ class SystemConstantsView:
                     self.logger.warning(f"Error cargando constante {r.get('nombre')}: {row_error}")
             
             self.filtered_constants = self.constants.copy()
+            self.debug_text.value = (
+                f"DEBUG load: constants={len(self.constants)} filtered={len(self.filtered_constants)}"
+            )
+            self._debug_terminal(
+                f"load_constants -> constants={len(self.constants)} filtered={len(self.filtered_constants)}"
+            )
             self.logger.info(f"Cargadas {len(self.constants)} constantes")
             
         except Exception as e:
@@ -298,102 +319,324 @@ class SystemConstantsView:
     def _on_category_filter(self, e: Optional[ft.ControlEvent] = None) -> None:
         """Callback para filtrado por categoría."""
         self._on_search_change()
+
+    def _find_constant_by_name(self, name: str) -> Optional[Constant]:
+        """Busca una constante por nombre (exacto, case-insensitive)."""
+        normalized = (name or "").strip().lower()
+        if not normalized:
+            return None
+
+        for const in self.constants:
+            if const.nombre.strip().lower() == normalized:
+                return const
+        return None
+
+    def _open_constant_manager_dialog(self) -> None:
+        """Abre ventana para gestionar una constante por nombre."""
+        search_field = ft.TextField(
+            label="Nombre de la constante",
+            hint_text="Ej: IVA",
+            autofocus=True,
+        )
+        result_text = ft.Text("", size=12, color="#6B7280")
+        selected: Dict[str, Optional[Constant]] = {"constant": None}
+
+        edit_btn = ft.ElevatedButton("Modificar", icon=ft.Icons.EDIT, disabled=True)
+        delete_btn = ft.ElevatedButton(
+            "Eliminar",
+            icon=ft.Icons.DELETE_OUTLINE,
+            disabled=True,
+            bgcolor="#DC2626",
+            color="white",
+        )
+
+        def _refresh_action_buttons() -> None:
+            const = selected["constant"]
+            can_manage = const is not None
+            edit_btn.disabled = not can_manage
+            delete_btn.disabled = not can_manage
+
+        def _search_constant(_: Optional[ft.ControlEvent] = None) -> None:
+            const = self._find_constant_by_name(search_field.value or "")
+            selected["constant"] = const
+
+            if const:
+                result_text.value = (
+                    f"Encontrada: {const.nombre} | Categoria: {const.categoria} | "
+                    f"Tipo: {const.tipo_dato.value} | Valor: {const.valor}"
+                )
+                result_text.color = "#065F46"
+            else:
+                result_text.value = "No se encontró una constante con ese nombre"
+                result_text.color = "#B91C1C"
+
+            _refresh_action_buttons()
+            self.page.update()
+
+        def _open_create(_: ft.ControlEvent) -> None:
+            dialog.open = False
+            self.page.update()
+            self._show_create_constantsheet()
+
+        def _open_edit(_: ft.ControlEvent) -> None:
+            const = selected["constant"]
+            if not const:
+                return
+            dialog.open = False
+            self.page.update()
+            self._edit_constant_bottomsheet(const)
+
+        def _open_delete(_: ft.ControlEvent) -> None:
+            const = selected["constant"]
+            if not const:
+                return
+            dialog.open = False
+            self.page.update()
+            self._delete_constant(const)
+
+        search_field.on_submit = _search_constant
+        edit_btn.on_click = _open_edit
+        delete_btn.on_click = _open_delete
+
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Gestionar Constante"),
+            content=ft.Container(
+                width=560,
+                content=ft.Column(
+                    controls=[
+                        ft.Text(
+                            "Consulta por nombre y luego selecciona una acción.",
+                            size=12,
+                            color="#6B7280",
+                        ),
+                        ft.Row(
+                            controls=[
+                                ft.Container(expand=True, content=search_field),
+                                ft.ElevatedButton(
+                                    "Consultar",
+                                    icon=ft.Icons.SEARCH,
+                                    on_click=_search_constant,
+                                ),
+                            ],
+                            spacing=10,
+                        ),
+                        ft.Container(
+                            content=result_text,
+                            padding=10,
+                            border_radius=8,
+                            border=ft.border.all(1, "#E5E7EB"),
+                            bgcolor="#F9FAFB",
+                        ),
+                        ft.Row(
+                            controls=[
+                                ft.ElevatedButton("Agregar", icon=ft.Icons.ADD, on_click=_open_create),
+                                edit_btn,
+                                delete_btn,
+                            ],
+                            spacing=10,
+                        ),
+                    ],
+                    spacing=12,
+                    tight=True,
+                ),
+            ),
+            actions=[
+                ft.TextButton("Cerrar", on_click=lambda e: setattr(dialog, "open", False)),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+
+        _refresh_action_buttons()
+        self.page.dialog = dialog
+        dialog.open = True
+        self.page.update()
     
     # ====================================================================
     # INTERFAZ DE TABLA (PRESENTACIÓN)
     # ====================================================================
     
-    def _build_data_rows(self) -> List[ft.DataRow]:
-        """Construye la lista de filas de la tabla."""
-        rows: List[ft.DataRow] = []
-        for const in self.filtered_constants:
-            value_text = self._format_constant_value(const)
-            rows.append(
-                ft.DataRow(
-                    cells=[
-                        ft.DataCell(
-                            ft.Column([
-                                ft.Text(const.nombre, weight="bold", size=13),
-                                ft.Text(const.categoria, size=11, color="#999999")
-                            ], spacing=2)
+    def _build_grid_cell(
+        self,
+        content: ft.Control,
+        width: int,
+        *,
+        padding: int | tuple[int, int] = 12,
+        alignment: Optional[ft.Alignment] = None,
+    ) -> ft.Container:
+        """Crea una celda de la grilla manual con ancho fijo."""
+        if isinstance(padding, tuple):
+            cell_padding = ft.padding.symmetric(horizontal=padding[0], vertical=padding[1])
+        else:
+            cell_padding = ft.padding.all(padding)
+
+        return ft.Container(
+            content=content,
+            width=width,
+            padding=cell_padding,
+            alignment=alignment,
+        )
+
+    def _build_grid_header(self) -> ft.Container:
+        """Construye el encabezado de la grilla manual."""
+        return ft.Container(
+            bgcolor="#F5F7FA",
+            border=ft.border.only(bottom=ft.BorderSide(1, "#E5E7EB")),
+            content=ft.Row(
+                controls=[
+                    self._build_grid_cell(ft.Text("Nombre", weight="bold", size=12, color="#374151"), 280),
+                    self._build_grid_cell(ft.Text("Valor", weight="bold", size=12, color="#374151"), 220),
+                    self._build_grid_cell(ft.Text("Tipo", weight="bold", size=12, color="#374151"), 130),
+                    self._build_grid_cell(ft.Text("Descripción", weight="bold", size=12, color="#374151"), 330),
+                    self._build_grid_cell(ft.Text("Acciones", weight="bold", size=12, color="#374151"), 130),
+                ],
+                spacing=0,
+            ),
+        )
+
+    def _build_grid_row(self, const: Constant, index: int) -> ft.Container:
+        """Construye una fila de la grilla manual."""
+        value_text = self._format_constant_value(const)
+        description = const.descripcion[:70] + "..." if len(const.descripcion) > 70 else const.descripcion
+        row_bgcolor = "#FFFFFF" if index % 2 == 0 else "#FAFBFC"
+
+        return ft.Container(
+            bgcolor=row_bgcolor,
+            border=ft.border.only(bottom=ft.BorderSide(1, "#EEF2F7")),
+            content=ft.Row(
+                controls=[
+                    self._build_grid_cell(
+                        ft.Column([
+                            ft.Text(const.nombre, weight="bold", size=13, color="#111827"),
+                            ft.Text(const.categoria, size=11, color="#6B7280"),
+                        ], spacing=2, tight=True),
+                        280,
+                    ),
+                    self._build_grid_cell(
+                        ft.Text(value_text, size=13, color="#111827", selectable=True),
+                        220,
+                    ),
+                    self._build_grid_cell(
+                        ft.Container(
+                            content=ft.Text(const.tipo_dato.value, size=11, color="white", weight="bold"),
+                            bgcolor=self._get_type_color(const.tipo_dato),
+                            border_radius=999,
+                            padding=ft.padding.symmetric(horizontal=10, vertical=5),
                         ),
-                        ft.DataCell(ft.Text(value_text, selectable=True, size=13)),
-                        ft.DataCell(
-                            ft.Container(
-                                content=ft.Text(const.tipo_dato.value, size=11, color="white", weight="bold"),
-                                bgcolor=self._get_type_color(const.tipo_dato),
-                                padding=ft.padding.symmetric(4, 8),
-                                border_radius=4
-                            )
-                        ),
-                        ft.DataCell(
-                            ft.Text(
-                                const.descripcion[:50] + "..." if len(const.descripcion) > 50 else const.descripcion,
-                                size=11, color="#666666"
-                            )
-                        ),
-                        ft.DataCell(
-                            ft.Row([
-                                ft.IconButton(
-                                    icon=ft.Icons.EDIT,
-                                    icon_size=18,
-                                    tooltip="Editar" if const.es_editable else "No editable",
-                                    icon_color="#2196F3" if const.es_editable else "#CCCCCC",
-                                    on_click=lambda e, c=const: self._edit_constant_bottomsheet(c) if c.es_editable else None
-                                ),
-                                ft.IconButton(
-                                    icon=ft.Icons.DELETE_OUTLINE,
-                                    icon_size=18,
-                                    icon_color="#F44336",
-                                    tooltip="Eliminar",
-                                    on_click=lambda e, c=const: self._delete_constant(c)
-                                ),
-                            ], spacing=0, tight=True)
-                        ),
-                    ]
-                )
-            )
-        return rows
+                        130,
+                    ),
+                    self._build_grid_cell(
+                        ft.Text(description or "Sin descripción", size=11, color="#4B5563"),
+                        330,
+                    ),
+                    self._build_grid_cell(
+                        ft.Row([
+                            ft.IconButton(
+                                icon=ft.Icons.EDIT,
+                                icon_size=18,
+                                tooltip="Editar" if const.es_editable else "No editable",
+                                icon_color="#2563EB" if const.es_editable else "#D1D5DB",
+                                on_click=lambda e, c=const: self._edit_constant_bottomsheet(c) if c.es_editable else None,
+                            ),
+                            ft.IconButton(
+                                icon=ft.Icons.DELETE_OUTLINE,
+                                icon_size=18,
+                                tooltip="Eliminar",
+                                icon_color="#DC2626",
+                                on_click=lambda e, c=const: self._delete_constant(c),
+                            ),
+                        ], spacing=0, tight=True),
+                        130,
+                    ),
+                ],
+                spacing=0,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+        )
+
+    def _build_grid_table(self) -> ft.Control:
+        """Construye la grilla completa con scroll horizontal."""
+        table_content = ft.Container(
+            width=1090,
+            bgcolor="white",
+            border_radius=8,
+            border=ft.border.all(1, "#E5E7EB"),
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            content=ft.Column(
+                controls=[
+                    self._build_grid_header(),
+                    *[
+                        self._build_grid_row(const, index)
+                        for index, const in enumerate(self.filtered_constants)
+                    ],
+                ],
+                spacing=0,
+            ),
+        )
+
+        return ft.Row(
+            controls=[table_content],
+            scroll=ft.ScrollMode.AUTO,
+            spacing=0,
+        )
     
     def _refresh_table(self) -> None:
         """Actualiza el contenido de table_list en el árbol de controles."""
-        self.table_list.controls.clear()
+        self.summary_text.value = f"{len(self.filtered_constants)} constante(s) cargada(s)"
+        first_name = self.filtered_constants[0].nombre if self.filtered_constants else "N/A"
+        self.debug_text.value = (
+            f"DEBUG refresh: rows={len(self.filtered_constants)} first={first_name} "
+            f"mode={'simple' if self.debug_simple_grid else 'grid'} "
+            f"time={datetime.datetime.now().strftime('%H:%M:%S')}"
+        )
+        self._debug_terminal(
+            f"refresh_table -> rows={len(self.filtered_constants)} first={first_name} "
+            f"mode={'simple' if self.debug_simple_grid else 'grid'}"
+        )
         
         if not self.filtered_constants:
-            self.table_list.controls.append(
-                ft.Container(
-                    content=ft.Column([
-                        ft.Icon(ft.Icons.INBOX, size=64, color="#CCCCCC"),
-                        ft.Text("No hay constantes que mostrar", size=18, color="#999999", weight="w500"),
-                        ft.Text("Crea una nueva constante con el botón +", size=13, color="#BBBBBB")
-                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=16),
-                    alignment=ft.alignment.center,
-                    height=300
-                )
+            self.table_card.content = ft.Container(
+                content=ft.Column([
+                    ft.Icon(ft.Icons.INBOX, size=64, color="#CCCCCC"),
+                    ft.Text("No hay constantes que mostrar", size=18, color="#999999", weight="w500"),
+                    ft.Text("Crea una nueva constante con el botón +", size=13, color="#BBBBBB")
+                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=16),
+                alignment=ft.alignment.center,
+                height=300
             )
         else:
-            table = ft.DataTable(
-                columns=[
-                    ft.DataColumn(ft.Text("Nombre", weight="bold", size=12)),
-                    ft.DataColumn(ft.Text("Valor", weight="bold", size=12)),
-                    ft.DataColumn(ft.Text("Tipo", weight="bold", size=12)),
-                    ft.DataColumn(ft.Text("Descripción", weight="bold", size=12)),
-                    ft.DataColumn(ft.Text("Acciones", weight="bold", size=12)),
+            simple_rows = [
+                ft.Container(
+                    content=ft.Text(
+                        f"{idx + 1}. {const.nombre} | {const.categoria} | {const.tipo_dato.value} | {const.valor}",
+                        size=12,
+                        color="#111827",
+                    ),
+                    padding=ft.padding.symmetric(horizontal=12, vertical=8),
+                    bgcolor="#FFFFFF" if idx % 2 == 0 else "#F9FAFB",
+                    border=ft.border.only(bottom=ft.BorderSide(1, "#EEF2F7")),
+                )
+                for idx, const in enumerate(self.filtered_constants)
+            ]
+
+            self.table_card.content = ft.Column(
+                controls=[
+                    ft.Text(
+                        "Listado de Constantes",
+                        size=14,
+                        weight=ft.FontWeight.BOLD,
+                        color="#374151",
+                    ),
+                    ft.Divider(height=12, color="#E5E7EB"),
+                    *simple_rows,
                 ],
-                rows=self._build_data_rows(),
-                border=ft.border.all(1, "#E0E0E0"),
-                border_radius=8,
-                heading_row_color="#F5F5F5",
-                heading_row_height=50,
-                data_row_max_height=70,
-                horizontal_lines=ft.BorderSide(1, "#EEEEEE"),
+                spacing=0,
             )
-            self.table_list.controls.append(table)
         
         try:
             self.page.update()
-        except:
-            pass
+        except Exception as refresh_error:
+            self.logger.debug(f"No se pudo actualizar la página durante refresh: {refresh_error}")
     
     # ====================================================================
     # EDICIÓN (UPDATE)
@@ -897,7 +1140,7 @@ class SystemConstantsView:
         return ft.Container(
             content=ft.Column([
                 ft.Text(
-                    "Constantes del Sistema",
+                    "Constantes del Sistema [DEBUG-V7]",
                     size=28,
                     weight="bold",
                     color="#333333"
@@ -916,85 +1159,98 @@ class SystemConstantsView:
     def _build_toolbar(self) -> ft.Container:
         """Construye la barra de herramientas con búsqueda y filtros."""
         return ft.Container(
-            content=ft.Row([
-                self.search_field,
-                self.category_dropdown,
-                ft.Container(expand=True),
-                ft.IconButton(
-                    icon=ft.Icons.REFRESH,
-                    tooltip="Actualizar",
-                    on_click=lambda e: self._load_constants()
+            content=ft.Column([
+                ft.Row([
+                    self.search_field,
+                    self.category_dropdown,
+                    ft.ElevatedButton(
+                        "Gestionar constante",
+                        icon=ft.Icons.MANAGE_SEARCH,
+                        on_click=lambda e: self._open_constant_manager_dialog(),
+                    ),
+                    ft.Container(expand=True),
+                    ft.IconButton(
+                        icon=ft.Icons.REFRESH,
+                        tooltip="Actualizar",
+                        on_click=lambda e: self._reload_data()
+                    ),
+                ], alignment="start", wrap=True),
+                ft.Container(
+                    content=self.debug_text,
+                    bgcolor="#FEF3C7",
+                    border=ft.border.all(1, "#F59E0B"),
+                    border_radius=8,
+                    padding=8,
                 ),
-            ], alignment="start", wrap=True),
+            ], spacing=10),
             padding=16,
             bgcolor="#F8F9FA",
             border=ft.border.only(bottom=ft.BorderSide(1, "#E0E0E0"))
         )
+
+    def _reload_data(self) -> None:
+        """Recarga datos y refresca la grilla visible."""
+        self._load_constants()
+        self._load_categories()
+        self._refresh_table()
     
     def _build_main_content(self) -> ft.Container:
-        """Construye el contenido principal siguiendo el patrón de resumen.py."""
+        """Construye el contenido principal – sin expand (lo añade build())."""
         return ft.Container(
-            expand=True,          # ← expand=True igual que en resumen.py
-            bgcolor="#F8F9FA",
             content=ft.Column(
-                controls=[
+                [
                     self._build_header(),
                     self._build_toolbar(),
                     ft.Container(
-                        expand=True,   # ← Container interior también expand=True
+                        height=620,
                         padding=ft.padding.symmetric(horizontal=20, vertical=16),
                         content=ft.Column(
+                            spacing=10,
+                            scroll=ft.ScrollMode.AUTO,
                             controls=[
                                 self.status_text,
-                                ft.Container(   # Tarjeta blanca con la tabla
-                                    content=self.table_list,
-                                    bgcolor="white",
-                                    border_radius=8,
-                                    padding=8,
-                                    border=ft.border.all(1, "#E0E0E0")
-                                ),
+                                self.summary_text,
+                                self.table_card,
                             ],
-                            spacing=8,
-                            scroll=ft.ScrollMode.AUTO,  # ← scroll en la Column interior
                         ),
                     ),
                 ],
                 spacing=0,
-                # SIN scroll y SIN expand en la Column exterior
-            )
+            ),
         )
-    
+
     # ====================================================================
     # CONSTRUCCIÓN FINAL
     # ====================================================================
-    
+
     def build(self) -> ft.Container:
         """Construye la vista completa lista para ser insertada en ft.View."""
         self._refresh_table()
-        
+
         self.page.floating_action_button = ft.FloatingActionButton(
             icon=ft.Icons.ADD,
             bgcolor="#2196F3",
             on_click=lambda e: self._show_create_constantsheet(),
             tooltip="Nueva constante"
         )
-        
+
         content = self._build_main_content()
-        
+
+        row_controls = []
         if self.sidebar_menu:
-            return ft.Container(
+            row_controls.append(self.sidebar_menu.create_sidebar())
+        row_controls.append(
+            ft.Container(
+                content=content,
                 expand=True,
-                content=ft.Row(
-                    controls=[
-                        self.sidebar_menu.create_sidebar(),
-                        content,
-                    ],
-                    spacing=0,
-                    expand=True,
-                ),
+                bgcolor="#F8F9FA",
             )
-        
-        return content
+        )
+
+        return ft.Container(
+            content=ft.Row(row_controls, expand=True, spacing=0),
+            expand=True,
+        )
 
 
 # ========================================================================
@@ -1003,15 +1259,15 @@ class SystemConstantsView:
 
 def system_constants_view(page: ft.Page) -> ft.View:
     """Función de entrada para navegación a /constantes."""
+    print("[DEBUG CONST] system_constants_view called", flush=True)
     view = SystemConstantsView(page)
     built = view.build()
-    
     return ft.View(
         route="/constantes",
         controls=[built],
         padding=0,
-        bgcolor=ft.Colors.WHITE,
-        floating_action_button=page.floating_action_button
+        spacing=0,
+        floating_action_button=page.floating_action_button,
     )
 
 

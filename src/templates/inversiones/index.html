@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Inversiones - App Presupuesto{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+	<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+		<div>
+			<h1 class="page-title mb-1"><i class="fas fa-chart-line"></i> Inversiones</h1>
+			<p class="text-muted mb-0">Seguimiento de portafolio y rentabilidad. Vista base habilitada.</p>
+		</div>
+		<span class="badge bg-warning text-dark">En construcción</span>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-md-4">
+			<div class="card h-100"><div class="card-body"><h6 class="text-muted">Total de Inversiones</h6><h3 id="kpiTotalInversiones">0</h3></div></div>
+		</div>
+		<div class="col-md-4">
+			<div class="card h-100"><div class="card-body"><h6 class="text-muted">Valor Neto</h6><h3 id="kpiValorNeto">$0.00</h3></div></div>
+		</div>
+		<div class="col-md-4">
+			<div class="card h-100"><div class="card-body"><h6 class="text-muted">Valor Portafolio</h6><h3 id="kpiPortafolio">$0.00</h3></div></div>
+		</div>
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-header">
+			<h5 class="mb-0"><i class="fas fa-list"></i> Activos recientes</h5>
+		</div>
+		<div class="card-body p-0">
+			<div class="table-responsive">
+				<table class="table table-hover mb-0">
+					<thead class="table-light">
+						<tr>
+							<th>Activo</th>
+							<th>Fecha</th>
+							<th class="text-end">Valor</th>
+							<th class="text-end">Depreciación</th>
+						</tr>
+					</thead>
+					<tbody id="activosBody">
+						<tr><td colspan="4" class="text-center text-muted py-3">Cargando...</td></tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+
+	<div class="card">
+		<div class="card-body">
+			<h5 class="mb-3">Sugerencias mientras llega el módulo completo</h5>
+			<p class="text-muted mb-3">Puedes usar reportes para detectar capacidad de inversión y tendencias de flujo de caja.</p>
+			<a href="/reportes" class="btn btn-primary btn-sm"><i class="fas fa-chart-bar"></i> Ir a reportes</a>
+		</div>
+	</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+	try {
+		const summary = await api.getInversionesSummary();
+		document.getElementById('kpiTotalInversiones').textContent = summary.total_inversiones || 0;
+		document.getElementById('kpiValorNeto').textContent = formatCurrency(summary.valor_neto || 0);
+		document.getElementById('kpiPortafolio').textContent = formatCurrency(summary.valor_portafolio || 0);
+
+		const body = document.getElementById('activosBody');
+		const rows = summary.activos_recientes || [];
+		if (rows.length === 0) {
+			body.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">Sin activos registrados</td></tr>';
+			return;
+		}
+
+		body.innerHTML = rows.map(r => `
+			<tr>
+				<td>${r.nombre || '-'}</td>
+				<td>${formatDate(r.fecha_creacion)}</td>
+				<td class="text-end">${formatCurrency(r.valor || 0)}</td>
+				<td class="text-end">${formatCurrency(r.depreciacion || 0)}</td>
+			</tr>
+		`).join('');
+	} catch (error) {
+		console.error('Error cargando resumen en inversiones:', error);
+	}
+});
+</script>
+{% endblock %}

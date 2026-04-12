@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}Transacciones - App Presupuesto{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h1 class="page-title"><i class="fas fa-exchange-alt"></i> Transacciones</h1>
+            <p class="text-muted mb-0">Historial de movimientos de tu cuenta.</p>
+        </div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalTransaccion"
+                onclick="resetTransForm()">
+            <i class="fas fa-plus"></i> Nueva transacción
+        </button>
+    </div>
+
+    <!-- Buscador rápido -->
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-5">
+                    <input type="text" class="form-control" id="txBuscar"
+                           placeholder="Buscar por descripción o categoría…"
+                           oninput="filtrarTabla()">
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="txTipo" onchange="filtrarTabla()">
+                        <option value="">— Todos los tipos —</option>
+                        <option value="ingreso">Ingresos</option>
+                        <option value="gasto">Gastos</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-outline-secondary w-100" onclick="cargarTransacciones()">
+                        <i class="fas fa-sync-alt"></i> Actualizar
+                    </button>
+                </div>
+                <div class="col-md-2 text-end">
+                    <small class="text-muted" id="txContador"></small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div id="loadingTx" class="text-center py-5">
+                <div class="spinner-border text-primary"></div>
+                <p class="mt-2 text-muted">Cargando transacciones…</p>
+            </div>
+            <div id="emptyTx" class="text-center py-5" style="display:none;">
+                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                <p class="text-muted">No hay transacciones registradas.</p>
+            </div>
+            <table class="table table-hover mb-0" id="tablaTx" style="display:none;">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Descripción</th>
+                        <th>Categoría</th>
+                        <th>Tipo</th>
+                        <th class="text-end">Monto</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyTx"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal nueva/editar transacción -->
+    <div class="modal fade" id="modalTransaccion" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="formTransaccion">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalTxTitle">Nueva transacción</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="txId">
+                        <div class="mb-3">
+                            <label class="form-label">Descripción</label>
+                            <input type="text" class="form-control" id="txDescripcion"
+                                   required placeholder="Ej: Compra supermercado">
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Tipo</label>
+                                <select class="form-select" id="txTipoForm" required>
+                                    <option value="gasto">Gasto</option>
+                                    <option value="ingreso">Ingreso</option>
+                                </select>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Monto</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" id="txMonto"
+                                           min="0.01" step="0.01" required placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Categoría</label>
+                                <input type="text" class="form-control" id="txCategoria"
+                                       placeholder="Ej: Alimentación">
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Fecha</label>
+                                <input type="date" class="form-control" id="txFecha">
+                            </div>
+                        </div>
+                        <div id="txFormError" class="alert alert-danger" style="display:none;"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnGuardarTx">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allTransacciones = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+    cargarTransacciones();
+    document.getElementById('formTransaccion').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await guardarTransaccion();
+    });
+});
+
+async function cargarTransacciones() {
+    const loading = document.getElementById('loadingTx');
+    const empty   = document.getElementById('emptyTx');
+    const tabla   = document.getElementById('tablaTx');
+
+    loading.style.display = 'block';
+    empty.style.display   = 'none';
+    tabla.style.display   = 'none';
+
+    try {
+        allTransacciones = await api.getTransacciones({ limit: 200 });
+        loading.style.display = 'none';
+        filtrarTabla();
+    } catch (err) {
+        loading.style.display = 'none';
+        showToast('Error al cargar transacciones: ' + (err.message || ''), 'danger');
+    }
+}
+
+function filtrarTabla() {
+    const query = (document.getElementById('txBuscar').value || '').toLowerCase();
+    const tipo  = (document.getElementById('txTipo').value || '').toLowerCase();
+
+    const filtered = allTransacciones.filter(t => {
+        const matchText = !query ||
+            (t.descripcion || '').toLowerCase().includes(query) ||
+            (t.categoria   || '').toLowerCase().includes(query);
+        const matchTipo = !tipo || (t.tipo || '').toLowerCase() === tipo;
+        return matchText && matchTipo;
+    });
+
+    renderTabla(filtered);
+}
+
+function renderTabla(rows) {
+    const empty  = document.getElementById('emptyTx');
+    const tabla  = document.getElementById('tablaTx');
+    const tbody  = document.getElementById('tbodyTx');
+    const counter = document.getElementById('txContador');
+
+    counter.textContent = `${rows.length} resultado(s)`;
+
+    if (!rows.length) {
+        empty.style.display = 'block';
+        tabla.style.display = 'none';
+        return;
+    }
+
+    tbody.innerHTML = rows.map(t => {
+        const esIngreso = (t.tipo || '').toLowerCase() === 'ingreso';
+        const montoStr  = formatCurrency(Math.abs(t.monto));
+        const badge     = esIngreso
+            ? '<span class="badge bg-success">Ingreso</span>'
+            : '<span class="badge bg-danger">Gasto</span>';
+        const montoCell = esIngreso
+            ? `<td class="text-end text-success fw-semibold">${montoStr}</td>`
+            : `<td class="text-end text-danger fw-semibold">-${montoStr}</td>`;
+
+        return `
+        <tr>
+            <td class="text-muted small">${t.fecha ? formatDate(t.fecha) : '—'}</td>
+            <td>${t.descripcion || '—'}</td>
+            <td><span class="badge bg-light text-dark border">${t.categoria || 'General'}</span></td>
+            <td>${badge}</td>
+            ${montoCell}
+            <td class="text-center">
+                <button class="btn btn-sm btn-outline-danger"
+                        onclick="eliminarTransaccion(${t.id})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>`;
+    }).join('');
+
+    empty.style.display = 'none';
+    tabla.style.display = 'table';
+}
+
+function resetTransForm() {
+    document.getElementById('txId').value          = '';
+    document.getElementById('txDescripcion').value = '';
+    document.getElementById('txTipoForm').value    = 'gasto';
+    document.getElementById('txMonto').value       = '';
+    document.getElementById('txCategoria').value   = '';
+    document.getElementById('txFecha').value       = new Date().toISOString().split('T')[0];
+    document.getElementById('txFormError').style.display = 'none';
+    document.getElementById('modalTxTitle').textContent  = 'Nueva transacción';
+}
+
+async function guardarTransaccion() {
+    const btn   = document.getElementById('btnGuardarTx');
+    const errEl = document.getElementById('txFormError');
+    errEl.style.display = 'none';
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando…';
+
+    const payload = {
+        descripcion: document.getElementById('txDescripcion').value.trim(),
+        tipo:        document.getElementById('txTipoForm').value,
+        monto:       parseFloat(document.getElementById('txMonto').value) || 0,
+        categoria:   document.getElementById('txCategoria').value.trim() || null,
+        fecha:       document.getElementById('txFecha').value || null,
+    };
+
+    try {
+        await api.createTransaccion(payload);
+        bootstrap.Modal.getInstance(document.getElementById('modalTransaccion')).hide();
+        await cargarTransacciones();
+        showToast('Transacción registrada correctamente.', 'success');
+    } catch (err) {
+        errEl.textContent = err.message || 'Error al guardar.';
+        errEl.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Guardar';
+    }
+}
+
+async function eliminarTransaccion(id) {
+    if (!confirm('¿Eliminar esta transacción?')) return;
+    try {
+        await api.deleteTransaccion(id);
+        await cargarTransacciones();
+        showToast('Transacción eliminada.', 'success');
+    } catch (err) {
+        showToast('Error al eliminar: ' + (err.message || ''), 'danger');
+    }
+}
+</script>
+{% endblock %}

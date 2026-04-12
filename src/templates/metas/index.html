@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Metas - App Presupuesto{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+	<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+		<div>
+			<h1 class="page-title mb-1"><i class="fas fa-flag"></i> Metas de Ahorro</h1>
+			<p class="text-muted mb-0">Planificación de objetivos financieros personales.</p>
+		</div>
+		<span class="badge bg-warning text-dark">En construcción</span>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-md-3">
+			<div class="card h-100">
+				<div class="card-body">
+					<h6 class="text-muted">Total Metas</h6>
+					<h3 id="kpiTotalMetas">0</h3>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3">
+			<div class="card h-100">
+				<div class="card-body">
+					<h6 class="text-muted">Metas Vigentes</h6>
+					<h3 id="kpiVigentes">0</h3>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3">
+			<div class="card h-100">
+				<div class="card-body">
+					<h6 class="text-muted">Monto Total Metas</h6>
+					<h3 id="kpiMontoTotal">$0.00</h3>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3">
+			<div class="card h-100">
+				<div class="card-body">
+					<h6 class="text-muted">Avance Estimado</h6>
+					<h3 id="kpiAvance">0%</h3>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-header">
+			<h5 class="mb-0"><i class="fas fa-bullseye"></i> Metas próximas</h5>
+		</div>
+		<div class="card-body p-0">
+			<div class="table-responsive">
+				<table class="table table-hover mb-0">
+					<thead class="table-light">
+						<tr>
+							<th>Meta</th>
+							<th>Fecha Fin</th>
+							<th class="text-end">Monto</th>
+							<th class="text-end">Días Restantes</th>
+						</tr>
+					</thead>
+					<tbody id="metasBody">
+						<tr><td colspan="4" class="text-center text-muted py-3">Cargando...</td></tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+
+	<div class="alert alert-info mb-0" role="alert">
+		<i class="fas fa-info-circle"></i>
+		Define y controla tus metas desde presupuestos por categoría mientras se habilita este módulo.
+		<a href="/presupuestos" class="alert-link">Abrir presupuestos</a>.
+	</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+	try {
+		const summary = await api.getMetasSummary();
+		document.getElementById('kpiTotalMetas').textContent = summary.total_metas || 0;
+		document.getElementById('kpiVigentes').textContent = summary.metas_vigentes || 0;
+		document.getElementById('kpiMontoTotal').textContent = formatCurrency(summary.monto_total_metas || 0);
+		document.getElementById('kpiAvance').textContent = `${summary.avance_estimado_pct || 0}%`;
+
+		const body = document.getElementById('metasBody');
+		const rows = summary.metas || [];
+		if (rows.length === 0) {
+			body.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">Sin metas registradas</td></tr>';
+			return;
+		}
+
+		body.innerHTML = rows.map(r => `
+			<tr>
+				<td>${r.nombre || '-'}</td>
+				<td>${r.fecha_fin ? formatDate(r.fecha_fin) : '-'}</td>
+				<td class="text-end">${formatCurrency(r.monto_total || 0)}</td>
+				<td class="text-end">${r.dias_restantes ?? '-'}</td>
+			</tr>
+		`).join('');
+	} catch (error) {
+		console.error('Error cargando resumen en metas:', error);
+	}
+});
+</script>
+{% endblock %}
