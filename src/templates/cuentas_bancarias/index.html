@@ -1,0 +1,740 @@
+{% extends "base.html" %}
+
+{% block title %}Cuentas Bancarias - App Presupuesto{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h1 class="page-title"><i class="fas fa-university"></i> Cuentas Bancarias</h1>
+            <p class="text-muted mb-0">Grilla de movimientos bancarios con conciliación y transferencias.</p>
+        </div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimiento" onclick="abrirNuevo()">
+            <i class="fas fa-plus"></i> Agregar movimiento
+        </button>
+    </div>
+
+    <div class="row g-2 mb-3" id="kpis">
+        <div class="col-md-3"><div class="card"><div class="card-body py-2"><small class="text-muted">Ingresos</small><h5 id="kpiIngresos" class="text-success mb-0">$0</h5></div></div></div>
+        <div class="col-md-3"><div class="card"><div class="card-body py-2"><small class="text-muted">Gastos</small><h5 id="kpiGastos" class="text-danger mb-0">$0</h5></div></div></div>
+        <div class="col-md-3"><div class="card"><div class="card-body py-2"><small class="text-muted">Balance Neto</small><h5 id="kpiBalance" class="mb-0">$0</h5></div></div></div>
+        <div class="col-md-3"><div class="card border-success"><div class="card-body py-2"><small class="text-muted"><i class="fas fa-check-circle text-success me-1"></i>Saldo Conciliado</small><h5 id="kpiConciliado" class="text-success mb-0">$0</h5><small id="kpiConciliadoSub" class="text-muted">0 movimientos</small></div></div></div>
+    </div>
+
+    <div id="alertaPendientes" class="alert alert-warning d-flex align-items-center gap-2 py-2 mb-3" style="display:none !important;">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span id="alertaPendientesMsg"></span>
+        <button class="btn btn-sm btn-warning ms-auto" onclick="filtrarPendientes()">Ver pendientes</button>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-3">
+                    <input id="filtroTexto" class="form-control" placeholder="Buscar descripción, observación, categoría..." oninput="filtrar()">
+                </div>
+                <div class="col-md-2">
+                    <select id="filtroCuenta" class="form-select" onchange="filtrar()"><option value="">Todas las cuentas</option></select>
+                </div>
+                <div class="col-md-2">
+                    <select id="filtroTipo" class="form-select" onchange="filtrar()">
+                        <option value="">Todos</option>
+                        <option value="ingreso">Ingresos</option>
+                        <option value="gasto">Gastos</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select id="filtroEstado" class="form-select" onchange="filtrar()">
+                        <option value="">Todos los estados</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select id="filtroPeriodo" class="form-select" onchange="onPeriodoChange()">
+                        <option value="todas">Ver todas las transacciones</option>
+                        <option value="hoy">Ver hoy</option>
+                        <option value="mes_actual">Ver mes actual</option>
+                        <option value="ultimos_30">Ver últimos 30 días</option>
+                        <option value="ultimos_90">Ver últimos 90 días</option>
+                        <option value="mes_anterior">Ver mes anterior</option>
+                        <option value="ultimos_3_meses">Ver últimos 3 meses</option>
+                        <option value="ultimos_12_meses">Ver últimos 12 meses</option>
+                        <option value="anio_actual">Ver año actual</option>
+                        <option value="fiscal_actual">Ver el año fiscal actual</option>
+                        <option value="ultimo_anio">Ver el último año</option>
+                        <option value="ultimo_fiscal">Ver el último año fiscal</option>
+                        <option value="desde_fecha">Ver desde la fecha establecida</option>
+                    </select>
+                </div>
+                <div class="col-md-3" id="wrapDesde" style="display:none;">
+                    <input id="filtroDesde" type="date" class="form-control" onchange="filtrar()">
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-outline-secondary w-100" onclick="cargarTodo()"><i class="fas fa-sync-alt"></i> Actualizar</button>
+                </div>
+                <div class="col-md-1 text-end"><small id="contador" class="text-muted"></small></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body p-0">
+            <div id="loading" class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">Cargando movimientos...</p></div>
+            <div id="empty" class="text-center py-5" style="display:none;"><i class="fas fa-inbox fa-3x text-muted mb-3"></i><p class="text-muted">No hay movimientos para mostrar.</p></div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="tabla" style="display:none;">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th style="min-width:100px">Fecha</th><th>Cuenta</th><th>Descripción</th><th style="max-width:160px">Observación</th><th>Categoría</th><th style="min-width:140px">Estado</th><th>Tipo</th><th class="text-end">Monto</th><th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalMovimiento" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="formMovimiento">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Nuevo movimiento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="movId">
+                    <div class="row">
+                        <div class="col-md-4 mb-3"><label class="form-label">Cuenta origen *</label><select id="movCuenta" class="form-select" required></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Tipo *</label><select id="movTipo" class="form-select" required><option value="gasto">Gasto</option><option value="ingreso">Ingreso</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Estado *</label><select id="movEstado" class="form-select" required></select></div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-8 mb-3"><label class="form-label">Descripción *</label><input id="movDescripcion" class="form-control" required></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Fecha</label><input id="movFecha" type="date" class="form-control"></div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3"><label class="form-label">Beneficiario</label><select id="movBeneficiario" class="form-select"><option value="">Sin beneficiario</option></select></div>
+                    </div>
+
+                    <div id="detallesPanel" class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-semibold mb-0">Categorías y montos *</label>
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="agregarDetalle()">
+                                <i class="fas fa-plus"></i> Agregar línea
+                            </button>
+                        </div>
+                        <div id="detallesContainer"></div>
+                        <div class="d-flex justify-content-end align-items-center gap-3 mt-2 pt-1 border-top">
+                            <small class="text-muted">Total calculado automáticamente de las líneas.</small>
+                            <span class="fw-bold">Total: <span id="movTotal" class="text-primary">$0</span></span>
+                        </div>
+                    </div>
+                    <div class="mb-3"><label class="form-label">Nota / Observación</label><textarea id="movObservacion" class="form-control" rows="2" placeholder="Observaciones de conciliación o seguimiento"></textarea></div>
+
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="movTransferencia" onchange="toggleTransferencia()">
+                        <label class="form-check-label" for="movTransferencia">Es transferencia entre cuentas o productos</label>
+                    </div>
+
+                    <div id="panelTransferencia" class="border rounded p-2 mb-2" style="display:none;">
+                        <div class="row">
+                            <div class="col-md-3 mb-2"><label class="form-label">Monto *</label><input id="movMontoTrf" type="number" min="0.01" step="0.01" class="form-control form-control-sm" placeholder="Monto a transferir"></div>
+                            <div class="col-md-3 mb-2"><label class="form-label">Destino tipo</label><select id="movDestinoTipo" class="form-select" onchange="cambiarDestinoTipo()"><option value="cuenta">Cuenta</option><option value="producto">Producto</option></select></div>
+                            <div class="col-md-3 mb-2" id="wrapCuentaDestino"><label class="form-label">Cuenta destino</label><select id="movCuentaDestino" class="form-select"></select></div>
+                            <div class="col-md-3 mb-2" id="wrapProductoDestino" style="display:none;"><label class="form-label">Producto destino</label><select id="movProductoDestino" class="form-select"></select></div>
+                        </div>
+                    </div>
+
+                    <div id="formError" class="alert alert-danger" style="display:none;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" id="btnGuardar" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let catalogos = { cuentas: [], categorias: [], beneficiarios: [], estados: [], productos: [] };
+let allRows = [];
+const FISCAL_START_MONTH = 7;
+
+function toast(msg, type='success') { if (typeof showToast === 'function') showToast(msg, type); else alert(msg); }
+
+document.addEventListener('DOMContentLoaded', async () => {
+    document.getElementById('formMovimiento').addEventListener('submit', async (e) => { e.preventDefault(); await guardar(); });
+    await cargarTodo();
+});
+
+async function cargarTodo() {
+    const loading = document.getElementById('loading');
+    const tabla = document.getElementById('tabla');
+    const empty = document.getElementById('empty');
+    loading.style.display = 'block'; tabla.style.display = 'none'; empty.style.display = 'none';
+    try {
+        const [cat, movs] = await Promise.all([
+            api.request('GET', '/cuentas-bancarias/catalogos'),
+            api.request('GET', '/cuentas-bancarias/movimientos?limit=1000'),
+        ]);
+        catalogos = cat;
+        allRows = movs;
+        pintarCatalogos();
+        filtrar();
+    } catch (e) {
+        toast('Error al cargar datos: ' + (e.message || ''), 'danger');
+    } finally {
+        loading.style.display = 'none';
+    }
+}
+
+function pintarCatalogos() {
+    const filtroCuenta = document.getElementById('filtroCuenta');
+    const movCuenta = document.getElementById('movCuenta');
+    const movCuentaDestino = document.getElementById('movCuentaDestino');
+    const movBenef = document.getElementById('movBeneficiario');
+    const movEstado = document.getElementById('movEstado');
+    const filtroEstado = document.getElementById('filtroEstado');
+    const movProductoDestino = document.getElementById('movProductoDestino');
+
+    const optsCuenta = catalogos.cuentas.map(c => `<option value="${c.id_cuenta}">${esc(c.nombre)} (${esc(c.tipo || '')})</option>`).join('');
+    filtroCuenta.innerHTML = '<option value="">Todas las cuentas</option>' + optsCuenta;
+    movCuenta.innerHTML = optsCuenta;
+    movCuentaDestino.innerHTML = '<option value="">Seleccione</option>' + optsCuenta;
+
+    movBenef.innerHTML = '<option value="">Sin beneficiario</option>' + catalogos.beneficiarios.map(b => `<option value="${b.id_beneficiario}">${esc(b.nombre)}</option>`).join('');
+    movEstado.innerHTML = catalogos.estados.map(e => `<option value="${e.id_estado}">${esc(e.nombre)}</option>`).join('');
+    filtroEstado.innerHTML = '<option value="">Todos los estados</option>' + catalogos.estados.map(e => `<option value="${esc((e.nombre || '').toLowerCase())}">${esc(e.nombre)}</option>`).join('');
+    movProductoDestino.innerHTML = '<option value="">Seleccione</option>' + catalogos.productos.map(p => `<option value="${p.id_producto}">${esc(p.nombre)} (${esc(p.tipo_producto)})</option>`).join('');
+}
+
+function onPeriodoChange() {
+    const val = document.getElementById('filtroPeriodo').value;
+    document.getElementById('wrapDesde').style.display = val === 'desde_fecha' ? '' : 'none';
+    filtrar();
+}
+
+function getDateRange(preset) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endToday = new Date(today); endToday.setHours(23,59,59,999);
+
+    const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23,59,59,999);
+
+    const startYear = new Date(now.getFullYear(), 0, 1);
+    const endYear = new Date(now.getFullYear(), 11, 31, 23,59,59,999);
+
+    const fiscalYearStart = (d) => {
+        const y = d.getMonth() + 1 >= FISCAL_START_MONTH ? d.getFullYear() : d.getFullYear() - 1;
+        return new Date(y, FISCAL_START_MONTH - 1, 1);
+    };
+
+    if (preset === 'todas') return null;
+    if (preset === 'hoy') return { from: today, to: endToday };
+    if (preset === 'mes_actual') return { from: startMonth, to: endMonth };
+    if (preset === 'ultimos_30') return { from: new Date(today.getTime() - 29*86400000), to: endToday };
+    if (preset === 'ultimos_90') return { from: new Date(today.getTime() - 89*86400000), to: endToday };
+    if (preset === 'mes_anterior') return { from: new Date(now.getFullYear(), now.getMonth()-1, 1), to: new Date(now.getFullYear(), now.getMonth(), 0, 23,59,59,999) };
+    if (preset === 'ultimos_3_meses') return { from: new Date(now.getFullYear(), now.getMonth()-2, 1), to: endMonth };
+    if (preset === 'ultimos_12_meses') return { from: new Date(now.getFullYear(), now.getMonth()-11, 1), to: endMonth };
+    if (preset === 'anio_actual') return { from: startYear, to: endYear };
+    if (preset === 'fiscal_actual') {
+        const fs = fiscalYearStart(now);
+        const fe = new Date(fs.getFullYear()+1, fs.getMonth(), 0, 23,59,59,999);
+        return { from: fs, to: fe };
+    }
+    if (preset === 'ultimo_anio') {
+        const y = now.getFullYear() - 1;
+        return { from: new Date(y,0,1), to: new Date(y,11,31,23,59,59,999) };
+    }
+    if (preset === 'ultimo_fiscal') {
+        const fsCurrent = fiscalYearStart(now);
+        const fsPrev = new Date(fsCurrent.getFullYear()-1, fsCurrent.getMonth(), 1);
+        const fePrev = new Date(fsCurrent.getFullYear(), fsCurrent.getMonth(), 0, 23,59,59,999);
+        return { from: fsPrev, to: fePrev };
+    }
+    if (preset === 'desde_fecha') {
+        const d = document.getElementById('filtroDesde').value;
+        if (!d) return null;
+        return { from: new Date(d + 'T00:00:00'), to: endToday };
+    }
+    return null;
+}
+
+function filtrar() {
+    const q = (document.getElementById('filtroTexto').value || '').toLowerCase();
+    const cuenta = document.getElementById('filtroCuenta').value;
+    const tipo = document.getElementById('filtroTipo').value;
+    const estado = (document.getElementById('filtroEstado').value || '').toLowerCase();
+    const preset = document.getElementById('filtroPeriodo').value;
+    const rango = getDateRange(preset);
+
+    const rows = allRows.filter(r => {
+        const detallesCat = (r.detalles || []).map(d => d.categoria || '').join(' ');
+        const txt = `${r.descripcion || ''} ${r.observacion || ''} ${r.categoria || ''} ${r.beneficiario || ''} ${detallesCat}`.toLowerCase();
+        const okQ = !q || txt.includes(q);
+        const okCuenta = !cuenta || String(r.id_cuenta) === String(cuenta);
+        const okTipo = !tipo || (r.tipo || '').toLowerCase() === tipo;
+        const okEstado = !estado || (r.estado || '').toLowerCase() === estado;
+        let okFecha = true;
+        if (rango && r.fecha) {
+            const f = new Date(r.fecha + 'T12:00:00');
+            okFecha = f >= rango.from && f <= rango.to;
+        }
+        return okQ && okCuenta && okTipo && okEstado && okFecha;
+    });
+
+    render(rows);
+    renderKpi(rows);
+}
+
+function renderKpi(rows) {
+    const ingresos = rows.filter(x => (x.tipo || '').toLowerCase() === 'ingreso').reduce((a,b) => a + Math.abs(Number(b.monto || 0)), 0);
+    const gastos = rows.filter(x => (x.tipo || '').toLowerCase() !== 'ingreso').reduce((a,b) => a + Math.abs(Number(b.monto || 0)), 0);
+    const balance = ingresos - gastos;
+    document.getElementById('kpiIngresos').textContent = formatCurrency(ingresos);
+    document.getElementById('kpiGastos').textContent = formatCurrency(gastos);
+    const el = document.getElementById('kpiBalance');
+    el.textContent = formatCurrency(balance);
+    el.className = `mb-0 ${balance >= 0 ? 'text-success' : 'text-danger'}`;
+
+    // Saldo conciliado: suma neta de movimientos con estado 'conciliado'
+    const conciliados = rows.filter(x => (x.estado || '').toLowerCase() === 'conciliado');
+    const saldoConciliado = conciliados.reduce((a, b) => {
+        const v = Number(b.monto || 0);
+        return a + v;
+    }, 0);
+    document.getElementById('kpiConciliado').textContent = formatCurrency(saldoConciliado);
+    document.getElementById('kpiConciliado').className = `mb-0 ${saldoConciliado >= 0 ? 'text-success' : 'text-danger'}`;
+    document.getElementById('kpiConciliadoSub').textContent = `${conciliados.length} movimiento${conciliados.length !== 1 ? 's' : ''}`;
+
+    // Alerta de pendientes por conciliar
+    const sinConc = rows.filter(x => (x.estado || '').toLowerCase() === 'sin conciliar' && (x.estado || '').toLowerCase() !== 'anulado');
+    const alertaEl = document.getElementById('alertaPendientes');
+    if (sinConc.length > 0) {
+        document.getElementById('alertaPendientesMsg').textContent =
+            `${sinConc.length} movimiento${sinConc.length !== 1 ? 's' : ''} sin conciliar en el período actual.`;
+        alertaEl.style.display = 'flex';
+    } else {
+        alertaEl.style.display = 'none';
+    }
+}
+
+function filtrarPendientes() {
+    document.getElementById('filtroEstado').value = 'sin conciliar';
+    filtrar();
+}
+
+function badgeEstado(estado) {
+    const e = (estado || '').toLowerCase();
+    const map = {
+        'sin conciliar': 'secondary',
+        'conciliado': 'success',
+        'duplicado': 'warning',
+        'seguimiento': 'info',
+        'anulado': 'dark',
+    };
+    return `<span class="badge bg-${map[e] || 'dark'}">${esc(estado || '—')}</span>`;
+}
+
+function render(rows) {
+    const tabla = document.getElementById('tabla');
+    const empty = document.getElementById('empty');
+    const tbody = document.getElementById('tbody');
+    document.getElementById('contador').textContent = `${rows.length}`;
+
+    if (!rows.length) {
+        tabla.style.display = 'none';
+        empty.style.display = 'block';
+        return;
+    }
+
+    // Agrupar filas por fecha
+    const grupos = {};
+    const orden = [];
+    rows.forEach(r => {
+        const key = r.fecha || 'sin-fecha';
+        if (!grupos[key]) { grupos[key] = []; orden.push(key); }
+        grupos[key].push(r);
+    });
+
+    let html = '';
+    orden.forEach(fecha => {
+        // Encabezado de grupo de fecha
+        const labelFecha = fecha === 'sin-fecha' ? 'Sin fecha' : formatDateGroup(fecha);
+        const subTotal = grupos[fecha].reduce((s, r) => s + Number(r.monto || 0), 0);
+        const subColor = subTotal >= 0 ? 'text-success' : 'text-danger';
+        html += `<tr class="table-group-divider">
+            <td colspan="9" class="py-1 px-3 bg-light">
+                <small class="fw-semibold text-muted">${labelFecha}</small>
+                <small class="${subColor} float-end fw-semibold">${formatCurrency(subTotal)}</small>
+            </td>
+        </tr>`;
+
+        grupos[fecha].forEach(r => {
+            const ingreso = (r.tipo || '').toLowerCase() === 'ingreso';
+            const esTrf = (r.numero_transaccion || '').startsWith('TRF-');
+            const badgeTipo = ingreso ? '<span class="badge bg-success">Ingreso</span>' : '<span class="badge bg-danger">Gasto</span>';
+            const monto = ingreso
+                ? `<td class="text-end text-success fw-semibold">${formatCurrency(Math.abs(r.monto || 0))}</td>`
+                : `<td class="text-end text-danger fw-semibold">-${formatCurrency(Math.abs(r.monto || 0))}</td>`;
+            const payload = encodeURIComponent(JSON.stringify(r));
+            const esAnulado = (r.estado || '').toLowerCase() === 'anulado';
+            // Icono de transferencia
+            const iconTrf = esTrf ? '<span title="Transferencia" class="text-info me-1"><i class="fas fa-exchange-alt"></i></span>' : '';
+            // Descripción con tachado si anulado
+            const descStyle = esAnulado ? 'style="text-decoration:line-through;opacity:.5"' : '';
+            // Observación con tooltip si es larga
+            const obs = r.observacion || '';
+            const obsTd = obs.length > 30
+                ? `<td class="small text-muted" title="${esc(obs)}" style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(obs)}</td>`
+                : `<td class="small text-muted">${esc(obs || '—')}</td>`;
+            // Select inline de estado
+            const estadoSelect = `<select class="form-select form-select-sm" style="min-width:120px" onchange="cambiarEstadoInline(${r.id}, this)">${
+                catalogos.estados.map(e => `<option value="${e.id_estado}"${r.id_estado == e.id_estado ? ' selected' : ''}>${esc(e.nombre)}</option>`).join('')
+            }</select>`;
+
+            html += `
+            <tr class="${esAnulado ? 'table-secondary opacity-50' : ''}">
+                <td class="small text-muted">${r.fecha ? formatDate(r.fecha) : '—'}</td>
+                <td class="small">${esc(r.cuenta_nombre || '—')}</td>
+                <td ${descStyle}>${iconTrf}${esc(r.descripcion || '—')}</td>
+                ${obsTd}
+                <td class="small">${renderCategorias(r)}</td>
+                <td>${estadoSelect}</td>
+                <td>${badgeTipo}</td>
+                ${monto}
+                <td class="text-center">
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" title="Editar" onclick="abrirEditarDec('${payload}')"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-outline-info" title="Duplicar" onclick="duplicarPreload('${payload}')"><i class="fas fa-clone"></i></button>
+                        ${!esAnulado
+                            ? `<button class="btn btn-outline-dark" title="Anular" onclick="anular(${r.id})"><i class="fas fa-ban"></i></button>`
+                            : `<button class="btn btn-outline-success" title="Reactivar" onclick="reactivar(${r.id})"><i class="fas fa-undo"></i></button>`}
+                        <button class="btn btn-outline-danger" title="Borrar" onclick="borrar(${r.id})"><i class="fas fa-trash"></i></button>
+                    </div>
+                </td>
+            </tr>`;
+        });
+    });
+
+    tbody.innerHTML = html;
+    empty.style.display = 'none';
+    tabla.style.display = 'table';
+}
+
+function formatDateGroup(fecha) {
+    const d = new Date(fecha + 'T12:00:00');
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+    const ayer = new Date(hoy); ayer.setDate(hoy.getDate() - 1);
+    const df = new Date(d); df.setHours(0,0,0,0);
+    if (df.getTime() === hoy.getTime()) return 'Hoy — ' + d.toLocaleDateString('es-CO', { weekday:'long', day:'numeric', month:'long' });
+    if (df.getTime() === ayer.getTime()) return 'Ayer — ' + d.toLocaleDateString('es-CO', { weekday:'long', day:'numeric', month:'long' });
+    return d.toLocaleDateString('es-CO', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+}
+
+async function cambiarEstadoInline(id, selectEl) {
+    const nuevoEstadoId = selectEl.value;
+    try {
+        await api.request('PUT', `/cuentas-bancarias/movimientos/${id}`, { id_estado: nuevoEstadoId });
+        toast('Estado actualizado', 'success');
+        // Actualizar en allRows sin recargar todo
+        const row = allRows.find(x => x.id === id);
+        if (row) {
+            const est = catalogos.estados.find(e => String(e.id_estado) === String(nuevoEstadoId));
+            row.id_estado = nuevoEstadoId;
+            row.estado = est ? est.nombre : row.estado;
+        }
+        filtrar(); // re-render con datos actualizados
+    } catch (e) {
+        toast('Error al cambiar estado: ' + (e.message || ''), 'danger');
+        await cargarTodo(); // recargar para revertir select
+    }
+}
+
+function abrirNuevo() {
+    document.getElementById('modalTitle').textContent = 'Nuevo movimiento';
+    document.getElementById('movId').value = '';
+    document.getElementById('movDescripcion').value = '';
+    document.getElementById('movObservacion').value = '';
+    document.getElementById('movTipo').value = 'gasto';
+    document.getElementById('movFecha').value = new Date().toISOString().split('T')[0];
+    document.getElementById('movBeneficiario').value = '';
+    document.getElementById('movTransferencia').checked = false;
+    document.getElementById('movDestinoTipo').value = 'cuenta';
+    document.getElementById('movMontoTrf').value = '';
+    toggleTransferencia();
+    iniciarDetalles([]);
+    if (catalogos.cuentas.length) document.getElementById('movCuenta').value = String(catalogos.cuentas[0].id_cuenta);
+    const estadoSinConc = catalogos.estados.find(e => (e.nombre || '').toLowerCase() === 'sin conciliar');
+    if (estadoSinConc) document.getElementById('movEstado').value = String(estadoSinConc.id_estado);
+    document.getElementById('formError').style.display = 'none';
+}
+
+function abrirEditarDec(payload) {
+    const r = JSON.parse(decodeURIComponent(payload));
+    document.getElementById('modalTitle').textContent = 'Editar movimiento';
+    document.getElementById('movId').value = r.id;
+    document.getElementById('movCuenta').value = String(r.id_cuenta || '');
+    document.getElementById('movDescripcion').value = r.descripcion || '';
+    document.getElementById('movObservacion').value = r.observacion || '';
+    document.getElementById('movTipo').value = (r.tipo || 'gasto').toLowerCase();
+    document.getElementById('movFecha').value = r.fecha || '';
+    document.getElementById('movBeneficiario').value = r.id_beneficiario || '';
+    document.getElementById('movEstado').value = r.id_estado || '';
+    document.getElementById('movTransferencia').checked = false;
+    document.getElementById('movMontoTrf').value = '';
+    toggleTransferencia();
+    iniciarDetalles(
+        r.detalles && r.detalles.length > 0
+            ? r.detalles
+            : [{ id_categoria: r.id_categoria, monto: Math.abs(r.monto || 0), descripcion: '' }]
+    );
+    document.getElementById('formError').style.display = 'none';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalMovimiento')).show();
+}
+
+function duplicarPreload(payload) {
+    const r = JSON.parse(decodeURIComponent(payload));
+    abrirNuevo();
+    document.getElementById('modalTitle').textContent = 'Duplicar movimiento';
+    document.getElementById('movDescripcion').value = r.descripcion || '';
+    document.getElementById('movObservacion').value = r.observacion || '';
+    document.getElementById('movTipo').value = (r.tipo || 'gasto').toLowerCase();
+    document.getElementById('movBeneficiario').value = r.id_beneficiario || '';
+    document.getElementById('movCuenta').value = String(r.id_cuenta || '');
+    iniciarDetalles(
+        r.detalles && r.detalles.length > 0
+            ? r.detalles.map(d => ({ id_categoria: d.id_categoria, monto: d.monto, descripcion: d.descripcion }))
+            : [{ id_categoria: r.id_categoria, monto: Math.abs(r.monto || 0), descripcion: '' }]
+    );
+    const estadoDuplicado = catalogos.estados.find(e => (e.nombre || '').toLowerCase() === 'duplicado');
+    if (estadoDuplicado) document.getElementById('movEstado').value = String(estadoDuplicado.id_estado);
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalMovimiento')).show();
+}
+
+// ---- Funciones detalles multi-categoría ----
+
+function _optsCategoria(selectedId) {
+    return '<option value="">Sin categoría</option>' +
+        catalogos.categorias.map(c =>
+            `<option value="${c.id_categoria}"${
+                String(c.id_categoria) === String(selectedId) ? ' selected' : ''
+            }>${esc(c.nombre)}</option>`
+        ).join('');
+}
+
+function agregarDetalle(cat_id, monto, desc) {
+    const container = document.getElementById('detallesContainer');
+    const div = document.createElement('div');
+    div.className = 'row g-1 mb-1 align-items-center detalle-row';
+    div.innerHTML = `
+        <div class="col-5">
+            <select class="form-select form-select-sm detalle-cat">${_optsCategoria(cat_id)}</select>
+        </div>
+        <div class="col-3">
+            <input type="number" class="form-control form-control-sm detalle-monto" placeholder="Monto"
+                   min="0.01" step="0.01" value="${monto != null && monto > 0 ? monto : ''}"
+                   oninput="calcularTotal()">
+        </div>
+        <div class="col-3">
+            <input type="text" class="form-control form-control-sm detalle-desc"
+                   placeholder="Nota breve" value="${esc(desc || '')}">
+        </div>
+        <div class="col-1 text-center">
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="quitarDetalle(this)" title="Quitar">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>`;
+    container.appendChild(div);
+    calcularTotal();
+}
+
+function quitarDetalle(btn) {
+    const rows = document.querySelectorAll('#detallesContainer .detalle-row');
+    if (rows.length <= 1) {
+        // Al menos una fila: sólo limpiar
+        btn.closest('.detalle-row').querySelector('.detalle-cat').value = '';
+        btn.closest('.detalle-row').querySelector('.detalle-monto').value = '';
+        btn.closest('.detalle-row').querySelector('.detalle-desc').value = '';
+    } else {
+        btn.closest('.detalle-row').remove();
+    }
+    calcularTotal();
+}
+
+function calcularTotal() {
+    const total = [...document.querySelectorAll('#detallesContainer .detalle-monto')]
+        .reduce((s, i) => s + (parseFloat(i.value) || 0), 0);
+    document.getElementById('movTotal').textContent = (typeof formatCurrency === 'function') ? formatCurrency(total) : '$' + total.toFixed(2);
+}
+
+function iniciarDetalles(detalles) {
+    document.getElementById('detallesContainer').innerHTML = '';
+    if (detalles && detalles.length > 0) {
+        detalles.forEach(d => agregarDetalle(d.id_categoria, d.monto, d.descripcion));
+    } else {
+        agregarDetalle(); // fila vacía por defecto
+    }
+}
+
+function renderCategorias(r) {
+    const dets = r.detalles || [];
+    if (dets.length > 1) {
+        const tip = dets.map(d => `${esc(d.categoria || 'General')}: ${typeof formatCurrency==='function' ? formatCurrency(d.monto) : d.monto}`).join('&#10;');
+        return `<span class="badge bg-info text-dark" title="${tip}" style="cursor:help">Múltiple (${dets.length})</span>`;
+    }
+    if (dets.length === 1) return esc(dets[0].categoria || 'General');
+    return esc(r.categoria || 'General');
+}
+
+// ---- Fin funciones detalles ----
+
+function toggleTransferencia() {
+    const on = document.getElementById('movTransferencia').checked;
+    document.getElementById('panelTransferencia').style.display = on ? '' : 'none';
+    document.getElementById('detallesPanel').style.display = on ? 'none' : '';
+    cambiarDestinoTipo();
+}
+
+function cambiarDestinoTipo() {
+    const tipo = document.getElementById('movDestinoTipo').value;
+    const on = document.getElementById('movTransferencia').checked;
+    document.getElementById('wrapCuentaDestino').style.display = (on && tipo === 'cuenta') ? '' : 'none';
+    document.getElementById('wrapProductoDestino').style.display = (on && tipo === 'producto') ? '' : 'none';
+}
+
+async function guardar() {
+    const id = document.getElementById('movId').value;
+    const esTransferencia = document.getElementById('movTransferencia').checked;
+
+    // Colección de detalles (solo para movimientos regulares)
+    let detalles, monto;
+    if (esTransferencia) {
+        monto = parseFloat(document.getElementById('movMontoTrf').value || 0);
+        detalles = undefined;
+    } else {
+        detalles = [...document.querySelectorAll('#detallesContainer .detalle-row')].map(row => ({
+            id_categoria: row.querySelector('.detalle-cat').value || null,
+            monto: parseFloat(row.querySelector('.detalle-monto').value) || 0,
+            descripcion: row.querySelector('.detalle-desc').value.trim() || null,
+        })).filter(d => d.monto > 0);
+        monto = detalles.reduce((s, d) => s + d.monto, 0);
+    }
+
+    const payload = {
+        id_cuenta: parseInt(document.getElementById('movCuenta').value || 0),
+        descripcion: document.getElementById('movDescripcion').value.trim(),
+        observacion: document.getElementById('movObservacion').value.trim() || null,
+        tipo: document.getElementById('movTipo').value,
+        monto: esTransferencia ? monto : undefined,
+        fecha: document.getElementById('movFecha').value || null,
+        id_beneficiario: document.getElementById('movBeneficiario').value || null,
+        id_estado: document.getElementById('movEstado').value || null,
+        es_transferencia: esTransferencia,
+        detalles: detalles,
+        destino_tipo: document.getElementById('movDestinoTipo').value,
+        id_cuenta_destino: document.getElementById('movCuentaDestino').value || null,
+        id_producto_destino: document.getElementById('movProductoDestino').value || null,
+    };
+
+    const err = document.getElementById('formError');
+    const btn = document.getElementById('btnGuardar');
+    err.style.display = 'none';
+
+    if (!payload.id_cuenta || !payload.descripcion || monto <= 0) {
+        err.textContent = 'Cuenta origen, descripción y ' + (esTransferencia ? 'monto' : 'al menos una línea con monto') + ' son obligatorios.';
+        err.style.display = 'block';
+        return;
+    }
+    if (esTransferencia && !id) {
+        if (payload.destino_tipo === 'cuenta' && !payload.id_cuenta_destino) {
+            err.textContent = 'Debes seleccionar la cuenta destino para la transferencia.';
+            err.style.display = 'block';
+            return;
+        }
+        if (payload.destino_tipo === 'producto' && !payload.id_producto_destino) {
+            err.textContent = 'Debes seleccionar el producto destino para la transferencia.';
+            err.style.display = 'block';
+            return;
+        }
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+    try {
+        if (id) {
+            await api.request('PUT', `/cuentas-bancarias/movimientos/${id}`, payload);
+            toast('Movimiento actualizado', 'success');
+        } else {
+            await api.request('POST', '/cuentas-bancarias/movimientos', payload);
+            toast(esTransferencia ? 'Transferencia registrada' : 'Movimiento creado', 'success');
+        }
+        bootstrap.Modal.getInstance(document.getElementById('modalMovimiento')).hide();
+        await cargarTodo();
+    } catch (e) {
+        err.textContent = e.message || 'Error al guardar movimiento';
+        err.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Guardar';
+    }
+}
+
+async function anular(id) {
+    const row = allRows.find(x => x.id === id);
+    if (!row) return;
+    const ok = confirm(`¿Anular movimiento?\n\nDescripción: ${row.descripcion || '—'}\nMonto: ${formatCurrency(Math.abs(row.monto || 0))}\n\nEl movimiento quedará marcado como Anulado y no se eliminará.`);
+    if (!ok) return;
+    const estadoAnulado = catalogos.estados.find(e => (e.nombre || '').toLowerCase() === 'anulado');
+    if (!estadoAnulado) { toast('Estado Anulado no disponible en el catálogo', 'danger'); return; }
+    try {
+        await api.request('PUT', `/cuentas-bancarias/movimientos/${id}`, { id_estado: estadoAnulado.id_estado });
+        toast('Movimiento anulado', 'warning');
+        await cargarTodo();
+    } catch (e) {
+        toast('Error al anular: ' + (e.message || ''), 'danger');
+    }
+}
+
+async function reactivar(id) {
+    const row = allRows.find(x => x.id === id);
+    if (!row) return;
+    const ok = confirm(`¿Reactivar movimiento anulado?\n\nDescripción: ${row.descripcion || '—'}\n\nSe marcará como Sin conciliar.`);
+    if (!ok) return;
+    const estadoSin = catalogos.estados.find(e => (e.nombre || '').toLowerCase() === 'sin conciliar');
+    if (!estadoSin) { toast('Estado Sin conciliar no disponible', 'danger'); return; }
+    try {
+        await api.request('PUT', `/cuentas-bancarias/movimientos/${id}`, { id_estado: estadoSin.id_estado });
+        toast('Movimiento reactivado', 'success');
+        await cargarTodo();
+    } catch (e) {
+        toast('Error al reactivar: ' + (e.message || ''), 'danger');
+    }
+}
+
+async function borrar(id) {
+    const row = allRows.find(x => x.id === id);
+    if (!row) return;
+    const ok = confirm(`¿Borrar movimiento?\n\nFecha: ${row.fecha || '—'}\nDescripción: ${row.descripcion || '—'}\nMonto: ${formatCurrency(Math.abs(row.monto || 0))}`);
+    if (!ok) return;
+
+    try {
+        await api.request('DELETE', `/cuentas-bancarias/movimientos/${id}`);
+        toast('Movimiento eliminado', 'success');
+        await cargarTodo();
+    } catch (e) {
+        toast('Error al borrar: ' + (e.message || ''), 'danger');
+    }
+}
+
+function esc(v) {
+    return String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+</script>
+{% endblock %}

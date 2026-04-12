@@ -1,0 +1,541 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Categorías - App Presupuesto{% endblock %}
+
+{% block extra_css %}
+<style>
+.cat-row-padre td:first-child { font-weight: 600; }
+.cat-row-hijo td { background: #f8f9fa; }
+.cat-row-hijo td:first-child { padding-left: 2.5rem !important; color: #555; }
+.cat-toggle { cursor: pointer; user-select: none; }
+.cat-toggle .fa-chevron-down { transition: transform .2s; }
+.cat-toggle.collapsed .fa-chevron-down { transform: rotate(-90deg); }
+.cat-inactiva td:not(:last-child) { opacity: .38; }
+.cat-dot { display:inline-block; width:10px; height:10px; border-radius:50%; vertical-align:middle; margin-right:5px; }
+.uso-badge { min-width:28px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header mb-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <h1 class="page-title"><i class="fas fa-tags"></i> Categorías</h1>
+            <p class="text-muted mb-0">Categorías padre y subcategorías para clasificar movimientos y presupuestos.</p>
+        </div>
+        <button class="btn btn-primary" onclick="abrirModalNueva(null)"
+                data-bs-toggle="modal" data-bs-target="#modalCategoria">
+            <i class="fas fa-plus"></i> Nueva categoría
+        </button>
+    </div>
+
+    <!-- Barra de herramientas -->
+    <div class="card mb-3">
+        <div class="card-body py-2 d-flex flex-wrap gap-3 align-items-center">
+            <div class="input-group" style="max-width:280px;">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" class="form-control" id="inputBusqueda" placeholder="Buscar categoría…">
+                <button class="btn btn-outline-secondary" id="btnLimpiarBusqueda" type="button">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <!-- Toggle solo activas -->
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="toggleSoloActivas">
+                <label class="form-check-label small" for="toggleSoloActivas">Solo activas</label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerta global -->
+    <div id="alertaGlobal" class="alert" style="display:none;" role="alert"></div>
+
+    <!-- Tabla -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div id="loadingCategorias" class="text-center py-5">
+                <div class="spinner-border text-primary"></div>
+                <p class="mt-2 text-muted">Cargando categorías…</p>
+            </div>
+            <div id="emptyCategorias" class="text-center py-5" style="display:none;">
+                <i class="fas fa-inbox fa-3x text-muted mb-3 d-block"></i>
+                <p class="text-muted">No hay categorías registradas.</p>
+            </div>
+            <table class="table table-hover mb-0" id="tablaCategorias" style="display:none;">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Nivel</th>
+                        <th class="text-center" style="width:80px">Uso</th>
+                        <th class="text-center" style="width:90px">Estado</th>
+                        <th class="text-center" style="width:190px">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyCategorias"></tbody>
+            </table>
+        </div>
+        <div class="card-footer text-muted small" id="footerTotal" style="display:none;"></div>
+    </div>
+</div>
+
+<!-- Modal crear / editar -->
+<div class="modal fade" id="modalCategoria" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="formCategoria" novalidate>
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalCategoriaTitle">Nueva categoría</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="catId">
+                    <div id="alertaModal" class="alert alert-danger" style="display:none;"></div>
+
+                    <!-- Info padre (subcategoría) -->
+                    <div id="wrapperPadre" class="mb-3 p-2 rounded bg-light border" style="display:none;">
+                        <small class="text-muted">Subcategoría de:</small>
+                        <div class="fw-semibold" id="labelPadre"></div>
+                    </div>
+
+                    <!-- Selector de padre (edición) -->
+                    <div id="wrapperSelectorPadre" class="mb-3" style="display:none;">
+                        <label class="form-label">Categoría padre <span class="text-muted small">(opcional)</span></label>
+                        <select class="form-select" id="catParentSelect">
+                            <option value="">— Sin padre (categoría raíz) —</option>
+                        </select>
+                    </div>
+                    <input type="hidden" id="catParentId">
+
+                    <div class="mb-3">
+                        <label class="form-label">Nombre <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="catNombre"
+                               placeholder="Ej: Alimentación" required maxlength="100" autofocus>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label">Ícono <span class="text-muted small">(Font Awesome)</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text" id="iconPreview"><i class="fas fa-tag"></i></span>
+                                <input type="text" class="form-control" id="catIcono"
+                                       placeholder="fa-tag" value="fa-tag" maxlength="50">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Color</label>
+                            <div class="input-group">
+                                <input type="color" class="form-control form-control-color" id="catColor"
+                                       value="#6c757d" title="Elige un color">
+                                <input type="text" class="form-control" id="catColorHex"
+                                       placeholder="#6c757d" maxlength="7" value="#6c757d">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Preview -->
+                    <div class="mt-3 p-2 rounded border bg-light d-flex align-items-center gap-2">
+                        <span id="previewDot" class="cat-dot" style="background:#6c757d; width:16px; height:16px;"></span>
+                        <i id="previewIcon" class="fas fa-tag" style="color:#6c757d;"></i>
+                        <span id="previewNombre" class="text-muted small">Vista previa</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btnGuardarCategoria">
+                        <i class="fas fa-save"></i> Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal confirmar eliminar -->
+<div class="modal fade" id="modalEliminar" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-danger"><i class="fas fa-trash"></i> Eliminar</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pt-0">
+                ¿Eliminar <strong id="nombreEliminar"></strong>?
+                <div class="alert alert-warning mt-2 mb-0 small py-2">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    No se puede eliminar si tiene subcategorías o está en uso.
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger btn-sm" id="btnConfirmarEliminar">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let _arbol = [];
+let _flat = [];
+let _idEliminar = null;
+let _modoBusqueda = false;
+let _soloActivas = false;
+
+/* ── Utilidades ───────────────────────────────────────────── */
+function mostrarAlerta(msg, tipo = 'danger', c = 'alertaGlobal') {
+    const el = document.getElementById(c);
+    el.className = `alert alert-${tipo}`;
+    el.innerHTML = `<i class="fas fa-${tipo === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${msg}`;
+    el.style.display = 'block';
+    if (tipo === 'success') setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+function ocultarAlerta(c = 'alertaGlobal') { document.getElementById(c).style.display = 'none'; }
+function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function encontrar(id, lista) {
+    for (const n of lista) {
+        if (n.id === id) return n;
+        const h = encontrar(id, n.subcategorias || []);
+        if (h) return h;
+    }
+    return null;
+}
+
+/* ── Carga ────────────────────────────────────────────────── */
+async function cargarCategorias(q = '') {
+    document.getElementById('loadingCategorias').style.display = 'block';
+    document.getElementById('tablaCategorias').style.display = 'none';
+    document.getElementById('emptyCategorias').style.display = 'none';
+    ocultarAlerta();
+    _modoBusqueda = !!q;
+
+    try {
+        let url = q ? `/categorias?q=${encodeURIComponent(q)}` : '/categorias';
+        if (_soloActivas) url += (url.includes('?') ? '&' : '?') + 'solo_activas=true';
+        const data = await api.request('GET', url);
+        _flat = data.categorias || [];
+        _arbol = data.arbol || [];
+        renderTabla();
+    } catch (err) {
+        mostrarAlerta(err.message || 'Error al cargar categorías');
+        document.getElementById('loadingCategorias').style.display = 'none';
+    }
+}
+
+/* ── Render ───────────────────────────────────────────────── */
+function badgeEstado(estado) {
+    return `<span class="badge ${estado ? 'bg-success' : 'bg-secondary'}">${estado ? 'Activa' : 'Inactiva'}</span>`;
+}
+function badgeUso(uso) {
+    return `<span class="badge bg-light text-dark border uso-badge">${uso}</span>`;
+}
+function iconoCategoria(c) {
+    return `<span class="cat-dot" style="background:${escHtml(c.color)};"></span><i class="fas ${escHtml(c.icono)}" style="color:${escHtml(c.color)};"></i>`;
+}
+
+function renderTabla() {
+    document.getElementById('loadingCategorias').style.display = 'none';
+    const footer = document.getElementById('footerTotal');
+
+    if (_modoBusqueda) {
+        if (_flat.length === 0) {
+            document.getElementById('emptyCategorias').style.display = 'block';
+            footer.style.display = 'none';
+            return;
+        }
+        document.getElementById('tablaCategorias').style.display = 'table';
+        footer.style.display = 'block';
+        footer.textContent = `${_flat.length} resultado${_flat.length !== 1 ? 's' : ''}`;
+
+        document.getElementById('tbodyCategorias').innerHTML = _flat.map(c => `
+            <tr class="${c.estado ? '' : 'cat-inactiva'}">
+                <td>
+                    ${c.parent_id
+                        ? `<span class="text-muted small me-1"><i class="fas fa-level-up-alt fa-rotate-90"></i></span>`
+                        : iconoCategoria(c) + ' '}
+                    ${escHtml(c.nombre)}
+                    ${c.nombre_padre ? `<span class="badge bg-light text-dark border ms-1 small">${escHtml(c.nombre_padre)}</span>` : ''}
+                </td>
+                <td>${c.parent_id ? '<span class="badge bg-secondary">Subcategoría</span>' : '<span class="badge bg-primary">Categoría</span>'}</td>
+                <td class="text-center">${badgeUso(c.uso)}</td>
+                <td class="text-center">${badgeEstado(c.estado)}</td>
+                <td class="text-center">${botonesAcciones(c)}</td>
+            </tr>`).join('');
+        return;
+    }
+
+    if (_arbol.length === 0) {
+        document.getElementById('emptyCategorias').style.display = 'block';
+        footer.style.display = 'none';
+        return;
+    }
+
+    document.getElementById('tablaCategorias').style.display = 'table';
+    const totalPadres = _arbol.length;
+    const totalHijos = _flat.filter(c => c.parent_id).length;
+    const totalUso = _flat.reduce((s, c) => s + c.uso, 0);
+    footer.style.display = 'block';
+    footer.textContent = `${totalPadres} categoría${totalPadres !== 1 ? 's' : ''} · ${totalHijos} subcategoría${totalHijos !== 1 ? 's' : ''} · ${totalUso} movimiento${totalUso !== 1 ? 's' : ''} clasificados`;
+
+    let html = '';
+    _arbol.forEach(padre => {
+        const tieneHijos = padre.subcategorias && padre.subcategorias.length > 0;
+        const toggleId = `toggle-${padre.id}`;
+        const subId = `sub-${padre.id}`;
+
+        html += `
+        <tr class="cat-row-padre ${padre.estado ? '' : 'cat-inactiva'}">
+            <td>
+                ${tieneHijos
+                    ? `<span class="cat-toggle me-1" id="${toggleId}" onclick="toggleSubcats(${padre.id})" title="Expandir/Colapsar">
+                           <i class="fas fa-chevron-down text-muted small"></i>
+                       </span>`
+                    : `<span class="me-1" style="display:inline-block;width:18px;"></span>`}
+                ${iconoCategoria(padre)}
+                <span class="ms-1">${escHtml(padre.nombre)}</span>
+                ${tieneHijos ? `<span class="badge bg-secondary ms-1">${padre.subcategorias.length}</span>` : ''}
+            </td>
+            <td><span class="badge bg-primary">Categoría</span></td>
+            <td class="text-center">${badgeUso(padre.uso)}</td>
+            <td class="text-center">${badgeEstado(padre.estado)}</td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-outline-success me-1"
+                        onclick="abrirModalNueva(${padre.id})"
+                        data-bs-toggle="modal" data-bs-target="#modalCategoria"
+                        title="Agregar subcategoría">
+                    <i class="fas fa-plus"></i>
+                </button>
+                ${botonesAcciones(padre)}
+            </td>
+        </tr>`;
+
+        if (tieneHijos) {
+            html += `<tr id="${subId}">
+                <td colspan="5" class="p-0 border-0">
+                    <table class="table mb-0">`;
+            padre.subcategorias.forEach(hijo => {
+                html += `
+                    <tr class="cat-row-hijo ${hijo.estado ? '' : 'cat-inactiva'}">
+                        <td>
+                            <span class="text-muted me-1"><i class="fas fa-level-up-alt fa-rotate-90"></i></span>
+                            <i class="fas ${escHtml(hijo.icono)}" style="color:${escHtml(hijo.color)};"></i>
+                            <span class="ms-1">${escHtml(hijo.nombre)}</span>
+                        </td>
+                        <td style="width:110px;"><span class="badge bg-secondary">Subcategoría</span></td>
+                        <td class="text-center" style="width:80px;">${badgeUso(hijo.uso)}</td>
+                        <td class="text-center" style="width:90px;">${badgeEstado(hijo.estado)}</td>
+                        <td class="text-center" style="width:190px;">${botonesAcciones(hijo)}</td>
+                    </tr>`;
+            });
+            html += `</table></td></tr>`;
+        }
+    });
+
+    document.getElementById('tbodyCategorias').innerHTML = html;
+}
+
+function botonesAcciones(c) {
+    return `
+        <button class="btn btn-sm btn-outline-primary me-1" onclick="abrirModalEditar(${c.id})"
+                data-bs-toggle="modal" data-bs-target="#modalCategoria" title="Editar">
+            <i class="fas fa-edit"></i>
+        </button>
+        <button class="btn btn-sm ${c.estado ? 'btn-outline-warning' : 'btn-outline-success'} me-1"
+                onclick="toggleEstado(${c.id})"
+                title="${c.estado ? 'Inactivar' : 'Activar'}">
+            <i class="fas fa-${c.estado ? 'toggle-on' : 'toggle-off'}"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-danger"
+                onclick="confirmarEliminar(${c.id}, '${escHtml(c.nombre)}')" title="Eliminar">
+            <i class="fas fa-trash"></i>
+        </button>`;
+}
+
+function toggleSubcats(padreId) {
+    const toggle = document.getElementById(`toggle-${padreId}`);
+    const sub = document.getElementById(`sub-${padreId}`);
+    if (!sub) return;
+    const oculto = sub.style.display === 'none';
+    sub.style.display = oculto ? '' : 'none';
+    toggle.classList.toggle('collapsed', !oculto);
+}
+
+/* ── Modales ──────────────────────────────────────────────── */
+function _actualizarPreview() {
+    const icono = document.getElementById('catIcono').value.trim() || 'fa-tag';
+    const color = document.getElementById('catColorHex').value.trim() || '#6c757d';
+    const nombre = document.getElementById('catNombre').value.trim() || 'Vista previa';
+    document.getElementById('previewDot').style.background = color;
+    document.getElementById('previewIcon').className = `fas ${icono}`;
+    document.getElementById('previewIcon').style.color = color;
+    document.getElementById('iconPreview').innerHTML = `<i class="fas ${icono}"></i>`;
+    document.getElementById('previewNombre').textContent = nombre;
+}
+
+function abrirModalNueva(parentId) {
+    document.getElementById('modalCategoriaTitle').textContent =
+        parentId ? 'Nueva subcategoría' : 'Nueva categoría';
+    document.getElementById('formCategoria').reset();
+    document.getElementById('catId').value = '';
+    document.getElementById('catParentId').value = parentId || '';
+    document.getElementById('catIcono').value = 'fa-tag';
+    document.getElementById('catColor').value = '#6c757d';
+    document.getElementById('catColorHex').value = '#6c757d';
+
+    // Modo "nueva subcategoría": mostrar info del padre, ocultar selector
+    const wrapperPadre = document.getElementById('wrapperPadre');
+    const wrapperSelector = document.getElementById('wrapperSelectorPadre');
+    if (parentId) {
+        const padre = encontrar(parentId, _arbol);
+        document.getElementById('labelPadre').textContent = padre ? padre.nombre : `#${parentId}`;
+        wrapperPadre.style.display = 'block';
+        wrapperSelector.style.display = 'none';
+    } else {
+        wrapperPadre.style.display = 'none';
+        wrapperSelector.style.display = 'none';
+    }
+    _actualizarPreview();
+    ocultarAlerta('alertaModal');
+}
+
+function abrirModalEditar(id) {
+    const c = _flat.find(x => x.id === id);
+    if (!c) return;
+    document.getElementById('modalCategoriaTitle').textContent =
+        c.parent_id ? 'Editar subcategoría' : 'Editar categoría';
+    document.getElementById('catId').value = c.id;
+    document.getElementById('catParentId').value = c.parent_id || '';
+    document.getElementById('catNombre').value = c.nombre;
+    document.getElementById('catIcono').value = c.icono || 'fa-tag';
+    document.getElementById('catColor').value = c.color || '#6c757d';
+    document.getElementById('catColorHex').value = c.color || '#6c757d';
+
+    // En edición siempre mostrar el selector de padre (para poder reasignarlo)
+    document.getElementById('wrapperPadre').style.display = 'none';
+    const wrapperSelector = document.getElementById('wrapperSelectorPadre');
+    // Poblar el select con las categorías raíz (excluyendo la propia si es padre)
+    const select = document.getElementById('catParentSelect');
+    select.innerHTML = '<option value="">— Sin padre (categoría raíz) —</option>';
+    _flat.filter(x => !x.parent_id && x.id !== id).forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.nombre;
+        if (p.id === c.parent_id) opt.selected = true;
+        select.appendChild(opt);
+    });
+    wrapperSelector.style.display = 'block';
+
+    _actualizarPreview();
+    ocultarAlerta('alertaModal');
+}
+
+async function toggleEstado(id) {
+    try {
+        const res = await api.request('PATCH', `/categorias/${id}/estado`);
+        mostrarAlerta(
+            res.estado ? 'Categoría activada.' : 'Categoría inactivada.',
+            res.estado ? 'success' : 'warning'
+        );
+        await cargarCategorias(document.getElementById('inputBusqueda').value.trim());
+    } catch (err) {
+        mostrarAlerta(err.message || 'Error al cambiar estado.');
+    }
+}
+
+function confirmarEliminar(id, nombre) {
+    _idEliminar = id;
+    document.getElementById('nombreEliminar').textContent = nombre;
+    new bootstrap.Modal(document.getElementById('modalEliminar')).show();
+}
+
+/* ── Guardar ──────────────────────────────────────────────── */
+document.getElementById('formCategoria').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    ocultarAlerta('alertaModal');
+    const id = document.getElementById('catId').value;
+
+    // parent_id: si hay selector visible usarlo, si no usar el hidden
+    const selectorVisible = document.getElementById('wrapperSelectorPadre').style.display !== 'none';
+    let parentId;
+    if (selectorVisible) {
+        const v = document.getElementById('catParentSelect').value;
+        parentId = v ? parseInt(v) : null;
+    } else {
+        const v = document.getElementById('catParentId').value;
+        parentId = v ? parseInt(v) : null;
+    }
+
+    const nombre = document.getElementById('catNombre').value.trim();
+    const icono = document.getElementById('catIcono').value.trim() || 'fa-tag';
+    const color = document.getElementById('catColorHex').value.trim() || '#6c757d';
+
+    if (!nombre) { mostrarAlerta('El nombre es obligatorio.', 'danger', 'alertaModal'); return; }
+
+    const payload = { nombre, parent_id: parentId, icono, color };
+    const btn = document.getElementById('btnGuardarCategoria');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    try {
+        if (id) {
+            await api.request('PUT', `/categorias/${id}`, payload);
+        } else {
+            await api.request('POST', '/categorias', payload);
+        }
+        bootstrap.Modal.getInstance(document.getElementById('modalCategoria')).hide();
+        mostrarAlerta(id ? 'Categoría actualizada.' : 'Categoría creada.', 'success');
+        await cargarCategorias(document.getElementById('inputBusqueda').value.trim());
+    } catch (err) {
+        mostrarAlerta(err.message || 'Error al guardar.', 'danger', 'alertaModal');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> Guardar';
+    }
+});
+
+/* ── Eliminar ─────────────────────────────────────────────── */
+document.getElementById('btnConfirmarEliminar').addEventListener('click', async () => {
+    if (!_idEliminar) return;
+    try {
+        await api.request('DELETE', `/categorias/${_idEliminar}`);
+        bootstrap.Modal.getInstance(document.getElementById('modalEliminar')).hide();
+        mostrarAlerta('Categoría eliminada.', 'success');
+        await cargarCategorias(document.getElementById('inputBusqueda').value.trim());
+    } catch (err) {
+        bootstrap.Modal.getInstance(document.getElementById('modalEliminar')).hide();
+        mostrarAlerta(err.message || 'Error al eliminar.');
+    } finally { _idEliminar = null; }
+});
+
+/* ── Controles ───────────────────────────────────────────── */
+let _debounce;
+document.getElementById('inputBusqueda').addEventListener('input', (e) => {
+    clearTimeout(_debounce);
+    _debounce = setTimeout(() => cargarCategorias(e.target.value.trim()), 350);
+});
+document.getElementById('btnLimpiarBusqueda').addEventListener('click', () => {
+    document.getElementById('inputBusqueda').value = '';
+    cargarCategorias();
+});
+document.getElementById('toggleSoloActivas').addEventListener('change', (e) => {
+    _soloActivas = e.target.checked;
+    cargarCategorias(document.getElementById('inputBusqueda').value.trim());
+});
+
+// Sincronizar color picker ↔ hex input
+document.getElementById('catColor').addEventListener('input', (e) => {
+    document.getElementById('catColorHex').value = e.target.value;
+    _actualizarPreview();
+});
+document.getElementById('catColorHex').addEventListener('input', (e) => {
+    const v = e.target.value;
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) document.getElementById('catColor').value = v;
+    _actualizarPreview();
+});
+document.getElementById('catIcono').addEventListener('input', _actualizarPreview);
+document.getElementById('catNombre').addEventListener('input', _actualizarPreview);
+
+document.addEventListener('DOMContentLoaded', () => cargarCategorias());
+</script>
+{% endblock %}

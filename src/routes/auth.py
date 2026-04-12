@@ -87,6 +87,7 @@ def get_current_user():
             'email': user.get('correo_electronico') or claims.get('email'),
             'nombre': user.get('nombre') or claims.get('nombre') or 'Usuario',
             'username': user.get('usuario'),
+            'fecha_creacion': user.get('fecha_creacion').isoformat() if user.get('fecha_creacion') else None,
             'authenticated': True
         }), 200
     except Exception as e:
@@ -109,3 +110,87 @@ def logout():
     except Exception as e:
         logger.error(f"Logout error: {str(e)}")
         return jsonify({'message': 'Error en logout'}), 500
+
+
+@bp.route('/change-password', methods=['PUT'])
+def change_password():
+    """
+    Cambiar contraseña del usuario autenticado
+
+    PUT /api/auth/change-password
+    Headers: Authorization: Bearer <token>
+    JSON: {"current_password": "...", "new_password": "..."}
+    """
+    try:
+        verify_jwt_in_request()
+        identity = get_jwt_identity()
+        user_id = int(identity) if str(identity).isdigit() else None
+        if not user_id:
+            return jsonify({'message': 'Token inválido'}), 401
+
+        data = request.get_json()
+        current_password = (data or {}).get('current_password', '').strip()
+        new_password = (data or {}).get('new_password', '').strip()
+
+        if not current_password or not new_password:
+            return jsonify({'message': 'Debes proporcionar la contraseña actual y la nueva'}), 400
+
+        if len(new_password) < 6:
+            return jsonify({'message': 'La nueva contraseña debe tener al menos 6 caracteres'}), 400
+
+        persona_model = PersonaModel()
+        success, reason = persona_model.change_password(user_id, current_password, new_password)
+
+        if not success:
+            if reason == 'wrong_password':
+                return jsonify({'message': 'La contraseña actual es incorrecta'}), 400
+            return jsonify({'message': 'Usuario no encontrado'}), 404
+
+        return jsonify({'message': 'Contraseña actualizada correctamente'}), 200
+
+    except Exception as e:
+        logger.error(f"Change password error: {str(e)}")
+        return jsonify({'message': 'Error interno del servidor'}), 500
+    finally:
+        if 'persona_model' in locals():
+            persona_model.close_connection()
+
+
+@bp.route('/update-profile', methods=['PUT'])
+def update_profile():
+    """
+    Actualizar nombre del usuario autenticado
+
+    PUT /api/auth/update-profile
+    Headers: Authorization: Bearer <token>
+    JSON: {"nombre": "Nuevo Nombre"}
+    """
+    try:
+        verify_jwt_in_request()
+        identity = get_jwt_identity()
+        user_id = int(identity) if str(identity).isdigit() else None
+        if not user_id:
+            return jsonify({'message': 'Token inválido'}), 401
+
+        data = request.get_json() or {}
+        nombre = (data.get('nombre') or '').strip()
+        if not nombre:
+            return jsonify({'message': 'El nombre no puede estar vacío'}), 400
+        if len(nombre) > 100:
+            return jsonify({'message': 'El nombre no puede superar 100 caracteres'}), 400
+
+        from src.database.db_connector import DatabaseConnector
+        db = DatabaseConnector()
+        try:
+            db.execute_non_query(
+                "UPDATE persona SET nombre = %s WHERE id_persona = %s",
+                (nombre, user_id),
+            )
+        finally:
+            db.close()
+
+        return jsonify({'message': 'Perfil actualizado', 'nombre': nombre}), 200
+
+    except Exception as e:
+        logger.error(f"Update profile error: {str(e)}")
+        return jsonify({'message': 'Error interno del servidor'}), 500

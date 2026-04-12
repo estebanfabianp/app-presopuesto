@@ -48,8 +48,13 @@ def create_app(env='development'):
     # Registrar blueprints de rutas
     from src.routes import (
         auth,
+        beneficiarios,
+        categorias,
+        cuentas_bancarias,
+        constantes,
         dashboard,
         presupuesto,
+        productos,
         transacciones,
         reportes,
         tarjetas,
@@ -58,6 +63,10 @@ def create_app(env='development'):
     )
     
     app.register_blueprint(auth.bp)
+    app.register_blueprint(beneficiarios.bp)
+    app.register_blueprint(categorias.bp)
+    app.register_blueprint(cuentas_bancarias.bp)
+    app.register_blueprint(constantes.bp)
     app.register_blueprint(dashboard.bp)
     app.register_blueprint(presupuesto.bp)
     app.register_blueprint(transacciones.bp)
@@ -65,6 +74,7 @@ def create_app(env='development'):
     app.register_blueprint(tarjetas.bp)
     app.register_blueprint(inversiones.bp)
     app.register_blueprint(metas.bp)
+    app.register_blueprint(productos.bp)
     
     # Rutas de templates (pages, no API)
     @app.route('/')
@@ -110,6 +120,26 @@ def create_app(env='development'):
     @app.route('/metas')
     def metas_page():
         return render_template('metas/index.html')
+
+    @app.route('/productos')
+    def productos_page():
+        return render_template('productos/index.html')
+
+    @app.route('/cuentas-bancarias')
+    def cuentas_bancarias_page():
+        return render_template('cuentas_bancarias/index.html')
+
+    @app.route('/beneficiarios')
+    def beneficiarios_page():
+        return render_template('beneficiarios/index.html')
+
+    @app.route('/categorias')
+    def categorias_page():
+        return render_template('categorias/index.html')
+
+    @app.route('/constantes')
+    def constantes_page():
+        return render_template('constantes/index.html')
 
     @app.route('/configuracion')
     @app.route('/notificaciones')

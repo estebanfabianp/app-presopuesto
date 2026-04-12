@@ -1,0 +1,745 @@
+{% extends "base.html" %}
+
+{% block title %}Mis Productos - App Presupuesto{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Tabs ─────────────────────────────────────────────── */
+.tipo-tab { cursor:pointer; user-select:none; }
+.tipo-tab.active { background:var(--bs-primary) !important; color:#fff !important; border-color:var(--bs-primary) !important; }
+
+/* ── Cards de producto ───────────────────────────────── */
+.prod-card { transition:box-shadow .2s; }
+.prod-card:hover { box-shadow:0 4px 16px rgba(0,0,0,.12); }
+.prod-card.inactivo { opacity:.45; }
+.prod-icon { font-size:1.8rem; width:52px; height:52px; border-radius:50%;
+             display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.prod-icon.cuenta  { background:#dbeafe; color:#1d4ed8; }
+.prod-icon.tarjeta { background:#fce7f3; color:#be185d; }
+.prod-icon.accion  { background:#d1fae5; color:#065f46; }
+.prod-icon.fondo   { background:#ede9fe; color:#5b21b6; }
+.prod-icon.activo  { background:#fef9c3; color:#854d0e; }
+
+/* ── Resumen header ──────────────────────────────────── */
+.resumen-chip { border-radius:8px; padding:.5rem 1rem; background:#f1f5f9; }
+.resumen-chip .label { font-size:.7rem; color:#64748b; text-transform:uppercase; letter-spacing:.04em; }
+.resumen-chip .valor { font-size:1.1rem; font-weight:700; }
+
+/* ── Sección vacía ───────────────────────────────────── */
+.empty-section { border:2px dashed #cbd5e1; border-radius:12px; padding:2rem; text-align:center; color:#94a3b8; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <!-- ── Encabezado ──────────────────────────────────────────────── -->
+    <div class="page-header mb-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <h1 class="page-title"><i class="fas fa-wallet"></i> Mis Productos</h1>
+            <p class="text-muted mb-0">Gestiona tus cuentas, tarjetas, fondos, acciones y activos.</p>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            <div class="form-check form-switch mb-0 me-2">
+                <input class="form-check-input" type="checkbox" id="soloActivos">
+                <label class="form-check-label small" for="soloActivos">Solo activos</label>
+            </div>
+            <!-- botón principal con dropdown de tipo -->
+            <div class="dropdown">
+                <button class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+                    <i class="fas fa-plus"></i> Nuevo producto
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="#" onclick="abrirModal('cuenta')">
+                        <i class="fas fa-piggy-bank me-2 text-primary"></i>Cuenta bancaria</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="abrirModal('accion')">
+                        <i class="fas fa-chart-line me-2 text-success"></i>Acción bursátil</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="abrirModal('fondo')">
+                        <i class="fas fa-layer-group me-2 text-purple" style="color:#5b21b6"></i>Fondo de inversión</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="abrirModal('activo')">
+                        <i class="fas fa-box me-2" style="color:#854d0e"></i>Activo físico</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><span class="dropdown-item-text small text-muted">
+                        <i class="fas fa-info-circle me-1"></i>Las tarjetas se gestionan en <a href="/tarjetas">Tarjetas</a>
+                    </span></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Chips resumen ──────────────────────────────────────────── -->
+    <div id="resumenBar" class="row g-2 mb-4"></div>
+
+    <!-- ── Tabs de tipo ───────────────────────────────────────────── -->
+    <div class="d-flex flex-wrap gap-2 mb-3" id="tipoTabs">
+        <button class="btn btn-outline-secondary tipo-tab active" data-tipo="todos">Todos</button>
+        <button class="btn btn-outline-primary  tipo-tab" data-tipo="cuentas">
+            <i class="fas fa-piggy-bank me-1"></i>Cuentas</button>
+        <button class="btn btn-outline-danger   tipo-tab" data-tipo="tarjetas">
+            <i class="fas fa-credit-card me-1"></i>Tarjetas</button>
+        <button class="btn btn-outline-success  tipo-tab" data-tipo="acciones">
+            <i class="fas fa-chart-line me-1"></i>Acciones</button>
+        <button class="btn btn-outline-secondary tipo-tab" data-tipo="fondos" style="color:#5b21b6;border-color:#5b21b6">
+            <i class="fas fa-layer-group me-1"></i>Fondos</button>
+        <button class="btn btn-outline-warning  tipo-tab" data-tipo="activos">
+            <i class="fas fa-box me-1"></i>Activos</button>
+        <button class="btn btn-outline-dark tipo-tab" data-tipo="prestamos">
+          <i class="fas fa-hand-holding-usd me-1"></i>Préstamos</button>
+    </div>
+
+    <!-- ── Contenido dinámico ─────────────────────────────────────── -->
+    <div id="productosContent">
+        <div class="text-center py-5 text-muted">
+            <div class="spinner-border spinner-border-sm me-2"></div> Cargando productos…
+        </div>
+    </div>
+
+</div>
+
+<!-- ═══ MODAL CUENTA ════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalCuenta" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-piggy-bank me-2"></i><span id="tituloModalCuenta">Nueva cuenta</span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="cuentaId">
+        <div class="mb-3">
+          <label class="form-label">Nombre <span class="text-danger">*</span></label>
+          <input type="text" id="cuentaNombre" class="form-control" placeholder="Ej. Bancolombia Ahorros">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Tipo</label>
+          <select id="cuentaTipo" class="form-select">
+            <option value="ahorro">Cuenta de ahorros</option>
+            <option value="corriente">Cuenta corriente</option>
+            <option value="efectivo">Efectivo</option>
+            <option value="digital">Billetera digital</option>
+          </select>
+        </div>
+        <div class="row">
+          <div class="col-8 mb-3">
+            <label class="form-label">Saldo inicial</label>
+            <input type="number" id="cuentaSaldo" class="form-control" value="0" step="0.01">
+          </div>
+          <div class="col-4 mb-3">
+            <label class="form-label">Moneda</label>
+            <select id="cuentaMoneda" class="form-select">
+              <option value="COP">COP</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarCuenta()"><i class="fas fa-save me-1"></i>Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL ACCIÓN / FONDO ════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalAccion" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-chart-line me-2"></i><span id="tituloModalAccion">Nueva acción</span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="accionId">
+        <input type="hidden" id="accionMercadoTipo">  <!-- NYSE/NASDAQ/FONDO -->
+        <div class="mb-3">
+          <label class="form-label">Nombre / Empresa <span class="text-danger">*</span></label>
+          <input type="text" id="accionEmpresa" class="form-control" placeholder="Ej. Apple Inc.">
+        </div>
+        <div id="grupoBursatil">
+          <div class="row">
+            <div class="col-4 mb-3">
+              <label class="form-label">Símbolo</label>
+              <input type="text" id="accionSimbolo" class="form-control text-uppercase" placeholder="AAPL">
+            </div>
+            <div class="col-4 mb-3">
+              <label class="form-label">Mercado</label>
+              <select id="accionMercado" class="form-select">
+                <option value="NYSE">NYSE</option>
+                <option value="NASDAQ">NASDAQ</option>
+                <option value="BVC">BVC</option>
+                <option value="LSE">LSE</option>
+              </select>
+            </div>
+            <div class="col-4 mb-3">
+              <label class="form-label">Cantidad</label>
+              <input type="number" id="accionCantidad" class="form-control" value="1" min="0">
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-6 mb-3">
+            <label class="form-label">Precio compra</label>
+            <input type="number" id="accionPrecioCompra" class="form-control" value="0" step="0.01">
+          </div>
+          <div class="col-6 mb-3">
+            <label class="form-label">Precio actual</label>
+            <input type="number" id="accionPrecioActual" class="form-control" value="0" step="0.01">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Fecha de compra</label>
+          <input type="date" id="accionFecha" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarAccion()"><i class="fas fa-save me-1"></i>Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL ACTIVO ════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalActivo" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-box me-2"></i><span id="tituloModalActivo">Nuevo activo</span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="activoId">
+        <div class="mb-3">
+          <label class="form-label">Nombre <span class="text-danger">*</span></label>
+          <input type="text" id="activoNombre" class="form-control" placeholder="Ej. Laptop, Automóvil…">
+        </div>
+        <div class="row">
+          <div class="col-6 mb-3">
+            <label class="form-label">Valor</label>
+            <input type="number" id="activoValor" class="form-control" value="0" step="0.01">
+          </div>
+          <div class="col-6 mb-3">
+            <label class="form-label">Depreciación anual (%)</label>
+            <input type="number" id="activoDepreciacion" class="form-control" value="0" step="0.01" min="0" max="100">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarActivo()"><i class="fas fa-save me-1"></i>Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ──────────────────────────────────────────────────────────────────────────────
+// Estado global
+// ──────────────────────────────────────────────────────────────────────────────
+let _data   = {};          // última respuesta de /api/productos
+let _tipo   = 'todos';     // tab activo
+let _soloActivos = false;
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Bootstrap modals (lazy init)
+// ──────────────────────────────────────────────────────────────────────────────
+const bsModal = (id) => bootstrap.Modal.getOrCreateInstance(document.getElementById(id));
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Carga
+// ──────────────────────────────────────────────────────────────────────────────
+async function cargarProductos() {
+    const token = localStorage.getItem('authToken');
+    if (!token) { window.location = '/login'; return; }
+
+    const qs = _soloActivos ? '?solo_activos=true' : '';
+    try {
+        const res = await fetch(`/api/productos${qs}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.status === 401) { window.location = '/login'; return; }
+        _data = await res.json();
+        renderResumen(_data.resumen);
+        renderContenido();
+    } catch (e) {
+        document.getElementById('productosContent').innerHTML =
+            `<div class="alert alert-danger">Error al cargar productos: ${e.message}</div>`;
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Chips de resumen
+// ──────────────────────────────────────────────────────────────────────────────
+function renderResumen(r) {
+    const resumen = r || {};
+    const activosTotales = Number(resumen.activos_totales || 0);
+    const deudaTotal = Number(resumen.deuda_total || 0);
+    const patrimonioNeto = Number(resumen.patrimonio_neto || (activosTotales - deudaTotal));
+    const colorPatrimonio = patrimonioNeto >= 0 ? 'success' : 'danger';
+
+    const kpis = [
+        { label:'Activos Totales', val:fmt(activosTotales), icon:'sack-dollar', color:'primary' },
+        { label:'Deuda Total', val:fmt(deudaTotal), icon:'file-invoice-dollar', color:'danger' },
+        { label:'Patrimonio Neto', val:fmt(patrimonioNeto), icon:'scale-balanced', color:colorPatrimonio },
+    ];
+
+    const chips = [
+        { label:'Cuentas',  val:resumen.total_cuentas || 0,  icon:'piggy-bank',  color:'primary' },
+        { label:'Tarjetas', val:resumen.total_tarjetas || 0, icon:'credit-card', color:'danger'  },
+        { label:'Acciones', val:resumen.total_acciones || 0, icon:'chart-line',  color:'success' },
+        { label:'Fondos',   val:resumen.total_fondos || 0,   icon:'layer-group', color:'secondary' },
+        { label:'Activos',  val:resumen.total_activos || 0,  icon:'box',         color:'warning' },
+        { label:'Préstamos',val:resumen.total_prestamos || 0,icon:'hand-holding-usd', color:'dark' },
+    ];
+
+    const htmlKpi = kpis.map(k => `
+        <div class="col-12 col-md-4">
+          <div class="resumen-chip text-center h-100">
+            <div class="label"><i class="fas fa-${k.icon} me-1 text-${k.color}"></i>${k.label}</div>
+            <div class="valor text-${k.color}">${k.val}</div>
+          </div>
+        </div>`).join('');
+
+    const htmlChips = chips.map(c => `
+        <div class="col-6 col-sm-4 col-md-2">
+          <div class="resumen-chip text-center h-100">
+            <div class="label"><i class="fas fa-${c.icon} me-1 text-${c.color}"></i>${c.label}</div>
+            <div class="valor text-${c.color}">${c.val}</div>
+          </div>
+        </div>`).join('');
+
+    document.getElementById('resumenBar').innerHTML = `${htmlKpi}${htmlChips}`;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Render principal por sección
+// ──────────────────────────────────────────────────────────────────────────────
+function renderContenido() {
+    const secciones = [
+        { key:'cuentas',  titulo:'Cuentas Bancarias', icon:'piggy-bank', iconClass:'cuenta',  fnCard:cardCuenta  },
+        { key:'tarjetas', titulo:'Tarjetas de Crédito',icon:'credit-card',iconClass:'tarjeta', fnCard:cardTarjeta },
+        { key:'acciones', titulo:'Acciones',          icon:'chart-line', iconClass:'accion',  fnCard:cardAccion  },
+        { key:'fondos',   titulo:'Fondos de Inversión',icon:'layer-group',iconClass:'fondo',   fnCard:cardFondo   },
+        { key:'activos',  titulo:'Activos',            icon:'box',        iconClass:'activo',  fnCard:cardActivo  },
+    { key:'prestamos', titulo:'Préstamos',         icon:'hand-holding-usd', iconClass:'tarjeta', fnCard:cardPrestamo },
+    ];
+
+    const filtradas = _tipo === 'todos'
+        ? secciones
+        : secciones.filter(s => s.key === _tipo);
+
+    let html = '';
+    filtradas.forEach(s => {
+      const items = ordenarPorImpacto(s.key, _data[s.key] || []);
+        html += `
+        <div class="mb-5 seccion-${s.key}">
+            <h5 class="fw-semibold mb-3">
+                <span class="prod-icon ${s.iconClass} me-2" style="display:inline-flex;width:32px;height:32px;font-size:1rem;">
+                    <i class="fas fa-${s.icon}"></i>
+                </span>
+                ${s.titulo} <span class="badge bg-secondary ms-1">${items.length}</span>
+            </h5>
+            ${items.length === 0
+                ? `<div class="empty-section"><i class="fas fa-${s.icon} fa-2x mb-2"></i><br>No hay ${s.titulo.toLowerCase()}.
+                 ${(!['tarjetas','prestamos'].includes(s.key)) ? `<br><a href="#" class="small" onclick="abrirModal('${s.key === 'cuentas' ? 'cuenta' : s.key === 'acciones' ? 'accion' : s.key === 'fondos' ? 'fondo' : 'activo'}')">+ Agregar</a>` : ''}</div>`
+                : `<div class="row g-3">${items.map(i => s.fnCard(i)).join('')}</div>`
+            }
+        </div>`;
+    });
+
+    document.getElementById('productosContent').innerHTML = html || '<p class="text-muted">Sin secciones para mostrar.</p>';
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Cards individuales
+// ──────────────────────────────────────────────────────────────────────────────
+const fmt = (n) => new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(n||0);
+const estadoBadge = (e) => {
+    const activo = ['ACTIVO','ACTIVA'].includes((e||'').toUpperCase());
+    return `<span class="badge bg-${activo?'success':'secondary'}">${activo?'Activo':'Inactivo'}</span>`;
+};
+
+function ordenarPorImpacto(tipo, items) {
+  const score = {
+    cuentas: (x) => Math.abs(Number(x.saldo_inicial || 0)),
+    tarjetas: (x) => Math.abs(Number(x.saldo_actual || 0)),
+    acciones: (x) => Math.abs(Number(x.valor_total || 0)),
+    fondos: (x) => Math.abs(Number(x.valor_total || 0)),
+    activos: (x) => Math.abs(Number(x.valor || 0)),
+    prestamos: (x) => Math.abs(Number(x.saldo_actual || 0)),
+  }[tipo] || (() => 0);
+  return [...items].sort((a, b) => score(b) - score(a));
+}
+
+function cardCuenta(c) {
+    const cls = ['ACTIVO','ACTIVA'].includes((c.estado||'').toUpperCase()) ? '' : 'inactivo';
+    return `
+    <div class="col-12 col-sm-6 col-lg-4">
+      <div class="card prod-card h-100 ${cls}">
+        <div class="card-body d-flex gap-3">
+          <div class="prod-icon cuenta"><i class="fas fa-piggy-bank"></i></div>
+          <div class="flex-grow-1 overflow-hidden">
+            <div class="fw-semibold text-truncate">${escHtml(c.nombre)}</div>
+            <small class="text-muted text-capitalize">${c.tipo}</small>
+            <div class="mt-1 fw-bold text-primary">${fmt(c.saldo_inicial)} <span class="fw-normal small text-muted">${c.moneda}</span></div>
+            <div class="mt-1">${estadoBadge(c.estado)}</div>
+          </div>
+          <div class="d-flex flex-column gap-1">
+            <button class="btn btn-sm btn-outline-secondary" title="Editar" onclick="editarCuenta(${JSON.stringify(c).replace(/"/g,'&quot;')})">
+                <i class="fas fa-edit"></i></button>
+            <button class="btn btn-sm ${['ACTIVO','ACTIVA'].includes((c.estado||'').toUpperCase())?'btn-outline-warning':'btn-outline-success'}"
+                title="Cambiar estado" onclick="toggleEstado('cuentas',${c.id},this)">
+                <i class="fas fa-${['ACTIVO','ACTIVA'].includes((c.estado||'').toUpperCase())?'eye-slash':'eye'}"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function cardTarjeta(t) {
+    const cls = ['ACTIVO','ACTIVA'].includes((t.estado||'').toUpperCase()) ? '' : 'inactivo';
+    const disp = t.limite_credito - t.saldo_actual;
+    const pct  = t.limite_credito > 0 ? Math.min(100, (t.saldo_actual/t.limite_credito)*100) : 0;
+    const riesgo = pct < 30 ? 'success' : (pct <= 70 ? 'warning' : 'danger');
+    const riesgoTxt = pct < 30 ? 'Bajo' : (pct <= 70 ? 'Medio' : 'Alto');
+    return `
+    <div class="col-12 col-sm-6 col-lg-4">
+      <div class="card prod-card h-100 ${cls}">
+        <div class="card-body">
+          <div class="d-flex gap-3 mb-2">
+            <div class="prod-icon tarjeta"><i class="fas fa-credit-card"></i></div>
+            <div class="flex-grow-1">
+              <div class="fw-semibold text-truncate">${escHtml(t.nombre)}</div>
+              <small class="text-muted font-monospace">•••• ${(t.numero_tarjeta||'').slice(-4)}</small>
+            </div>
+            ${estadoBadge(t.estado)}
+          </div>
+          <div class="mb-1 d-flex justify-content-between small">
+            <span>Usado: ${fmt(t.saldo_actual)}</span><span>Límite: ${fmt(t.limite_credito)}</span>
+          </div>
+          <div class="progress mb-2" style="height:6px">
+            <div class="progress-bar bg-${riesgo}" style="width:${pct.toFixed(1)}%"></div>
+          </div>
+          <small class="text-${riesgo} d-block mb-1">Riesgo: ${riesgoTxt} (${pct.toFixed(1)}% del cupo)</small>
+          <small class="text-muted">Disponible: <strong>${fmt(disp)}</strong></small>
+          ${t.fecha_pago?`<br><small class="text-muted">Pago: ${t.fecha_pago}</small>`:''}
+        </div>
+      </div>
+    </div>`;
+}
+
+function cardAccion(a) {
+    const cls = ['ACTIVO','ACTIVA'].includes((a.estado||'').toUpperCase()) ? '' : 'inactivo';
+    const ganPct = a.precio_compra > 0 ? (((a.precio_actual-a.precio_compra)/a.precio_compra)*100).toFixed(1) : 0;
+    const col = a.ganancia >= 0 ? 'success' : 'danger';
+    return `
+    <div class="col-12 col-sm-6 col-lg-4">
+      <div class="card prod-card h-100 ${cls}">
+        <div class="card-body d-flex gap-3">
+          <div class="prod-icon accion"><i class="fas fa-chart-line"></i></div>
+          <div class="flex-grow-1">
+            <div class="fw-semibold">${escHtml(a.simbolo)} <small class="text-muted fw-normal">${escHtml(a.empresa)}</small></div>
+            <small class="text-muted">${a.mercado} · ${a.cantidad} uds</small>
+            <div class="mt-1 fw-bold">${fmt(a.valor_total)}</div>
+            <small class="text-${col}"><i class="fas fa-arrow-${a.ganancia>=0?'up':'down'}"></i> ${ganPct}% (${fmt(a.ganancia)})</small>
+            <div class="mt-1">${estadoBadge(a.estado)}</div>
+          </div>
+          <div class="d-flex flex-column gap-1">
+            <button class="btn btn-sm btn-outline-secondary" title="Editar" onclick="editarAccion(${JSON.stringify(a).replace(/"/g,'&quot;')})">
+                <i class="fas fa-edit"></i></button>
+            <button class="btn btn-sm ${['ACTIVO','ACTIVA'].includes((a.estado||'').toUpperCase())?'btn-outline-warning':'btn-outline-success'}"
+                title="Cambiar estado" onclick="toggleEstado('acciones',${a.id},this)">
+                <i class="fas fa-${['ACTIVO','ACTIVA'].includes((a.estado||'').toUpperCase())?'eye-slash':'eye'}"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function cardFondo(f) {
+    const cls = ['ACTIVO','ACTIVA'].includes((f.estado||'').toUpperCase()) ? '' : 'inactivo';
+    return `
+    <div class="col-12 col-sm-6 col-lg-4">
+      <div class="card prod-card h-100 ${cls}">
+        <div class="card-body d-flex gap-3">
+          <div class="prod-icon fondo"><i class="fas fa-layer-group"></i></div>
+          <div class="flex-grow-1">
+            <div class="fw-semibold">${escHtml(f.empresa)}</div>
+            <small class="text-muted">${f.mercado}</small>
+            <div class="mt-1 fw-bold">${fmt(f.valor_total)}</div>
+            <div class="mt-1">${estadoBadge(f.estado)}</div>
+          </div>
+          <div class="d-flex flex-column gap-1">
+            <button class="btn btn-sm btn-outline-secondary" title="Editar" onclick="editarFondo(${JSON.stringify(f).replace(/"/g,'&quot;')})">
+                <i class="fas fa-edit"></i></button>
+            <button class="btn btn-sm ${['ACTIVO','ACTIVA'].includes((f.estado||'').toUpperCase())?'btn-outline-warning':'btn-outline-success'}"
+                title="Cambiar estado" onclick="toggleEstado('acciones',${f.id},this)">
+                <i class="fas fa-${['ACTIVO','ACTIVA'].includes((f.estado||'').toUpperCase())?'eye-slash':'eye'}"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function cardActivo(a) {
+    const cls = ['ACTIVO','ACTIVA'].includes((a.estado||'').toUpperCase()) ? '' : 'inactivo';
+    return `
+    <div class="col-12 col-sm-6 col-lg-4">
+      <div class="card prod-card h-100 ${cls}">
+        <div class="card-body d-flex gap-3">
+          <div class="prod-icon activo"><i class="fas fa-box"></i></div>
+          <div class="flex-grow-1">
+            <div class="fw-semibold">${escHtml(a.nombre)}</div>
+            <small class="text-muted">Depreciación: ${a.depreciacion}%/año</small>
+            <div class="mt-1 fw-bold">${fmt(a.valor)}</div>
+            <div class="mt-1">${estadoBadge(a.estado)}</div>
+          </div>
+          <div class="d-flex flex-column gap-1">
+            <button class="btn btn-sm btn-outline-secondary" title="Editar" onclick="editarActivo(${JSON.stringify(a).replace(/"/g,'&quot;')})">
+                <i class="fas fa-edit"></i></button>
+            <button class="btn btn-sm ${['ACTIVO','ACTIVA'].includes((a.estado||'').toUpperCase())?'btn-outline-warning':'btn-outline-success'}"
+                title="Cambiar estado" onclick="toggleEstado('activos',${a.id},this)">
+                <i class="fas fa-${['ACTIVO','ACTIVA'].includes((a.estado||'').toUpperCase())?'eye-slash':'eye'}"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function cardPrestamo(p) {
+    const cls = ['ACTIVO','ACTIVA'].includes((p.estado||'').toUpperCase()) ? '' : 'inactivo';
+    return `
+    <div class="col-12 col-sm-6 col-lg-4">
+      <div class="card prod-card h-100 ${cls}">
+        <div class="card-body d-flex gap-3">
+          <div class="prod-icon tarjeta"><i class="fas fa-hand-holding-usd"></i></div>
+          <div class="flex-grow-1">
+            <div class="fw-semibold">${escHtml(p.nombre)}</div>
+            <small class="text-muted">Saldo pendiente</small>
+            <div class="mt-1 fw-bold text-danger">${fmt(p.saldo_actual)}</div>
+            <div class="mt-1">${estadoBadge(p.estado)}</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Abrir modales (nuevo / editar)
+// ──────────────────────────────────────────────────────────────────────────────
+function abrirModal(tipo) {
+    if (tipo === 'cuenta') {
+        document.getElementById('tituloModalCuenta').textContent = 'Nueva cuenta';
+        document.getElementById('cuentaId').value = '';
+        document.getElementById('cuentaNombre').value = '';
+        document.getElementById('cuentaTipo').value = 'ahorro';
+        document.getElementById('cuentaSaldo').value = '0';
+        document.getElementById('cuentaMoneda').value = 'COP';
+        bsModal('modalCuenta').show();
+    } else if (tipo === 'accion') {
+        document.getElementById('tituloModalAccion').textContent = 'Nueva acción';
+        document.getElementById('accionId').value = '';
+        document.getElementById('accionMercadoTipo').value = 'NYSE';
+        document.getElementById('accionEmpresa').value = '';
+        document.getElementById('accionSimbolo').value = '';
+        document.getElementById('accionMercado').value = 'NYSE';
+        document.getElementById('accionCantidad').value = '1';
+        document.getElementById('accionPrecioCompra').value = '0';
+        document.getElementById('accionPrecioActual').value = '0';
+        document.getElementById('accionFecha').value = new Date().toISOString().split('T')[0];
+        document.getElementById('grupoBursatil').style.display = '';
+        bsModal('modalAccion').show();
+    } else if (tipo === 'fondo') {
+        document.getElementById('tituloModalAccion').textContent = 'Nuevo fondo de inversión';
+        document.getElementById('accionId').value = '';
+        document.getElementById('accionMercadoTipo').value = 'FONDO';
+        document.getElementById('accionEmpresa').value = '';
+        document.getElementById('accionSimbolo').value = '';
+        document.getElementById('accionMercado').value = 'NYSE';
+        document.getElementById('accionCantidad').value = '1';
+        document.getElementById('accionPrecioCompra').value = '0';
+        document.getElementById('accionPrecioActual').value = '0';
+        document.getElementById('accionFecha').value = new Date().toISOString().split('T')[0];
+        document.getElementById('grupoBursatil').style.display = 'none';
+        bsModal('modalAccion').show();
+    } else if (tipo === 'activo') {
+        document.getElementById('tituloModalActivo').textContent = 'Nuevo activo';
+        document.getElementById('activoId').value = '';
+        document.getElementById('activoNombre').value = '';
+        document.getElementById('activoValor').value = '0';
+        document.getElementById('activoDepreciacion').value = '0';
+        bsModal('modalActivo').show();
+    }
+}
+
+function editarCuenta(c) {
+    document.getElementById('tituloModalCuenta').textContent = 'Editar cuenta';
+    document.getElementById('cuentaId').value     = c.id;
+    document.getElementById('cuentaNombre').value = c.nombre;
+    document.getElementById('cuentaTipo').value   = c.tipo;
+    document.getElementById('cuentaSaldo').value  = c.saldo_inicial;
+    document.getElementById('cuentaMoneda').value = c.moneda;
+    bsModal('modalCuenta').show();
+}
+
+function editarAccion(a) {
+    document.getElementById('tituloModalAccion').textContent = 'Editar acción';
+    document.getElementById('accionId').value          = a.id;
+    document.getElementById('accionMercadoTipo').value = a.mercado;
+    document.getElementById('accionEmpresa').value     = a.empresa;
+    document.getElementById('accionSimbolo').value     = a.simbolo;
+    document.getElementById('accionMercado').value     = a.mercado;
+    document.getElementById('accionCantidad').value    = a.cantidad;
+    document.getElementById('accionPrecioCompra').value= a.precio_compra;
+    document.getElementById('accionPrecioActual').value= a.precio_actual;
+    document.getElementById('accionFecha').value       = a.fecha_compra || '';
+    document.getElementById('grupoBursatil').style.display = '';
+    bsModal('modalAccion').show();
+}
+
+function editarFondo(f) {
+    document.getElementById('tituloModalAccion').textContent = 'Editar fondo';
+    document.getElementById('accionId').value          = f.id;
+    document.getElementById('accionMercadoTipo').value = 'FONDO';
+    document.getElementById('accionEmpresa').value     = f.empresa;
+    document.getElementById('accionSimbolo').value     = f.simbolo;
+    document.getElementById('accionMercado').value     = f.mercado;
+    document.getElementById('accionCantidad').value    = f.cantidad;
+    document.getElementById('accionPrecioCompra').value= f.precio_compra;
+    document.getElementById('accionPrecioActual').value= f.precio_actual;
+    document.getElementById('accionFecha').value       = f.fecha_compra || '';
+    document.getElementById('grupoBursatil').style.display = 'none';
+    bsModal('modalAccion').show();
+}
+
+function editarActivo(a) {
+    document.getElementById('tituloModalActivo').textContent = 'Editar activo';
+    document.getElementById('activoId').value          = a.id;
+    document.getElementById('activoNombre').value      = a.nombre;
+    document.getElementById('activoValor').value       = a.valor;
+    document.getElementById('activoDepreciacion').value= a.depreciacion;
+    bsModal('modalActivo').show();
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Guardar
+// ──────────────────────────────────────────────────────────────────────────────
+async function apiCall(method, url, body) {
+    const token = localStorage.getItem('authToken');
+    const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
+        body: JSON.stringify(body),
+    });
+    return res;
+}
+
+async function guardarCuenta() {
+    const id     = document.getElementById('cuentaId').value;
+    const nombre = document.getElementById('cuentaNombre').value.trim();
+    if (!nombre) { alert('El nombre es obligatorio'); return; }
+    const body = {
+        nombre,
+        tipo:         document.getElementById('cuentaTipo').value,
+        saldo_inicial: parseFloat(document.getElementById('cuentaSaldo').value) || 0,
+        moneda:        document.getElementById('cuentaMoneda').value,
+    };
+    const res = id
+        ? await apiCall('PUT', `/api/productos/cuentas/${id}`, body)
+        : await apiCall('POST', '/api/productos/cuentas', body);
+    const data = await res.json();
+    if (res.ok) { bsModal('modalCuenta').hide(); cargarProductos(); }
+    else alert(data.message || 'Error al guardar');
+}
+
+async function guardarAccion() {
+    const id      = document.getElementById('accionId').value;
+    const empresa = document.getElementById('accionEmpresa').value.trim();
+    if (!empresa) { alert('El nombre/empresa es obligatorio'); return; }
+    const esFondo = document.getElementById('accionMercadoTipo').value === 'FONDO';
+    const body = {
+        empresa,
+        simbolo:       document.getElementById('accionSimbolo').value.trim(),
+        cantidad:      parseInt(document.getElementById('accionCantidad').value) || 0,
+        precio_compra: parseFloat(document.getElementById('accionPrecioCompra').value) || 0,
+        precio_actual: parseFloat(document.getElementById('accionPrecioActual').value) || 0,
+        fecha_compra:  document.getElementById('accionFecha').value || null,
+        mercado:       esFondo ? 'FONDO' : document.getElementById('accionMercado').value,
+    };
+    const res = id
+        ? await apiCall('PUT', `/api/productos/acciones/${id}`, body)
+        : await apiCall('POST', '/api/productos/acciones', body);
+    const data = await res.json();
+    if (res.ok) { bsModal('modalAccion').hide(); cargarProductos(); }
+    else alert(data.message || 'Error al guardar');
+}
+
+async function guardarActivo() {
+    const id     = document.getElementById('activoId').value;
+    const nombre = document.getElementById('activoNombre').value.trim();
+    if (!nombre) { alert('El nombre es obligatorio'); return; }
+    const body = {
+        nombre,
+        valor:        parseFloat(document.getElementById('activoValor').value) || 0,
+        depreciacion: parseFloat(document.getElementById('activoDepreciacion').value) || 0,
+    };
+    const res = id
+        ? await apiCall('PUT', `/api/productos/activos/${id}`, body)
+        : await apiCall('POST', '/api/productos/activos', body);
+    const data = await res.json();
+    if (res.ok) { bsModal('modalActivo').hide(); cargarProductos(); }
+    else alert(data.message || 'Error al guardar');
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Toggle estado
+// ──────────────────────────────────────────────────────────────────────────────
+async function toggleEstado(tipo, id, btn) {
+    const token = localStorage.getItem('authToken');
+    const mapa  = { cuentas:'cuentas', acciones:'acciones', activos:'activos' };
+    const endpoint = `/api/productos/${mapa[tipo]}/${id}/estado`;
+    btn.disabled = true;
+    try {
+        const res  = await fetch(endpoint, { method:'PATCH', headers:{ Authorization:`Bearer ${token}` } });
+        const data = await res.json();
+        if (res.ok) cargarProductos();
+        else alert(data.message || 'Error al cambiar estado');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Utilidades
+// ──────────────────────────────────────────────────────────────────────────────
+function escHtml(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Eventos
+// ──────────────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    cargarProductos();
+
+    document.getElementById('tipoTabs').addEventListener('click', e => {
+        const btn = e.target.closest('.tipo-tab');
+        if (!btn) return;
+        document.querySelectorAll('.tipo-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        _tipo = btn.dataset.tipo;
+        renderContenido();
+    });
+
+    document.getElementById('soloActivos').addEventListener('change', e => {
+        _soloActivos = e.target.checked;
+        cargarProductos();
+    });
+});
+</script>
+{% endblock %}

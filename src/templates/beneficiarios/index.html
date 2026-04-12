@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block title %}Beneficiarios - App Presupuesto{% endblock %}
+
+{% block extra_css %}
+<style>
+tr.inactivo td:not(:last-child) { opacity: .38; }
+.uso-badge { min-width:28px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header mb-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <h1 class="page-title"><i class="fas fa-users"></i> Beneficiarios</h1>
+            <p class="text-muted mb-0">Gestiona las personas o entidades que reciben tus movimientos.</p>
+        </div>
+        <button class="btn btn-primary" onclick="abrirModalNueva()"
+                data-bs-toggle="modal" data-bs-target="#modalBeneficiario">
+            <i class="fas fa-plus"></i> Nuevo beneficiario
+        </button>
+    </div>
+
+    <!-- Búsqueda -->
+    <div class="card mb-3">
+        <div class="card-body py-2 d-flex flex-wrap gap-3 align-items-center">
+            <div class="input-group" style="max-width:280px;">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" class="form-control" id="inputBusqueda"
+                       placeholder="Buscar beneficiario…">
+                <button class="btn btn-outline-secondary" id="btnLimpiarBusqueda" type="button">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <!-- Toggle solo activos -->
+            <div class="form-check form-switch mb-0 ms-3">
+                <input class="form-check-input" type="checkbox" id="toggleSoloActivos">
+                <label class="form-check-label small" for="toggleSoloActivos">Solo activos</label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerta global -->
+    <div id="alertaGlobal" class="alert" style="display:none;" role="alert"></div>
+
+    <!-- Tabla -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div id="loadingBeneficiarios" class="text-center py-5">
+                <div class="spinner-border text-primary"></div>
+                <p class="mt-2 text-muted">Cargando beneficiarios…</p>
+            </div>
+            <div id="emptyBeneficiarios" class="text-center py-5" style="display:none;">
+                <i class="fas fa-inbox fa-3x text-muted mb-3 d-block"></i>
+                <p class="text-muted">No hay beneficiarios registrados.</p>
+            </div>
+            <table class="table table-hover mb-0" id="tablaBeneficiarios" style="display:none;">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:60px">#</th>
+                        <th>Nombre</th>
+                        <th>Tipo</th>
+                        <th class="text-center" style="width:70px">Uso</th>
+                        <th class="text-center" style="width:90px">Estado</th>
+                        <th class="text-center" style="width:155px">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyBeneficiarios"></tbody>
+            </table>
+        </div>
+        <div class="card-footer text-muted small" id="footerTotal" style="display:none;"></div>
+    </div>
+</div>
+
+<!-- Modal crear / editar -->
+<div class="modal fade" id="modalBeneficiario" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <form id="formBeneficiario" novalidate>
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalBeneficiarioTitle">Nuevo beneficiario</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="benId">
+                    <div id="alertaModal" class="alert alert-danger" style="display:none;"></div>
+                    <div class="mb-3">
+                        <label class="form-label">Nombre <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="benNombre"
+                               placeholder="Ej: Juan Pérez" required maxlength="100" autofocus>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo</label>
+                        <select class="form-select" id="benTipo">
+                            <option value="Persona">Persona</option>
+                            <option value="Empresa">Empresa</option>
+                            <option value="Servicio">Servicio</option>
+                            <option value="Institución">Institución</option>
+                            <option value="Otro" selected>Otro</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btnGuardarBeneficiario">
+                        <i class="fas fa-save"></i> Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal confirmar eliminar -->
+<div class="modal fade" id="modalEliminar" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-danger"><i class="fas fa-trash"></i> Eliminar</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pt-0">
+                ¿Eliminar al beneficiario <strong id="nombreEliminar"></strong>?
+                <div class="alert alert-warning mt-2 mb-0 small py-2">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    No se puede eliminar si está referenciado en movimientos.
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger btn-sm" id="btnConfirmarEliminar">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let _beneficiarios = [];
+let _soloActivos = false;
+
+function mostrarAlerta(msg, tipo = 'danger', contenedor = 'alertaGlobal') {
+    const el = document.getElementById(contenedor);
+    el.className = `alert alert-${tipo}`;
+    el.innerHTML = `<i class="fas fa-${tipo === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${msg}`;
+    el.style.display = 'block';
+    if (tipo === 'success') setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+function ocultarAlerta(c = 'alertaGlobal') { document.getElementById(c).style.display = 'none'; }
+function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function cargarBeneficiarios(q = '') {
+    document.getElementById('loadingBeneficiarios').style.display = 'block';
+    document.getElementById('tablaBeneficiarios').style.display = 'none';
+    document.getElementById('emptyBeneficiarios').style.display = 'none';
+    ocultarAlerta();
+    try {
+        let url = q ? `/beneficiarios?q=${encodeURIComponent(q)}` : '/beneficiarios';
+        if (_soloActivos) url += (url.includes('?') ? '&' : '?') + 'solo_activos=true';
+        const data = await api.request('GET', url);
+        _beneficiarios = data.beneficiarios || [];
+        renderTabla();
+    } catch (err) {
+        mostrarAlerta(err.message || 'Error al cargar beneficiarios');
+        document.getElementById('loadingBeneficiarios').style.display = 'none';
+    }
+}
+
+function renderTabla() {
+    document.getElementById('loadingBeneficiarios').style.display = 'none';
+    const footer = document.getElementById('footerTotal');
+    if (_beneficiarios.length === 0) {
+        document.getElementById('emptyBeneficiarios').style.display = 'block';
+        footer.style.display = 'none';
+        return;
+    }
+    document.getElementById('tablaBeneficiarios').style.display = 'table';
+    footer.style.display = 'block';
+    footer.textContent = `${_beneficiarios.length} beneficiario${_beneficiarios.length !== 1 ? 's' : ''}`;
+
+    const tipoBadge = { 'Persona': 'bg-info text-dark', 'Empresa': 'bg-primary', 'Servicio': 'bg-warning text-dark', 'Institución': 'bg-secondary', 'Otro': 'bg-light text-dark border' };
+
+    document.getElementById('tbodyBeneficiarios').innerHTML = _beneficiarios.map(b => `
+        <tr class="${b.estado ? '' : 'inactivo'}">
+            <td class="text-muted small">${b.id}</td>
+            <td>${escHtml(b.nombre)}</td>
+            <td><span class="badge ${tipoBadge[b.tipo] || 'bg-light text-dark border'}">${escHtml(b.tipo)}</span></td>
+            <td class="text-center"><span class="badge bg-light text-dark border uso-badge">${b.uso}</span></td>
+            <td class="text-center">
+                <span class="badge ${b.estado ? 'bg-success' : 'bg-secondary'}">
+                    ${b.estado ? 'Activo' : 'Inactivo'}
+                </span>
+            </td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-outline-primary me-1"
+                        onclick="abrirModalEditar(${b.id})" title="Editar">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm ${b.estado ? 'btn-outline-warning' : 'btn-outline-success'} me-1"
+                        onclick="toggleEstado(${b.id})"
+                        title="${b.estado ? 'Inactivar' : 'Activar'}">
+                    <i class="fas fa-${b.estado ? 'toggle-on' : 'toggle-off'}"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger"
+                        onclick="confirmarEliminar(${b.id}, '${escHtml(b.nombre)}')" title="Eliminar">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>`).join('');
+}
+
+function abrirModalNueva() {
+    document.getElementById('modalBeneficiarioTitle').textContent = 'Nuevo beneficiario';
+    document.getElementById('formBeneficiario').reset();
+    document.getElementById('benId').value = '';
+    ocultarAlerta('alertaModal');
+}
+
+function abrirModalEditar(id) {
+    const b = _beneficiarios.find(x => x.id === id);
+    if (!b) return;
+    document.getElementById('modalBeneficiarioTitle').textContent = 'Editar beneficiario';
+    document.getElementById('benId').value = b.id;
+    document.getElementById('benNombre').value = b.nombre;
+    document.getElementById('benTipo').value = b.tipo || 'Otro';
+    ocultarAlerta('alertaModal');
+    new bootstrap.Modal(document.getElementById('modalBeneficiario')).show();
+}
+
+async function toggleEstado(id) {
+    try {
+        const res = await api.request('PATCH', `/beneficiarios/${id}/estado`);
+        mostrarAlerta(
+            res.estado ? 'Beneficiario activado.' : 'Beneficiario inactivado.',
+            res.estado ? 'success' : 'warning'
+        );
+        await cargarBeneficiarios(document.getElementById('inputBusqueda').value.trim());
+    } catch (err) {
+        mostrarAlerta(err.message || 'Error al cambiar estado.');
+    }
+}
+
+function confirmarEliminar(id, nombre) {
+    _idEliminar = id;
+    document.getElementById('nombreEliminar').textContent = nombre;
+    new bootstrap.Modal(document.getElementById('modalEliminar')).show();
+}
+
+document.getElementById('formBeneficiario').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    ocultarAlerta('alertaModal');
+    const id = document.getElementById('benId').value;
+    const nombre = document.getElementById('benNombre').value.trim();
+    const tipo = document.getElementById('benTipo').value;
+    if (!nombre) { mostrarAlerta('El nombre es obligatorio.', 'danger', 'alertaModal'); return; }
+
+    const btn = document.getElementById('btnGuardarBeneficiario');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    try {
+        if (id) {
+            await api.request('PUT', `/beneficiarios/${id}`, { nombre, tipo });
+        } else {
+            await api.request('POST', '/beneficiarios', { nombre, tipo });
+        }
+        bootstrap.Modal.getInstance(document.getElementById('modalBeneficiario')).hide();
+        mostrarAlerta(id ? 'Beneficiario actualizado.' : 'Beneficiario creado.', 'success');
+        await cargarBeneficiarios(document.getElementById('inputBusqueda').value.trim());
+    } catch (err) {
+        mostrarAlerta(err.message || 'Error al guardar.', 'danger', 'alertaModal');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> Guardar';
+    }
+});
+
+document.getElementById('btnConfirmarEliminar').addEventListener('click', async () => {
+    if (!_idEliminar) return;
+    try {
+        await api.request('DELETE', `/beneficiarios/${_idEliminar}`);
+        bootstrap.Modal.getInstance(document.getElementById('modalEliminar')).hide();
+        mostrarAlerta('Beneficiario eliminado.', 'success');
+        await cargarBeneficiarios(document.getElementById('inputBusqueda').value.trim());
+    } catch (err) {
+        bootstrap.Modal.getInstance(document.getElementById('modalEliminar')).hide();
+        mostrarAlerta(err.message || 'Error al eliminar.');
+    } finally { _idEliminar = null; }
+});
+
+document.getElementById('toggleSoloActivos').addEventListener('change', (e) => {
+    _soloActivos = e.target.checked;
+    cargarBeneficiarios(document.getElementById('inputBusqueda').value.trim());
+});
+
+let _debounce;
+document.getElementById('inputBusqueda').addEventListener('input', (e) => {
+    clearTimeout(_debounce);
+    _debounce = setTimeout(() => cargarBeneficiarios(e.target.value.trim()), 350);
+});
+document.getElementById('btnLimpiarBusqueda').addEventListener('click', () => {
+    document.getElementById('inputBusqueda').value = '';
+    cargarBeneficiarios();
+});
+
+document.addEventListener('DOMContentLoaded', () => cargarBeneficiarios());
+</script>
+{% endblock %}

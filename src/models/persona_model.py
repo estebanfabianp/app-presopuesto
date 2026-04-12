@@ -59,6 +59,32 @@ class PersonaModel:
             (hashed_password, persona_id),
         )
 
+    def change_password(self, persona_id: int, current_password: str, new_password: str) -> tuple:
+        """
+        Cambia la contraseña de un usuario validando la contraseña actual.
+
+        Returns:
+            (True, 'ok') si el cambio fue exitoso.
+            (False, 'wrong_password') si la contraseña actual no coincide.
+            (False, 'not_found') si el usuario no existe.
+        """
+        results = self.db.execute_query(
+            "SELECT clave FROM persona WHERE id_persona = %s", (persona_id,)
+        )
+        if not results:
+            return False, 'not_found'
+
+        stored = results[0].get('clave')
+        if not self._password_matches(stored, current_password):
+            return False, 'wrong_password'
+
+        new_hash = self._hash_password(new_password)
+        self.db.execute_non_query(
+            "UPDATE persona SET clave = %s WHERE id_persona = %s",
+            (new_hash, persona_id),
+        )
+        return True, 'ok'
+
     def _get_user_for_auth(self, identifier: str) -> Optional[Dict[str, Any]]:
         query = """
         SELECT

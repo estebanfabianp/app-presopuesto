@@ -9,19 +9,35 @@
 			<h1 class="page-title mb-1"><i class="fas fa-cog"></i> Configuración</h1>
 			<p class="text-muted mb-0">Parámetros del sistema y preferencias personales.</p>
 		</div>
-		<span class="badge bg-warning text-dark">En construcción</span>
 	</div>
 
 	<div class="row g-3 mb-4">
-		<div class="col-md-6">
+		<div class="col-md-3">
 			<div class="card h-100">
 				<div class="card-body">
-					<h6 class="text-muted">Última actualización de datos</h6>
+					<h6 class="text-muted">Usuario</h6>
+					<h4 id="kpiNombre">-</h4>
+					<small class="text-muted" id="kpiEmail"></small>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3">
+			<div class="card h-100">
+				<div class="card-body">
+					<h6 class="text-muted">Miembro desde</h6>
+					<h4 id="kpiFechaCreacion">-</h4>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3">
+			<div class="card h-100">
+				<div class="card-body">
+					<h6 class="text-muted">Última actualización</h6>
 					<h4 id="kpiActualizacion">-</h4>
 				</div>
 			</div>
 		</div>
-		<div class="col-md-6">
+		<div class="col-md-3">
 			<div class="card h-100">
 				<div class="card-body">
 					<h6 class="text-muted">Movimientos recientes (30 días)</h6>
@@ -31,15 +47,235 @@
 		</div>
 	</div>
 
-	<div class="alert alert-secondary mb-0">
-		<i class="fas fa-tools"></i> Próximamente: preferencias de moneda, notificaciones y configuración de seguridad.
+	<!-- Cambiar contraseña -->
+	<div class="row g-3">
+		<div class="col-md-6">
+
+			<!-- Perfil de usuario -->
+			<div class="card mb-3">
+				<div class="card-header">
+					<h5 class="mb-0"><i class="fas fa-user-circle"></i> Perfil de usuario</h5>
+				</div>
+				<div class="card-body">
+					<div id="alertPerfil" class="alert" style="display:none;" role="alert"></div>
+					<form id="formPerfil" novalidate>
+						<div class="mb-3">
+							<label for="perfilNombre" class="form-label">Nombre completo</label>
+							<input type="text" class="form-control" id="perfilNombre" maxlength="100"
+								   placeholder="Tu nombre" required>
+						</div>
+						<div class="mb-3">
+							<label class="form-label">Correo electrónico</label>
+							<input type="email" class="form-control" id="perfilEmail" readonly disabled>
+							<div class="form-text">El correo no puede cambiarse desde aquí.</div>
+						</div>
+						<button type="submit" class="btn btn-primary" id="btnGuardarPerfil">
+							<i class="fas fa-save"></i> Guardar nombre
+						</button>
+					</form>
+				</div>
+			</div>
+
+			<!-- Cambiar contraseña -->
+				<div class="card-header">
+					<h5 class="mb-0"><i class="fas fa-key"></i> Cambiar contraseña</h5>
+				</div>
+				<div class="card-body">
+					<div id="alertCambioContrasena" class="alert" style="display:none;" role="alert"></div>
+
+					<form id="formCambioContrasena" novalidate>
+						<div class="mb-3">
+							<label for="currentPassword" class="form-label">Contraseña actual</label>
+							<div class="input-group">
+								<input type="password" class="form-control" id="currentPassword"
+									   placeholder="Tu contraseña actual" required>
+								<button class="btn btn-outline-secondary" type="button"
+										data-toggle-password="currentPassword" tabindex="-1">
+									<i class="fas fa-eye"></i>
+								</button>
+							</div>
+						</div>
+						<div class="mb-3">
+							<label for="newPassword" class="form-label">Nueva contraseña</label>
+							<div class="input-group">
+								<input type="password" class="form-control" id="newPassword"
+									   placeholder="Mínimo 6 caracteres" required minlength="6"
+									   oninput="actualizarFortaleza(this.value)">
+								<button class="btn btn-outline-secondary" type="button"
+										data-toggle-password="newPassword" tabindex="-1">
+									<i class="fas fa-eye"></i>
+								</button>
+							</div>
+							<div class="mt-1">
+								<div class="progress" style="height:6px;">
+									<div id="barraFortaleza" class="progress-bar" role="progressbar"
+										 style="width:0%;transition:width .3s"></div>
+								</div>
+								<small id="textoFortaleza" class="text-muted"></small>
+							</div>
+						</div>
+						<div class="mb-4">
+							<label for="confirmPassword" class="form-label">Confirmar nueva contraseña</label>
+							<div class="input-group">
+								<input type="password" class="form-control" id="confirmPassword"
+									   placeholder="Repite la nueva contraseña" required>
+								<button class="btn btn-outline-secondary" type="button"
+										data-toggle-password="confirmPassword" tabindex="-1">
+									<i class="fas fa-eye"></i>
+								</button>
+							</div>
+						</div>
+						<button type="submit" class="btn btn-primary" id="btnCambiarContrasena">
+							<i class="fas fa-save"></i> Guardar nueva contraseña
+						</button>
+					</form>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-6">
+			<!-- Preferencias de visualización -->
+			<div class="card">
+				<div class="card-header">
+					<h5 class="mb-0"><i class="fas fa-sliders-h"></i> Preferencias de visualización</h5>
+				</div>
+				<div class="card-body">
+					<div id="alertPreferencias" class="alert" style="display:none;" role="alert"></div>
+					<div class="mb-3">
+						<label for="prefMoneda" class="form-label">Símbolo de moneda</label>
+						<select id="prefMoneda" class="form-select">
+							<option value="$">$ (dólar / peso)</option>
+							<option value="COP">COP</option>
+							<option value="USD">USD</option>
+							<option value="EUR">€ (euro)</option>
+							<option value="MXN">MXN</option>
+						</select>
+						<div class="form-text">Se usará en todos los formatos de moneda de la app.</div>
+					</div>
+					<div class="mb-3">
+						<label for="prefPeriodo" class="form-label">Período por defecto en movimientos</label>
+						<select id="prefPeriodo" class="form-select">
+							<option value="mes_actual">Mes actual</option>
+							<option value="todas">Todos</option>
+							<option value="ultimos_30">Últimos 30 días</option>
+							<option value="ultimos_90">Últimos 90 días</option>
+							<option value="anio_actual">Año actual</option>
+						</select>
+					</div>
+					<div class="mb-3">
+						<label for="prefFiscal" class="form-label">Mes de inicio del año fiscal</label>
+						<select id="prefFiscal" class="form-select">
+							<option value="1">Enero</option>
+							<option value="2">Febrero</option>
+							<option value="3">Marzo</option>
+							<option value="4">Abril</option>
+							<option value="5">Mayo</option>
+							<option value="6">Junio</option>
+							<option value="7" selected>Julio</option>
+							<option value="8">Agosto</option>
+							<option value="9">Septiembre</option>
+							<option value="10">Octubre</option>
+							<option value="11">Noviembre</option>
+							<option value="12">Diciembre</option>
+						</select>
+					</div>
+					<div class="mb-3">
+						<label for="prefDecimales" class="form-label">Decimales en montos</label>
+						<select id="prefDecimales" class="form-select">
+							<option value="0">Sin decimales ($ 1.200)</option>
+							<option value="2" selected>2 decimales ($ 1.200,00)</option>
+						</select>
+					</div>
+					<button type="button" class="btn btn-primary" onclick="guardarPreferencias()">
+						<i class="fas fa-save"></i> Guardar preferencias
+					</button>
+					<small class="d-block text-muted mt-2">Las preferencias se guardan localmente en este navegador.</small>
+				</div>
+			</div>
+		</div>
 	</div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+// ---- Preferencias (localStorage) ----
+const PREFS_KEY = 'app_preferencias';
+
+function cargarPreferencias() {
+	try {
+		return JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
+	} catch { return {}; }
+}
+
+function guardarPreferencias() {
+	const prefs = {
+		moneda:    document.getElementById('prefMoneda').value,
+		periodo:   document.getElementById('prefPeriodo').value,
+		fiscal:    parseInt(document.getElementById('prefFiscal').value),
+		decimales: parseInt(document.getElementById('prefDecimales').value),
+	};
+	localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+	const a = document.getElementById('alertPreferencias');
+	a.className = 'alert alert-success';
+	a.innerHTML = '<i class="fas fa-check-circle"></i> Preferencias guardadas. Se aplican al recargar otras vistas.';
+	a.style.display = 'block';
+	setTimeout(() => { a.style.display = 'none'; }, 3000);
+}
+
+function aplicarPreferenciasUI() {
+	const p = cargarPreferencias();
+	if (p.moneda)    document.getElementById('prefMoneda').value    = p.moneda;
+	if (p.periodo)   document.getElementById('prefPeriodo').value   = p.periodo;
+	if (p.fiscal)    document.getElementById('prefFiscal').value    = String(p.fiscal);
+	if (p.decimales != null) document.getElementById('prefDecimales').value = String(p.decimales);
+}
+
+// ---- Fortaleza de contraseña ----
+function actualizarFortaleza(v) {
+	const barra = document.getElementById('barraFortaleza');
+	const texto = document.getElementById('textoFortaleza');
+	if (!v) { barra.style.width = '0%'; texto.textContent = ''; return; }
+	let score = 0;
+	if (v.length >= 6)  score++;
+	if (v.length >= 10) score++;
+	if (/[A-Z]/.test(v)) score++;
+	if (/[0-9]/.test(v)) score++;
+	if (/[^A-Za-z0-9]/.test(v)) score++;
+	const niveles = [
+		{ pct: '20%', cls: 'bg-danger',  label: 'Muy débil' },
+		{ pct: '40%', cls: 'bg-danger',  label: 'Débil' },
+		{ pct: '60%', cls: 'bg-warning', label: 'Media' },
+		{ pct: '80%', cls: 'bg-info',    label: 'Buena' },
+		{ pct: '100%', cls: 'bg-success', label: 'Fuerte' },
+	];
+	const n = niveles[Math.max(0, score - 1)];
+	barra.style.width = n.pct;
+	barra.className = 'progress-bar ' + n.cls;
+	texto.textContent = n.label;
+	texto.className = n.cls.replace('bg-', 'text-');
+}
+
+// ---- Init ----
 document.addEventListener('DOMContentLoaded', async () => {
+	aplicarPreferenciasUI();
+
+	// Cargar perfil
+	try {
+		const me = await api.request('GET', '/auth/me');
+		document.getElementById('kpiNombre').textContent = me.nombre || '—';
+		document.getElementById('kpiEmail').textContent  = me.email  || '';
+		document.getElementById('perfilNombre').value    = me.nombre || '';
+		document.getElementById('perfilEmail').value     = me.email  || '';
+		if (me.fecha_creacion) {
+			const d = new Date(me.fecha_creacion);
+			document.getElementById('kpiFechaCreacion').textContent =
+				d.toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+		}
+	} catch (e) {
+		console.error('Error cargando perfil:', e);
+	}
+
+	// KPIs de resumen
 	try {
 		const summary = await api.getDashboardSummary();
 		document.getElementById('kpiMovimientos').textContent = summary.transacciones_recientes || 0;
@@ -48,6 +284,107 @@ document.addEventListener('DOMContentLoaded', async () => {
 	} catch (error) {
 		console.error('Error cargando resumen en configuración:', error);
 	}
+
+	// Toggle visibilidad de contraseñas
+	document.querySelectorAll('[data-toggle-password]').forEach(btn => {
+		btn.addEventListener('click', () => {
+			const fieldId = btn.getAttribute('data-toggle-password');
+			const field = document.getElementById(fieldId);
+			const icon = btn.querySelector('i');
+			if (field.type === 'password') {
+				field.type = 'text';
+				icon.classList.replace('fa-eye', 'fa-eye-slash');
+			} else {
+				field.type = 'password';
+				icon.classList.replace('fa-eye-slash', 'fa-eye');
+			}
+		});
+	});
+
+	// Formulario perfil
+	document.getElementById('formPerfil').addEventListener('submit', async (e) => {
+		e.preventDefault();
+		const a = document.getElementById('alertPerfil');
+		const btn = document.getElementById('btnGuardarPerfil');
+		a.style.display = 'none';
+		const nombre = document.getElementById('perfilNombre').value.trim();
+		if (!nombre) {
+			a.className = 'alert alert-danger';
+			a.innerHTML = '<i class="fas fa-exclamation-circle"></i> El nombre no puede estar vacío.';
+			a.style.display = 'block';
+			return;
+		}
+		btn.disabled = true;
+		btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+		try {
+			const r = await api.request('PUT', '/auth/update-profile', { nombre });
+			document.getElementById('kpiNombre').textContent = r.nombre || nombre;
+			a.className = 'alert alert-success';
+			a.innerHTML = '<i class="fas fa-check-circle"></i> Nombre actualizado correctamente.';
+			a.style.display = 'block';
+		} catch (err) {
+			a.className = 'alert alert-danger';
+			a.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + (err.message || 'Error al guardar.');
+			a.style.display = 'block';
+		} finally {
+			btn.disabled = false;
+			btn.innerHTML = '<i class="fas fa-save"></i> Guardar nombre';
+		}
+	});
+
+	// Formulario cambio de contraseña
+	document.getElementById('formCambioContrasena').addEventListener('submit', async (e) => {
+		e.preventDefault();
+
+		const alertEl = document.getElementById('alertCambioContrasena');
+		const btn = document.getElementById('btnCambiarContrasena');
+		const currentPassword = document.getElementById('currentPassword').value;
+		const newPassword = document.getElementById('newPassword').value;
+		const confirmPassword = document.getElementById('confirmPassword').value;
+
+		alertEl.style.display = 'none';
+		alertEl.className = 'alert';
+
+		if (newPassword.length < 6) {
+			alertEl.className = 'alert alert-danger';
+			alertEl.innerHTML = '<i class="fas fa-exclamation-circle"></i> La nueva contraseña debe tener al menos 6 caracteres.';
+			alertEl.style.display = 'block';
+			return;
+		}
+
+		if (newPassword !== confirmPassword) {
+			alertEl.className = 'alert alert-danger';
+			alertEl.innerHTML = '<i class="fas fa-exclamation-circle"></i> Las contraseñas no coinciden.';
+			alertEl.style.display = 'block';
+			return;
+		}
+
+		btn.disabled = true;
+		btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+
+		try {
+			const response = await api.request('PUT', '/auth/change-password', {
+				current_password: currentPassword,
+				new_password: newPassword
+			});
+
+			alertEl.className = 'alert alert-success';
+			alertEl.innerHTML = '<i class="fas fa-check-circle"></i> ' + (response.message || 'Contraseña actualizada correctamente.');
+			alertEl.style.display = 'block';
+
+			document.getElementById('formCambioContrasena').reset();
+			actualizarFortaleza('');
+
+		} catch (error) {
+			alertEl.className = 'alert alert-danger';
+			alertEl.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + (error.message || 'Error al cambiar la contraseña.');
+			alertEl.style.display = 'block';
+		} finally {
+			btn.disabled = false;
+			btn.innerHTML = '<i class="fas fa-save"></i> Guardar nueva contraseña';
+		}
+	});
 });
 </script>
 {% endblock %}
+
