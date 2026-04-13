@@ -5,10 +5,17 @@
 {% block extra_css %}
 <style>
 .chart-card { min-height: 320px; }
+.chart-viewport { position: relative; height: 320px; max-height: 320px; }
+.chart-viewport canvas { width: 100% !important; height: 100% !important; }
 .kpi-icon { font-size: 1.8rem; opacity: 0.15; }
 .var-positive { color: var(--bs-danger); }
 .var-negative  { color: var(--bs-success); }
 .var-neutral   { color: var(--bs-secondary); }
+.score-badge { border-radius: 999px; padding: .25rem .6rem; font-weight: 600; }
+.score-ok { background: #d1fae5; color: #065f46; }
+.score-mid { background: #fef3c7; color: #92400e; }
+.score-risk { background: #fee2e2; color: #991b1b; }
+.mini-progress { height: 8px; }
 </style>
 {% endblock %}
 
@@ -85,6 +92,200 @@
         </div>
     </div>
 
+    <!-- Vista ejecutiva: score, proyeccion, alertas -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold"><i class="fas fa-heart-pulse me-1"></i>Salud financiera</span>
+                    <span id="scoreNivel" class="score-badge score-mid">--</span>
+                </div>
+                <div class="card-body">
+                    <div class="display-6 fw-bold" id="scoreValor">--</div>
+                    <div class="text-muted small mb-3">Indice de 0 a 100</div>
+                    <div class="small text-muted">Ahorro</div>
+                    <div class="fw-semibold mb-1" id="scoreAhorro">--</div>
+                    <div class="small text-muted">Gasto fijo / gasto total</div>
+                    <div class="fw-semibold mb-1" id="scoreFijo">--</div>
+                    <div class="small text-muted">Uso promedio tarjetas</div>
+                    <div class="fw-semibold" id="scoreTarjetas">--</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header">
+                    <span class="fw-semibold"><i class="fas fa-calendar-check me-1"></i>Proyeccion fin de mes</span>
+                </div>
+                <div class="card-body">
+                    <div class="small text-muted">Gasto proyectado</div>
+                    <div class="fs-4 fw-bold text-danger" id="proyGastos">--</div>
+                    <div class="small text-muted">Ingreso proyectado</div>
+                    <div class="fw-semibold text-success mb-2" id="proyIngresos">--</div>
+                    <div class="small text-muted">Ahorro proyectado</div>
+                    <div class="fw-semibold mb-2" id="proyAhorro">--</div>
+                    <div class="small text-muted" id="proyMensaje">--</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-header">
+                    <span class="fw-semibold"><i class="fas fa-bell me-1"></i>Alertas inteligentes</span>
+                </div>
+                <div class="card-body" id="alertasWrap">
+                    <div class="text-muted small">Cargando alertas...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vista detalle: presupuesto y oportunidades -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-7">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold"><i class="fas fa-traffic-light me-1"></i>Presupuesto vs real por categoria</span>
+                    <small class="text-muted" id="lblPresupuestoTotal"></small>
+                </div>
+                <div class="table-responsive" style="max-height:320px; overflow-y:auto;">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>Categoria</th>
+                                <th class="text-end">Presupuesto</th>
+                                <th class="text-end">Ejecutado</th>
+                                <th class="text-end">Desviacion</th>
+                                <th class="text-end">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyPresupuestoCat"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-5">
+            <div class="card h-100">
+                <div class="card-header">
+                    <span class="fw-semibold"><i class="fas fa-piggy-bank me-1"></i>Top oportunidades de ahorro</span>
+                </div>
+                <div class="card-body" id="oportunidadesWrap">
+                    <div class="text-muted small">Cargando oportunidades...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Anomalias, cohortes, fijo/variable -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <span class="fw-semibold"><i class="fas fa-triangle-exclamation me-1"></i>Anomalias de gasto</span>
+                </div>
+                <div class="table-responsive" style="max-height:280px; overflow-y:auto;">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Categoria</th>
+                                <th class="text-end">Monto</th>
+                                <th class="text-end">Promedio</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyAnomalias"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-header">
+                    <span class="fw-semibold"><i class="fas fa-calendar-week me-1"></i>Cohortes</span>
+                </div>
+                <div class="card-body">
+                    <div class="small text-muted mb-2">Gasto por dia de semana</div>
+                    <div id="cohortesDiasWrap"></div>
+                    <hr>
+                    <div class="small text-muted mb-2">Quincena</div>
+                    <div id="cohortesQWrap"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-header">
+                    <span class="fw-semibold"><i class="fas fa-layer-group me-1"></i>Fijo vs variable</span>
+                </div>
+                <div class="card-body">
+                    <div class="small text-muted">Gasto fijo</div>
+                    <div class="fw-semibold" id="fvFijo">--</div>
+                    <div class="progress mini-progress mb-2"><div id="fvFijoBar" class="progress-bar bg-warning" style="width:0%"></div></div>
+                    <div class="small text-muted">Gasto variable</div>
+                    <div class="fw-semibold" id="fvVariable">--</div>
+                    <div class="progress mini-progress mb-2"><div id="fvVarBar" class="progress-bar bg-info" style="width:0%"></div></div>
+                    <div class="small text-muted">Compromiso fijo</div>
+                    <div class="fw-bold" id="fvCompromiso">--</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Política de umbrales configurados -->
+    <div class="row g-3 mb-3" id="rowThresholds">
+        <div class="col-12">
+            <div class="card h-100 bg-light border-1">
+                <div class="card-header bg-white">
+                    <button class="btn btn-link text-decoration-none w-100 text-start d-flex justify-content-between align-items-center" 
+                            type="button" data-bs-toggle="collapse" data-bs-target="#thresholdContent">
+                        <span class="fw-semibold"><i class="fas fa-cog me-2"></i>Política de umbrales configurados</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+                <div class="collapse" id="thresholdContent">
+                    <div class="card-body">
+                        <div class="row g-3 small">
+                            <div class="col-md-4">
+                                <h6 class="mb-2">📊 Score de Salud</h6>
+                                <div class="border-start ps-2">
+                                    <div>✅ Excelente: ≥ 80</div>
+                                    <div>🟡 Estable: 60-79</div>
+                                    <div>⚠️ En riesgo: 40-59</div>
+                                    <div>❌ Crítico: &lt; 40</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <h6 class="mb-2">💳 Alertas (Tarjetas)</h6>
+                                <div class="border-start ps-2">
+                                    <div>🟡 Aviso: ≥ 70% del cupo</div>
+                                    <div>❌ Crítica: ≥ 90% del cupo</div>
+                                </div>
+                                <h6 class="mb-2 mt-3">🎯 Alertas (Presupuesto)</h6>
+                                <div class="border-start ps-2">
+                                    <div>🟡 Aviso: ≥ 85% gastado</div>
+                                    <div>❌ Over: ≥ 100% gastado</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <h6 class="mb-2">🎰 Metas ideales</h6>
+                                <div class="border-start ps-2">
+                                    <div>💰 Ahorro: ≥ 20%</div>
+                                    <div>🏠 Gasto fijo: ~50%</div>
+                                    <div>🔄 Variación: ±10%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <hr class="my-2">
+                        <div class="text-muted small">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Estos umbrales pueden personalizarse editando <code>src/config/analisis_thresholds.py</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Gasto por categoría + Tendencia mensual -->
     <div class="row g-3 mb-3">
         <div class="col-md-5">
@@ -94,7 +295,7 @@
                     <small class="text-muted" id="lblPeriodoCat"></small>
                 </div>
                 <div class="card-body chart-card d-flex flex-column">
-                    <div class="flex-grow-1 position-relative">
+                    <div class="chart-viewport">
                         <canvas id="chartCategoria"></canvas>
                     </div>
                     <div id="loadingCat" class="text-center py-3 text-muted small">
@@ -110,7 +311,7 @@
                     <small class="text-muted" id="lblPeriodoTend"></small>
                 </div>
                 <div class="card-body chart-card d-flex flex-column">
-                    <div class="flex-grow-1 position-relative">
+                    <div class="chart-viewport">
                         <canvas id="chartTendencia"></canvas>
                     </div>
                     <div id="loadingTend" class="text-center py-3 text-muted small">
@@ -208,7 +409,9 @@
 /* ========================================================
    Análisis de Consumo — lógica JS
 ======================================================== */
-const BASE_AN = '/api/analisis';
+const BASE_AN = '/analisis';
+
+const apiGet = (endpoint) => api.request('GET', endpoint);
 
 const fmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
 const fmtPct = v => (v !== null && v !== undefined) ? `${v > 0 ? '+' : ''}${v}%` : '—';
@@ -230,6 +433,14 @@ function recargarTodo() {
     document.getElementById('lblPeriodoCat').textContent  = lbl;
     document.getElementById('lblPeriodoTend').textContent = lbl;
     cargarResumen(m);
+    cargarScoreSalud(m);
+    cargarProyeccion();
+    cargarAlertas();
+    cargarPresupuestoCategorias();
+    cargarAnomalias(m);
+    cargarOportunidades();
+    cargarCohortes(m);
+    cargarFijoVariable(m);
     cargarPorCategoria(m);
     cargarTendencia(m);
     cargarComparativa();
@@ -239,7 +450,7 @@ function recargarTodo() {
 
 async function cargarResumen(meses) {
     try {
-        const d = await api.get(`${BASE_AN}/resumen?meses=${meses}`);
+        const d = await apiGet(`${BASE_AN}/resumen?meses=${meses}`);
         document.getElementById('kpiIngresos').textContent = fmt.format(d.ingresos);
         document.getElementById('kpiGastos').textContent   = fmt.format(d.gastos);
 
@@ -265,7 +476,7 @@ async function cargarResumen(meses) {
 async function cargarPorCategoria(meses) {
     document.getElementById('loadingCat').style.display = '';
     try {
-        const data = await api.get(`${BASE_AN}/por-categoria?meses=${meses}`);
+        const data = await apiGet(`${BASE_AN}/por-categoria?meses=${meses}`);
         document.getElementById('loadingCat').style.display = 'none';
         if (!data.length) return;
 
@@ -304,37 +515,80 @@ async function cargarPorCategoria(meses) {
 async function cargarTendencia(meses) {
     document.getElementById('loadingTend').style.display = '';
     try {
-        const data = await api.get(`${BASE_AN}/tendencia?meses=${meses}`);
+        const data = await apiGet(`${BASE_AN}/tendencia?meses=${meses}`);
         document.getElementById('loadingTend').style.display = 'none';
         if (!data.length) return;
 
-        if (chartTendencia) chartTendencia.destroy();
+        if (chartTendencia) {
+            chartTendencia.destroy();
+            chartTendencia = null;
+        }
+        const ahorros = data.map(r => r.ahorro);
+        const avgMovil = ahorros.map((_, i, arr) => {
+            const ini = Math.max(0, i - 2);
+            const tramo = arr.slice(ini, i + 1);
+            return tramo.reduce((s, v) => s + v, 0) / tramo.length;
+        });
+
         chartTendencia = new Chart(
             document.getElementById('chartTendencia').getContext('2d'),
             {
-                type: 'line',
+                type: 'bar',
                 data: {
                     labels: data.map(r => r.mes),
                     datasets: [
-                        { label: 'Ingresos', data: data.map(r => r.ingresos),
-                          borderColor: '#28a745', backgroundColor: 'rgba(40,167,69,.1)',
-                          tension: 0.3, fill: false, pointRadius: 4 },
-                        { label: 'Gastos', data: data.map(r => r.gastos),
-                          borderColor: '#dc3545', backgroundColor: 'rgba(220,53,69,.1)',
-                          tension: 0.3, fill: false, pointRadius: 4 },
-                        { label: 'Ahorro', data: data.map(r => r.ahorro),
-                          borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,.1)',
-                          tension: 0.3, fill: true, pointRadius: 3, borderDash: [5,3] },
+                        {
+                            label: 'Ingresos',
+                            data: data.map(r => r.ingresos),
+                            backgroundColor: 'rgba(40,167,69,.75)',
+                            borderColor: '#28a745',
+                            borderWidth: 1,
+                            minBarLength: 4,
+                        },
+                        {
+                            label: 'Gastos',
+                            data: data.map(r => r.gastos),
+                            backgroundColor: 'rgba(220,53,69,.75)',
+                            borderColor: '#dc3545',
+                            borderWidth: 1,
+                            minBarLength: 4,
+                        },
+                        {
+                            type: 'line',
+                            label: 'Ahorro',
+                            data: ahorros,
+                            borderColor: '#0d6efd',
+                            backgroundColor: 'rgba(13,110,253,.1)',
+                            pointRadius: 3,
+                            tension: 0.25,
+                        },
+                        {
+                            type: 'line',
+                            label: 'Promedio movil ahorro (3m)',
+                            data: avgMovil,
+                            borderColor: '#111827',
+                            borderDash: [5, 4],
+                            pointRadius: 0,
+                            tension: 0.2,
+                        },
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    resizeDelay: 150,
+                    interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: { position: 'top' },
                         tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt.format(ctx.raw)}` } }
                     },
-                    scales: { y: { ticks: { callback: v => fmt.format(v) } } }
+                    scales: {
+                        x: { stacked: false },
+                        y: {
+                            beginAtZero: true,
+                            ticks: { callback: v => fmt.format(v) }
+                        }
+                    }
                 }
             }
         );
@@ -348,7 +602,7 @@ async function cargarComparativa() {
     document.getElementById('loadingComp').style.display = '';
     document.getElementById('tablaCompWrap').style.display = 'none';
     try {
-        const data = await api.get(`${BASE_AN}/comparativa-meses`);
+        const data = await apiGet(`${BASE_AN}/comparativa-meses`);
         document.getElementById('loadingComp').style.display = 'none';
         if (!data.length) return;
         document.getElementById('tablaCompWrap').style.display = '';
@@ -379,7 +633,7 @@ async function cargarTopGastos() {
     document.getElementById('loadingTop').style.display = '';
     document.getElementById('tablaTopWrap').style.display = 'none';
     try {
-        const data = await api.get(`${BASE_AN}/top-gastos?meses=${meses}&limite=10`);
+        const data = await apiGet(`${BASE_AN}/top-gastos?meses=${meses}&limite=10`);
         document.getElementById('loadingTop').style.display = 'none';
         if (!data.length) return;
         document.getElementById('tablaTopWrap').style.display = '';
@@ -401,7 +655,7 @@ async function cargarTarjetas() {
     document.getElementById('tarjetasGrid').style.display = 'none';
     document.getElementById('emptyTarj').style.display   = 'none';
     try {
-        const data = await api.get(`${BASE_AN}/tarjetas`);
+        const data = await apiGet(`${BASE_AN}/tarjetas`);
         document.getElementById('loadingTarj').style.display = 'none';
 
         if (!data.length) {
@@ -453,6 +707,177 @@ async function cargarTarjetas() {
         console.error('Error tarjetas:', e);
         document.getElementById('loadingTarj').style.display = 'none';
         document.getElementById('emptyTarj').style.display   = '';
+    }
+}
+
+async function cargarScoreSalud(meses) {
+    try {
+        const d = await apiGet(`${BASE_AN}/score-salud?meses=${meses}`);
+        document.getElementById('scoreValor').textContent = d.score?.toFixed ? d.score.toFixed(1) : d.score;
+        const elNivel = document.getElementById('scoreNivel');
+        elNivel.textContent = d.nivel || '--';
+        elNivel.className = `score-badge ${d.score >= 80 ? 'score-ok' : d.score >= 60 ? 'score-mid' : 'score-risk'}`;
+        document.getElementById('scoreAhorro').textContent = `${d.componentes?.tasa_ahorro ?? 0}%`;
+        document.getElementById('scoreFijo').textContent = `${d.componentes?.pct_gasto_fijo ?? 0}%`;
+        document.getElementById('scoreTarjetas').textContent = `${d.componentes?.uso_tarjetas ?? 0}%`;
+    } catch (e) {
+        console.error('Error score:', e);
+    }
+}
+
+async function cargarProyeccion() {
+    try {
+        const d = await apiGet(`${BASE_AN}/proyeccion-mes`);
+        document.getElementById('proyGastos').textContent = fmt.format(d.proy_gastos || 0);
+        document.getElementById('proyIngresos').textContent = fmt.format(d.proy_ingresos || 0);
+        document.getElementById('proyAhorro').textContent = fmt.format(d.proy_ahorro || 0);
+        const msg = (d.presupuesto_total > 0 && d.exceso_estimado > 0)
+            ? `Si sigues asi, excederas presupuesto en ${fmt.format(d.exceso_estimado)}.`
+            : 'Ritmo actual dentro de presupuesto estimado.';
+        document.getElementById('proyMensaje').textContent = msg;
+    } catch (e) {
+        console.error('Error proyeccion:', e);
+    }
+}
+
+async function cargarAlertas() {
+    try {
+        const data = await apiGet(`${BASE_AN}/alertas-inteligentes`);
+        document.getElementById('alertasWrap').innerHTML = (data || []).map(a => {
+            const cls = a.nivel === 'alta' ? 'danger' : a.nivel === 'media' ? 'warning' : 'success';
+            return `<div class="alert alert-${cls} py-2 px-3 mb-2 small">${a.mensaje}</div>`;
+        }).join('') || '<div class="text-muted small">Sin alertas.</div>';
+    } catch (e) {
+        console.error('Error alertas:', e);
+    }
+}
+
+async function cargarPresupuestoCategorias() {
+    try {
+        const d = await apiGet(`${BASE_AN}/presupuesto-categorias`);
+        document.getElementById('lblPresupuestoTotal').textContent = `Total: ${fmt.format(d.presupuesto_total || 0)}`;
+        document.getElementById('tbodyPresupuestoCat').innerHTML = (d.categorias || []).map(r => {
+            const badge = r.estado === 'verde'
+                ? '<span class="badge bg-success-subtle text-success">Verde</span>'
+                : r.estado === 'amarillo'
+                    ? '<span class="badge bg-warning-subtle text-warning">Amarillo</span>'
+                    : r.estado === 'rojo'
+                        ? '<span class="badge bg-danger-subtle text-danger">Rojo</span>'
+                        : '<span class="badge bg-secondary-subtle text-secondary">Sin presupuesto</span>';
+            return `<tr>
+                <td>${r.categoria}</td>
+                <td class="text-end">${fmt.format(r.presupuesto || 0)}</td>
+                <td class="text-end">${fmt.format(r.ejecutado || 0)}</td>
+                <td class="text-end ${r.desviacion > 0 ? 'text-danger' : 'text-success'}">${fmt.format(r.desviacion || 0)}</td>
+                <td class="text-end">${badge}</td>
+            </tr>`;
+        }).join('');
+    } catch (e) {
+        console.error('Error presupuesto categorias:', e);
+    }
+}
+
+async function cargarAnomalias(meses) {
+    try {
+        const data = await apiGet(`${BASE_AN}/anomalias?meses=${meses}&limite=10`);
+        document.getElementById('tbodyAnomalias').innerHTML = (data || []).map(r => `<tr>
+            <td>${r.fecha}</td>
+            <td>${r.categoria}</td>
+            <td class="text-end text-danger fw-semibold">${fmt.format(r.monto || 0)}</td>
+            <td class="text-end">${fmt.format(r.promedio || 0)}</td>
+        </tr>`).join('') || '<tr><td colspan="4" class="text-center text-muted">Sin anomalias detectadas</td></tr>';
+    } catch (e) {
+        console.error('Error anomalias:', e);
+    }
+}
+
+async function cargarOportunidades() {
+    try {
+        const data = await apiGet(`${BASE_AN}/oportunidades`);
+        
+        // Mapeo de acciones a rutas y configuración
+        const actionMap = {
+            'ajustar_presupuesto': {
+                label: 'Ajustar Presupuesto',
+                icon: 'fa-chart-line',
+                color: 'warning',
+                route: '/presupuesto'
+            },
+            'revisar_suscripciones': {
+                label: 'Revisar Suscripciones',
+                icon: 'fa-sync',
+                color: 'danger',
+                route: '/nueva-transaccion'
+            },
+            'crear_meta': {
+                label: 'Crear Meta',
+                icon: 'fa-bullseye',
+                color: 'success',
+                route: '/metas-ahorro'
+            },
+            'ver_tarjetas': {
+                label: 'Ver Tarjetas',
+                icon: 'fa-credit-card',
+                color: 'info',
+                route: '/tarjeta'
+            }
+        };
+        
+        document.getElementById('oportunidadesWrap').innerHTML = (data || []).map((o, idx) => {
+            const action = actionMap[o.action_type] || actionMap['ajustar_presupuesto'];
+            return `
+                <div class="border rounded p-3 mb-2 bg-light">
+                    <div class="fw-semibold">${o.titulo}</div>
+                    <div class="text-muted small mb-2">💰 Impacto: ${fmt.format(o.impacto_mensual || 0)}</div>
+                    <div class="small text-secondary mb-2">${o.accion}</div>
+                    <button class="btn btn-sm btn-outline-${action.color}" onclick="accionRapida('${action.route}', '${o.tipo}')">
+                        <i class="fa-solid ${action.icon}"></i> ${action.label}
+                    </button>
+                </div>`;
+        }).join('') || '<div class="text-muted small">No se detectaron oportunidades relevantes.</div>';
+    } catch (e) {
+        console.error('Error oportunidades:', e);
+    }
+}
+
+function accionRapida(ruta, tipo) {
+    // Navegar a la ruta de acción
+    window.location.href = ruta;
+}
+
+async function cargarCohortes(meses) {
+    try {
+        const d = await apiGet(`${BASE_AN}/cohortes?meses=${meses}`);
+        const dias = d.dias_semana || [];
+        const max = Math.max(...dias.map(x => x.total || 0), 1);
+        document.getElementById('cohortesDiasWrap').innerHTML = dias.map(r => {
+            const pct = ((r.total || 0) / max) * 100;
+            return `<div class="mb-1"><div class="d-flex justify-content-between small"><span>${r.dia}</span><span>${fmt.format(r.total || 0)}</span></div><div class="progress mini-progress"><div class="progress-bar bg-primary" style="width:${pct}%"></div></div></div>`;
+        }).join('');
+
+        const q1 = d.quincena?.q1 || 0;
+        const q2 = d.quincena?.q2 || 0;
+        const tot = Math.max(q1 + q2, 1);
+        document.getElementById('cohortesQWrap').innerHTML = `
+            <div class="small d-flex justify-content-between"><span>1-15</span><span>${fmt.format(q1)}</span></div>
+            <div class="progress mini-progress mb-2"><div class="progress-bar bg-info" style="width:${(q1/tot)*100}%"></div></div>
+            <div class="small d-flex justify-content-between"><span>16-fin</span><span>${fmt.format(q2)}</span></div>
+            <div class="progress mini-progress"><div class="progress-bar bg-secondary" style="width:${(q2/tot)*100}%"></div></div>`;
+    } catch (e) {
+        console.error('Error cohortes:', e);
+    }
+}
+
+async function cargarFijoVariable(meses) {
+    try {
+        const d = await apiGet(`${BASE_AN}/fijo-variable?meses=${meses}`);
+        document.getElementById('fvFijo').textContent = `${fmt.format(d.fijo || 0)} (${d.pct_fijo || 0}%)`;
+        document.getElementById('fvVariable').textContent = `${fmt.format(d.variable || 0)} (${d.pct_variable || 0}%)`;
+        document.getElementById('fvCompromiso').textContent = `${d.pct_fijo || 0}%`;
+        document.getElementById('fvFijoBar').style.width = `${Math.min(100, d.pct_fijo || 0)}%`;
+        document.getElementById('fvVarBar').style.width = `${Math.min(100, d.pct_variable || 0)}%`;
+    } catch (e) {
+        console.error('Error fijo/variable:', e);
     }
 }
 

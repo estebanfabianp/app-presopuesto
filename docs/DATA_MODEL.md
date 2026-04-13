@@ -108,6 +108,26 @@ Relación:
 
 - `presupuesto N <-> N categoria`
 
+### Presupuesto detalle
+
+Tabla de líneas de presupuesto por hoja anual o mensual.
+
+Campos relevantes:
+
+- `id_detalle`
+- `id_presupuesto`
+- `id_categoria`
+- `categoria_nombre`
+- `frecuencia`
+- `monto_importe`
+- `monto_estimado`
+- `notas`
+- `orden`
+
+Relación:
+
+- `presupuesto 1 -> N presupuesto_detalle`
+
 ### Tarjeta y movimiento_tarjeta
 
 Soportan el módulo de tarjeta de crédito y el ETL masivo.

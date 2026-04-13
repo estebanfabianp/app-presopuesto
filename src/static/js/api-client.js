@@ -177,6 +177,36 @@ class APIClient {
         return this.request('DELETE', `/presupuesto/${id}`);
     }
 
+    /**
+     * Obtener hoja de presupuesto anual o mensual.
+     */
+    async getPresupuestoSheet(params = {}) {
+        const queryString = new URLSearchParams(params).toString();
+        return this.request('GET', `/presupuesto/hoja${queryString ? '?' + queryString : ''}`);
+    }
+
+    /**
+     * Guardar hoja de presupuesto con líneas de detalle.
+     */
+    async savePresupuestoSheet(data) {
+        return this.request('POST', '/presupuesto/hoja', data);
+    }
+
+    /**
+     * Derivar presupuesto mensual desde el anual del mismo año.
+     */
+    async deriveMonthlyBudget(data) {
+        return this.request('POST', '/presupuesto/hoja/derivar', data);
+    }
+
+    /**
+     * Obtener categorías en formato plano.
+     */
+    async getCategoriasFlat(params = {}) {
+        const queryString = new URLSearchParams({ plana: 'true', ...params }).toString();
+        return this.request('GET', `/categorias?${queryString}`);
+    }
+
     // ==================== TRANSACCIONES ====================
     
     /**
@@ -216,6 +246,14 @@ class APIClient {
     async getReporteData(params = {}) {
         const queryString = new URLSearchParams(params).toString();
         return this.request('GET', `/reportes/data${queryString ? '?' + queryString : ''}`);
+    }
+
+    /**
+     * Obtener suite consolidada de reportes (flujo, uso, cuentas y presupuesto).
+     */
+    async getReporteSuite(params = {}) {
+        const queryString = new URLSearchParams(params).toString();
+        return this.request('GET', `/reportes/suite${queryString ? '?' + queryString : ''}`);
     }
 
     // ==================== TARJETAS ====================

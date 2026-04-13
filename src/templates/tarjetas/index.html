@@ -222,6 +222,38 @@
                             <input id="movNumTx" class="form-control" placeholder="Referencia / número de autorización">
                         </div>
                     </div>
+                    <!-- Desglose por ítems -->
+                    <div class="border-top pt-3 mb-2 d-flex align-items-center gap-3">
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="chkDesgloseM" onchange="toggleDesgloseM()">
+                            <label class="form-check-label fw-semibold" for="chkDesgloseM">Desglosar por ítems</label>
+                        </div>
+                        <small class="text-muted">Divide el cargo en varios conceptos con categoría individual</small>
+                    </div>
+                    <div id="seccionItemsM" style="display:none;" class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <small class="text-muted fw-semibold">Ítems del movimiento</small>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="agregarItemMov()">
+                                <i class="fas fa-plus"></i> Agregar ítem
+                            </button>
+                        </div>
+                        <table class="table table-sm table-bordered mb-1">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Descripción</th>
+                                    <th style="min-width:160px">Categoría</th>
+                                    <th class="text-end" style="width:120px">Monto</th>
+                                    <th style="width:36px"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyItemsM"></tbody>
+                        </table>
+                        <div class="text-end">
+                            <small class="text-muted">Total calculado: </small>
+                            <strong id="lblTotalItemsM" class="text-primary">$0</strong>
+                        </div>
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label">Nota</label>
                         <textarea id="movNota" class="form-control" rows="2" placeholder="Descripción del cargo o abono"></textarea>
@@ -285,6 +317,38 @@
                             <button type="button" class="btn btn-outline-primary w-100" onclick="precalcularDiferido()">
                                 <i class="fas fa-calculator"></i> Precalcular
                             </button>
+                        </div>
+                    </div>
+
+                    <!-- Desglose por ítems diferido -->
+                    <div class="border-top pt-3 mb-2 d-flex align-items-center gap-3">
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="chkDesgloseD" onchange="toggleDesgloseD()">
+                            <label class="form-check-label fw-semibold" for="chkDesgloseD">Desglosar por ítems</label>
+                        </div>
+                        <small class="text-muted">El valor total y la descripción se calcularán desde los ítems</small>
+                    </div>
+                    <div id="seccionItemsD" style="display:none;" class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <small class="text-muted fw-semibold">Ítems de la compra diferida</small>
+                            <button type="button" class="btn btn-sm btn-outline-warning" onclick="agregarItemDif()">
+                                <i class="fas fa-plus"></i> Agregar ítem
+                            </button>
+                        </div>
+                        <table class="table table-sm table-bordered mb-1">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Descripción</th>
+                                    <th style="min-width:160px">Categoría</th>
+                                    <th class="text-end" style="width:120px">Monto</th>
+                                    <th style="width:36px"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyItemsD"></tbody>
+                        </table>
+                        <div class="text-end">
+                            <small class="text-muted">Total calculado: </small>
+                            <strong id="lblTotalItemsD" class="text-warning">$0</strong>
                         </div>
                     </div>
 
@@ -1051,6 +1115,13 @@ function abrirNuevoDiferido() {
     document.getElementById('difCalcInteres').textContent = formatCurrency(0);
     document.getElementById('difCalcTotal').textContent = formatCurrency(0);
     document.getElementById('difError').style.display = 'none';
+    // Reset desglose
+    itemsDif = [];
+    document.getElementById('chkDesgloseD').checked = false;
+    document.getElementById('seccionItemsD').style.display = 'none';
+    document.getElementById('difValor').readOnly = false;
+    document.getElementById('difValor').required = true;
+    document.getElementById('difDescripcion').readOnly = false;
 }
 
 async function guardarDiferido() {
@@ -1066,8 +1137,16 @@ async function guardarDiferido() {
     const fecha = document.getElementById('difFecha').value || null;
 
     if (!idTarjeta) { err.textContent = 'Seleccione una tarjeta.'; err.style.display = 'block'; return; }
-    if (!descripcion) { err.textContent = 'La descripción es obligatoria.'; err.style.display = 'block'; return; }
-    if (!valor || valor <= 0) { err.textContent = 'El valor debe ser mayor a 0.'; err.style.display = 'block'; return; }
+
+    const desgloseD = document.getElementById('chkDesgloseD').checked;
+    if (desgloseD) {
+        if (!itemsDif.length) { err.textContent = 'Agrega al menos un ítem.'; err.style.display = 'block'; return; }
+        const invalidos = itemsDif.filter(it => !it.desc.trim() || !(it.monto > 0));
+        if (invalidos.length) { err.textContent = 'Todos los ítems necesitan descripción y monto válido.'; err.style.display = 'block'; return; }
+    } else {
+        if (!descripcion) { err.textContent = 'La descripción es obligatoria.'; err.style.display = 'block'; return; }
+        if (!valor || valor <= 0) { err.textContent = 'El valor debe ser mayor a 0.'; err.style.display = 'block'; return; }
+    }
     if (!cuotas || cuotas <= 0) { err.textContent = 'Número de cuotas inválido.'; err.style.display = 'block'; return; }
 
     const payload = {
@@ -1079,6 +1158,9 @@ async function guardarDiferido() {
         tasa_mensual: tasaMensual,
         fecha_compra: fecha,
     };
+    if (desgloseD) {
+        payload.items = itemsDif.map(it => ({ descripcion: it.desc.trim(), id_categoria: it.id_categoria || null, monto: it.monto }));
+    }
 
     const btn = document.getElementById('btnGuardarDiferido');
     btn.disabled = true;
@@ -1475,6 +1557,14 @@ function abrirNuevo() {
     document.getElementById('movTarjeta').value = '';
     document.getElementById('tarjetaInfo').textContent = '';
     document.getElementById('formError').style.display = 'none';
+    // Reset desglose
+    itemsMov = [];
+    document.getElementById('chkDesgloseM').checked = false;
+    document.getElementById('seccionItemsM').style.display = 'none';
+    document.getElementById('movValor').readOnly = false;
+    document.getElementById('movValor').required = true;
+    const catColReset = document.getElementById('movCategoria');
+    if (catColReset) catColReset.closest('.col-md-4').style.display = '';
 }
 
 function abrirEditar(payload) {
@@ -1515,8 +1605,15 @@ async function guardar() {
 
     const id_tarjeta = document.getElementById('movTarjeta').value;
     if (!id_tarjeta) { errEl.textContent = 'Seleccione una tarjeta.'; errEl.style.display = 'block'; return; }
-    const valor = parseFloat(document.getElementById('movValor').value);
-    if (!valor || valor <= 0) { errEl.textContent = 'El valor debe ser mayor a 0.'; errEl.style.display = 'block'; return; }
+    const desgloseM = document.getElementById('chkDesgloseM').checked;
+    let valor = parseFloat(document.getElementById('movValor').value);
+    if (desgloseM) {
+        if (!itemsMov.length) { errEl.textContent = 'Agrega al menos un ítem.'; errEl.style.display = 'block'; return; }
+        const invalidos = itemsMov.filter(it => !it.desc.trim() || !(it.monto > 0));
+        if (invalidos.length) { errEl.textContent = 'Todos los ítems necesitan descripción y monto válido.'; errEl.style.display = 'block'; return; }
+    } else {
+        if (!valor || valor <= 0) { errEl.textContent = 'El valor debe ser mayor a 0.'; errEl.style.display = 'block'; return; }
+    }
 
     const payload = {
         id_tarjeta: parseInt(id_tarjeta),
@@ -1529,6 +1626,9 @@ async function guardar() {
         id_categoria: document.getElementById('movCategoria').value || null,
         id_beneficiario: document.getElementById('movBeneficiario').value || null,
     };
+    if (desgloseM) {
+        payload.items = itemsMov.map(it => ({ descripcion: it.desc.trim(), id_categoria: it.id_categoria || null, monto: it.monto }));
+    }
 
     const btn = document.getElementById('btnGuardar');
     btn.disabled = true;
@@ -1559,6 +1659,115 @@ async function borrar(id) {
         filtrar();
     } catch (e) {
         toast('Error al eliminar: ' + (e.message || ''), 'danger');
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+// DESGLOSE POR ÍTEMS – MOVIMIENTO
+// ═══════════════════════════════════════════════════════════
+let itemsMov = [];
+
+function toggleDesgloseM() {
+    const on = document.getElementById('chkDesgloseM').checked;
+    document.getElementById('seccionItemsM').style.display = on ? '' : 'none';
+    const valEl = document.getElementById('movValor');
+    valEl.readOnly = on;
+    valEl.required = !on;
+    const catEl = document.getElementById('movCategoria');
+    if (catEl) catEl.closest('.col-md-4').style.display = on ? 'none' : '';
+    if (on && itemsMov.length === 0) agregarItemMov();
+}
+
+function agregarItemMov() {
+    itemsMov.push({ desc: '', id_categoria: '', monto: 0 });
+    renderItemsMov();
+}
+
+function eliminarItemMov(idx) {
+    itemsMov.splice(idx, 1);
+    renderItemsMov();
+    recalcItemsMov();
+}
+
+function renderItemsMov() {
+    const cats = (typeof catalogos !== 'undefined' && catalogos.categorias) ? catalogos.categorias : [];
+    document.getElementById('tbodyItemsM').innerHTML = itemsMov.map((item, i) => `
+        <tr>
+            <td><input class="form-control form-control-sm" value="${esc(item.desc)}"
+                placeholder="Ej: Comida" oninput="itemsMov[${i}].desc=this.value"></td>
+            <td>
+                <select class="form-select form-select-sm" onchange="itemsMov[${i}].id_categoria=this.value">
+                    <option value="">Sin categoría</option>
+                    ${cats.map(c => `<option value="${c.id_categoria}" ${item.id_categoria == c.id_categoria ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}
+                </select>
+            </td>
+            <td><input type="number" class="form-control form-control-sm text-end" min="0.01" step="0.01"
+                value="${item.monto || ''}" placeholder="0.00"
+                oninput="itemsMov[${i}].monto=parseFloat(this.value)||0;recalcItemsMov()"></td>
+            <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1"
+                onclick="eliminarItemMov(${i})" title="Eliminar"><i class="fas fa-times"></i></button></td>
+        </tr>`).join('');
+}
+
+function recalcItemsMov() {
+    const total = itemsMov.reduce((s, it) => s + (it.monto || 0), 0);
+    document.getElementById('movValor').value = total > 0 ? total.toFixed(2) : '';
+    document.getElementById('lblTotalItemsM').textContent = formatCurrency(total);
+}
+
+// ═══════════════════════════════════════════════════════════
+// DESGLOSE POR ÍTEMS – DIFERIDO
+// ═══════════════════════════════════════════════════════════
+let itemsDif = [];
+
+function toggleDesgloseD() {
+    const on = document.getElementById('chkDesgloseD').checked;
+    document.getElementById('seccionItemsD').style.display = on ? '' : 'none';
+    const valEl = document.getElementById('difValor');
+    valEl.readOnly = on;
+    valEl.required = !on;
+    document.getElementById('difDescripcion').readOnly = on;
+    if (on && itemsDif.length === 0) agregarItemDif();
+}
+
+function agregarItemDif() {
+    itemsDif.push({ desc: '', id_categoria: '', monto: 0 });
+    renderItemsDif();
+}
+
+function eliminarItemDif(idx) {
+    itemsDif.splice(idx, 1);
+    renderItemsDif();
+    recalcItemsDif();
+}
+
+function renderItemsDif() {
+    const cats = (typeof catalogos !== 'undefined' && catalogos.categorias) ? catalogos.categorias : [];
+    document.getElementById('tbodyItemsD').innerHTML = itemsDif.map((item, i) => `
+        <tr>
+            <td><input class="form-control form-control-sm" value="${esc(item.desc)}"
+                placeholder="Ej: Clases de baile" oninput="itemsDif[${i}].desc=this.value"></td>
+            <td>
+                <select class="form-select form-select-sm" onchange="itemsDif[${i}].id_categoria=this.value">
+                    <option value="">Sin categoría</option>
+                    ${cats.map(c => `<option value="${c.id_categoria}" ${item.id_categoria == c.id_categoria ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}
+                </select>
+            </td>
+            <td><input type="number" class="form-control form-control-sm text-end" min="0.01" step="0.01"
+                value="${item.monto || ''}" placeholder="0.00"
+                oninput="itemsDif[${i}].monto=parseFloat(this.value)||0;recalcItemsDif()"></td>
+            <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1"
+                onclick="eliminarItemDif(${i})" title="Eliminar"><i class="fas fa-times"></i></button></td>
+        </tr>`).join('');
+}
+
+function recalcItemsDif() {
+    const total = itemsDif.reduce((s, it) => s + (it.monto || 0), 0);
+    document.getElementById('difValor').value = total > 0 ? total.toFixed(2) : '';
+    document.getElementById('lblTotalItemsD').textContent = formatCurrency(total);
+    if (document.getElementById('chkDesgloseD').checked) {
+        const desc = itemsDif.map(it => it.desc.trim()).filter(Boolean).join(' + ');
+        if (desc) document.getElementById('difDescripcion').value = desc;
     }
 }
 

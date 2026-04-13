@@ -108,6 +108,37 @@ Actualiza presupuesto existente.
 
 Elimina presupuesto y su relación en `presupuesto_categoria`.
 
+#### `GET /api/presupuesto/hoja?year=2026&periodo=anual`
+
+Obtiene una hoja de presupuesto anual o mensual con líneas de detalle, totales y valor real calculado por categoría.
+
+#### `POST /api/presupuesto/hoja`
+
+Guarda una hoja de presupuesto con múltiples líneas.
+
+```json
+{
+  "year": 2026,
+  "periodo": "mensual",
+  "month": 1,
+  "nombre": "Enero 2026",
+  "descripcion": "Presupuesto mensual derivado",
+  "lineas": [
+    {
+      "categoria": "Alimentación",
+      "frecuencia": "Mensualmente",
+      "importe": 1,
+      "estimado": 1,
+      "notas": "Base anual dividida en 12"
+    }
+  ]
+}
+```
+
+#### `POST /api/presupuesto/hoja/derivar`
+
+Deriva una hoja mensual desde el presupuesto anual del mismo año, dividiendo cada línea entre `12`.
+
 ---
 
 ### Transacciones (`/api/transacciones`)

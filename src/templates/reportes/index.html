@@ -4,190 +4,554 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="page-header mb-4">
-        <h1 class="page-title"><i class="fas fa-file-pdf"></i> Reportes</h1>
-        <p class="text-muted mb-0">Análisis de tus movimientos de los últimos 6 meses.</p>
-    </div>
-
-    <!-- Balance mensual -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-chart-line"></i> Balance mensual</h5>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="cargarReporte()">
-                        <i class="fas fa-sync-alt"></i> Actualizar
-                    </button>
-                </div>
-                <div class="card-body">
-                    <div id="loadingReporte" class="text-center py-4">
-                        <div class="spinner-border text-primary"></div>
-                        <p class="mt-2 text-muted">Cargando datos…</p>
-                    </div>
-                    <div style="position:relative; height:280px; display:none;" id="balanceContainer">
-                        <canvas id="balanceChart"></canvas>
-                    </div>
-                    <p id="noDataBalance" class="text-muted text-center py-4" style="display:none;">
-                        Sin movimientos para mostrar.
-                    </p>
-                </div>
-            </div>
+    <div class="page-header mb-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <h1 class="page-title"><i class="fas fa-chart-area"></i> Centro de reportes</h1>
+            <p class="text-muted mb-0">Vista integral de flujo, categorias, uso, cuentas y desempeno presupuestario.</p>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            <select id="yearSelector" class="form-select form-select-sm" style="width: 120px;"></select>
+            <button class="btn btn-sm btn-outline-secondary" onclick="loadReportSuite()">
+                <i class="fas fa-sync-alt"></i> Actualizar
+            </button>
         </div>
     </div>
 
-    <!-- Gastos por categoría -->
-    <div class="row">
-        <div class="col-lg-6">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-chart-pie"></i> Gastos por categoría</h5>
-                </div>
-                <div class="card-body">
-                    <div style="position:relative; height:300px; display:none;" id="catContainer">
-                        <canvas id="catChart"></canvas>
+    <div id="loadingSuite" class="text-center py-5">
+        <div class="spinner-border text-primary"></div>
+        <p class="mt-2 text-muted">Cargando suite de reportes...</p>
+    </div>
+
+    <div id="suiteContent" style="display:none;">
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="text-muted small">Ingresos totales</div>
+                        <div class="h4 mb-0 text-success" id="kpiIngresos">$0</div>
                     </div>
-                    <p id="noDataCat" class="text-muted text-center py-4" style="display:none;">
-                        Sin gastos por categoría.
-                    </p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="text-muted small">Gastos totales</div>
+                        <div class="h4 mb-0 text-danger" id="kpiGastos">$0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="text-muted small">Saldo acumulado</div>
+                        <div class="h4 mb-0" id="kpiSaldo">$0</div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-6">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-table"></i> Detalle por categoría</h5>
+        <div class="row mb-4">
+            <div class="col-lg-7">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-wave-square"></i> Flujo de caja</h5>
+                    </div>
+                    <div class="card-body">
+                        <div style="position:relative; height:300px;">
+                            <canvas id="flujoChart"></canvas>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body p-0">
-                    <table class="table table-hover mb-0" id="tablaCat" style="display:none;">
-                        <thead>
-                            <tr>
-                                <th>Categoría</th>
-                                <th class="text-end">Total gastos</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbodyCat"></tbody>
-                    </table>
-                    <p id="noDataCatTable" class="text-muted text-center py-4" style="display:none;">
-                        Sin datos.
-                    </p>
+            </div>
+            <div class="col-lg-5">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-calendar-alt"></i> Ingresos vs gastos mensual</h5>
+                    </div>
+                    <div class="card-body">
+                        <div style="position:relative; height:300px;">
+                            <canvas id="ingresosGastosChart"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <div class="row mb-4">
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-arrow-down"></i> Donde va el dinero</h5>
+                    </div>
+                    <div class="card-body">
+                        <div style="position:relative; height:250px;">
+                            <canvas id="whereMoneyGoesChart"></canvas>
+                        </div>
+                        <div class="table-responsive mt-3">
+                        <table class="table table-sm table-hover mb-0" id="whereMoneyGoesTable">
+                            <thead>
+                                <tr>
+                                    <th>Categoria</th>
+                                    <th class="text-end">Monto</th>
+                                    <th class="text-end">%</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyWhereMoneyGoes"></tbody>
+                        </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-arrow-up"></i> De donde viene el dinero</h5>
+                    </div>
+                    <div class="card-body">
+                        <div style="position:relative; height:250px;">
+                            <canvas id="incomeSourcesChart"></canvas>
+                        </div>
+                        <div class="table-responsive mt-3">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Origen</th>
+                                    <th class="text-end">Monto</th>
+                                    <th class="text-end">%</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyIncomeSources"></tbody>
+                        </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-lg-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-chart-line"></i> Informe de prevision</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="small text-muted">Promedio ingresos ultimos 3 meses</div>
+                        <div class="h5 text-success" id="forecastIngresos">$0</div>
+                        <hr>
+                        <div class="small text-muted">Promedio gastos ultimos 3 meses</div>
+                        <div class="h5 text-danger" id="forecastGastos">$0</div>
+                        <hr>
+                        <div class="small text-muted">Saldo estimado siguiente mes</div>
+                        <div class="h5" id="forecastSaldo">$0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-8">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-user-friends"></i> Mi uso por beneficiarios</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Beneficiario</th>
+                                    <th class="text-end">Movimientos</th>
+                                    <th class="text-end">Gasto total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyBeneficiarios"></tbody>
+                        </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-wallet"></i> Resumen cuentas mensual</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Cuenta</th>
+                                    <th class="text-end">Ingresos</th>
+                                    <th class="text-end">Gastos</th>
+                                    <th class="text-end">Saldo</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyCuentasMensual"></tbody>
+                        </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-landmark"></i> Resumen cuentas anual</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Cuenta</th>
+                                    <th class="text-end">Ingresos</th>
+                                    <th class="text-end">Gastos</th>
+                                    <th class="text-end">Saldo</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyCuentasAnual"></tbody>
+                        </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-lg-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-bullseye"></i> Desempeno de presupuestos</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="small text-muted">Presupuesto activo</div>
+                        <div class="fw-semibold" id="budgetName">Sin presupuesto activo</div>
+                        <hr>
+                        <div class="small text-muted">Ejecucion total</div>
+                        <div class="progress mb-2" style="height: 10px;">
+                            <div id="budgetExecutionBar" class="progress-bar" role="progressbar" style="width: 0%;"></div>
+                        </div>
+                        <div class="small" id="budgetExecutionText">0%</div>
+                        <hr>
+                        <div class="small text-muted">Estimado</div>
+                        <div class="h6" id="budgetEstimado">$0</div>
+                        <div class="small text-muted">Real</div>
+                        <div class="h6" id="budgetReal">$0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-8">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-list-ul"></i> Resumen por categoria del presupuesto</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Categoria</th>
+                                    <th class="text-end">Estimado</th>
+                                    <th class="text-end">Real</th>
+                                    <th class="text-end">Diferencia</th>
+                                    <th class="text-end">Ejecucion</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyBudgetCategory"></tbody>
+                        </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="suiteEmpty" class="alert alert-light border" style="display:none;">
+        No hay datos para mostrar en este periodo.
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-let balanceChart = null;
-let catChart     = null;
+let flujoChart = null;
+let ingresosGastosChart = null;
+let whereMoneyGoesChart = null;
+let incomeSourcesChart = null;
 
 const COLORS = [
-    '#FF6384','#36A2EB','#FFCE56','#4BC0C0','#9966FF',
-    '#FF9F40','#C9CBCF','#71B37C','#A8DADC','#E7E9ED',
+    '#0d6efd', '#20c997', '#fd7e14', '#6f42c1', '#dc3545',
+    '#198754', '#ffc107', '#0dcaf0', '#6c757d', '#212529',
+    '#e83e8c', '#6610f2'
 ];
 
-document.addEventListener('DOMContentLoaded', cargarReporte);
+document.addEventListener('DOMContentLoaded', () => {
+    initYearSelector();
+    loadReportSuite();
+});
 
-async function cargarReporte() {
-    document.getElementById('loadingReporte').style.display = 'block';
-    document.getElementById('balanceContainer').style.display = 'none';
-    document.getElementById('noDataBalance').style.display   = 'none';
-    document.getElementById('catContainer').style.display    = 'none';
-    document.getElementById('noDataCat').style.display       = 'none';
-    document.getElementById('tablaCat').style.display        = 'none';
-    document.getElementById('noDataCatTable').style.display  = 'none';
+function initYearSelector() {
+    const selector = document.getElementById('yearSelector');
+    const currentYear = new Date().getFullYear();
+    selector.innerHTML = '';
+    for (let y = currentYear; y >= currentYear - 5; y--) {
+        const opt = document.createElement('option');
+        opt.value = String(y);
+        opt.textContent = String(y);
+        selector.appendChild(opt);
+    }
+    selector.value = String(currentYear);
+    selector.addEventListener('change', loadReportSuite);
+}
+
+function rowHtml(cells) {
+    return `<tr>${cells.join('')}</tr>`;
+}
+
+function amountClass(value) {
+    return value >= 0 ? 'text-success' : 'text-danger';
+}
+
+function setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+function destroyChart(chartRef) {
+    if (chartRef) chartRef.destroy();
+}
+
+function drawLineBarChart(id, labels, ingresos, gastos, balance) {
+    const ctx = document.getElementById(id).getContext('2d');
+    return new Chart(ctx, {
+        data: {
+            labels,
+            datasets: [
+                {
+                    type: 'bar',
+                    label: 'Ingresos',
+                    data: ingresos,
+                    backgroundColor: 'rgba(25,135,84,0.45)',
+                    borderColor: '#198754',
+                    borderWidth: 1,
+                },
+                {
+                    type: 'bar',
+                    label: 'Gastos',
+                    data: gastos,
+                    backgroundColor: 'rgba(220,53,69,0.45)',
+                    borderColor: '#dc3545',
+                    borderWidth: 1,
+                },
+                {
+                    type: 'line',
+                    label: 'Balance',
+                    data: balance,
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13,110,253,0.15)',
+                    fill: false,
+                    tension: 0.25,
+                    pointRadius: 3,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}`
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    ticks: { callback: (v) => formatCurrency(v) }
+                }
+            }
+        }
+    });
+}
+
+function drawDoughnut(id, labels, values) {
+    const ctx = document.getElementById(id).getContext('2d');
+    return new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels,
+            datasets: [{ data: values, backgroundColor: COLORS.slice(0, labels.length) }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => `${ctx.label}: ${formatCurrency(ctx.parsed)}`
+                    }
+                }
+            }
+        }
+    });
+}
+
+function drawGroupedBar(id, labels, ingresos, gastos) {
+    const ctx = document.getElementById(id).getContext('2d');
+    return new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Ingresos',
+                    data: ingresos,
+                    backgroundColor: 'rgba(25,135,84,0.55)',
+                    borderColor: '#198754',
+                    borderWidth: 1,
+                },
+                {
+                    label: 'Gastos',
+                    data: gastos,
+                    backgroundColor: 'rgba(220,53,69,0.55)',
+                    borderColor: '#dc3545',
+                    borderWidth: 1,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } },
+            scales: {
+                y: {
+                    ticks: { callback: (v) => formatCurrency(v) }
+                }
+            }
+        }
+    });
+}
+
+async function loadReportSuite() {
+    const year = Number(document.getElementById('yearSelector').value || new Date().getFullYear());
+    document.getElementById('loadingSuite').style.display = 'block';
+    document.getElementById('suiteContent').style.display = 'none';
+    document.getElementById('suiteEmpty').style.display = 'none';
 
     try {
-        const data = await api.getReporteData();
-        document.getElementById('loadingReporte').style.display = 'none';
+        const data = await api.getReporteSuite({ year });
 
-        // --- Gráfico de balance mensual ---
-        if (data.months && data.months.length > 0) {
-            document.getElementById('balanceContainer').style.display = 'block';
-            const ctxB = document.getElementById('balanceChart').getContext('2d');
-            if (balanceChart) balanceChart.destroy();
-            balanceChart = new Chart(ctxB, {
-                type: 'line',
-                data: {
-                    labels: data.months,
-                    datasets: [{
-                        label: 'Balance',
-                        data: data.balance_trend,
-                        borderColor: '#0d6efd',
-                        backgroundColor: 'rgba(13,110,253,0.1)',
-                        fill: true,
-                        tension: 0.3,
-                        pointRadius: 4,
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            ticks: { callback: v => formatCurrency(v) }
-                        }
-                    },
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: ctx => ` Balance: ${formatCurrency(ctx.parsed.y)}`
-                            }
-                        }
-                    }
-                }
-            });
-        } else {
-            document.getElementById('noDataBalance').style.display = 'block';
+        const flujo = data.flujo_caja || {};
+        const meses = flujo.meses || [];
+        const ingresos = flujo.ingresos || [];
+        const gastos = flujo.gastos || [];
+        const balance = flujo.balance || [];
+
+        if (!meses.length) {
+            document.getElementById('loadingSuite').style.display = 'none';
+            document.getElementById('suiteEmpty').style.display = 'block';
+            return;
         }
 
-        // --- Gráfico de dona por categoría ---
-        if (data.categories && data.categories.length > 0) {
-            const labels = data.categories.map(c => c.nombre);
-            const values = data.categories.map(c => c.total);
-            const colors = COLORS.slice(0, labels.length);
+        const resumen = flujo.resumen || {};
+        setText('kpiIngresos', formatCurrency(resumen.ingresos_total || 0));
+        setText('kpiGastos', formatCurrency(resumen.gastos_total || 0));
+        const saldo = Number(resumen.saldo_total || 0);
+        const kpiSaldoEl = document.getElementById('kpiSaldo');
+        kpiSaldoEl.textContent = formatCurrency(saldo);
+        kpiSaldoEl.className = `h4 mb-0 ${amountClass(saldo)}`;
 
-            document.getElementById('catContainer').style.display = 'block';
-            const ctxC = document.getElementById('catChart').getContext('2d');
-            if (catChart) catChart.destroy();
-            catChart = new Chart(ctxC, {
-                type: 'doughnut',
-                data: {
-                    labels,
-                    datasets: [{ data: values, backgroundColor: colors }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom' },
-                        tooltip: {
-                            callbacks: {
-                                label: ctx => ` ${ctx.label}: ${formatCurrency(ctx.parsed)}`
-                            }
-                        }
-                    }
-                }
-            });
+        destroyChart(flujoChart);
+        destroyChart(ingresosGastosChart);
+        destroyChart(whereMoneyGoesChart);
+        destroyChart(incomeSourcesChart);
 
-            // Tabla
-            document.getElementById('tbodyCat').innerHTML = data.categories.map(c => `
-                <tr>
-                    <td>${c.nombre}</td>
-                    <td class="text-end text-danger fw-semibold">${formatCurrency(c.total)}</td>
-                </tr>
-            `).join('');
-            document.getElementById('tablaCat').style.display = 'table';
-        } else {
-            document.getElementById('noDataCat').style.display      = 'block';
-            document.getElementById('noDataCatTable').style.display  = 'block';
-        }
+        flujoChart = drawLineBarChart('flujoChart', meses, ingresos, gastos, balance);
+        ingresosGastosChart = drawGroupedBar('ingresosGastosChart', meses, ingresos, gastos);
+
+        const whereGoes = flujo.donde_va_dinero || [];
+        whereMoneyGoesChart = drawDoughnut(
+            'whereMoneyGoesChart',
+            whereGoes.map((i) => i.categoria),
+            whereGoes.map((i) => Number(i.total || 0))
+        );
+        document.getElementById('tbodyWhereMoneyGoes').innerHTML = whereGoes.map((item) => rowHtml([
+            `<td>${item.categoria || '-'}</td>`,
+            `<td class="text-end text-danger">${formatCurrency(item.total || 0)}</td>`,
+            `<td class="text-end">${Number(item.pct || 0).toFixed(2)}%</td>`
+        ])).join('');
+
+        const sources = flujo.de_donde_viene || [];
+        incomeSourcesChart = drawDoughnut(
+            'incomeSourcesChart',
+            sources.map((i) => i.categoria),
+            sources.map((i) => Number(i.total || 0))
+        );
+        document.getElementById('tbodyIncomeSources').innerHTML = sources.map((item) => rowHtml([
+            `<td>${item.categoria || '-'}</td>`,
+            `<td class="text-end text-success">${formatCurrency(item.total || 0)}</td>`,
+            `<td class="text-end">${Number(item.pct || 0).toFixed(2)}%</td>`
+        ])).join('');
+
+        const prevision = flujo.prevision || {};
+        setText('forecastIngresos', formatCurrency(prevision.promedio_ingresos_3m || 0));
+        setText('forecastGastos', formatCurrency(prevision.promedio_gastos_3m || 0));
+        const forecastSaldo = Number(prevision.saldo_estimado_siguiente_mes || 0);
+        const forecastSaldoEl = document.getElementById('forecastSaldo');
+        forecastSaldoEl.textContent = formatCurrency(forecastSaldo);
+        forecastSaldoEl.className = `h5 ${amountClass(forecastSaldo)}`;
+
+        const beneficiarios = (data.mi_uso && data.mi_uso.beneficiarios) || [];
+        document.getElementById('tbodyBeneficiarios').innerHTML = beneficiarios.map((item) => rowHtml([
+            `<td>${item.beneficiario || 'Sin beneficiario'}</td>`,
+            `<td class="text-end">${Number(item.movimientos || 0)}</td>`,
+            `<td class="text-end text-danger">${formatCurrency(item.gasto_total || 0)}</td>`
+        ])).join('');
+
+        const cuentas = data.resumen_cuentas || {};
+        const cuentasMensual = cuentas.mensual || [];
+        const cuentasAnual = cuentas.anual || [];
+        document.getElementById('tbodyCuentasMensual').innerHTML = cuentasMensual.map((item) => rowHtml([
+            `<td>${item.cuenta}</td>`,
+            `<td class="text-end text-success">${formatCurrency(item.ingresos || 0)}</td>`,
+            `<td class="text-end text-danger">${formatCurrency(item.gastos || 0)}</td>`,
+            `<td class="text-end ${amountClass(Number(item.saldo || 0))}">${formatCurrency(item.saldo || 0)}</td>`
+        ])).join('');
+        document.getElementById('tbodyCuentasAnual').innerHTML = cuentasAnual.map((item) => rowHtml([
+            `<td>${item.cuenta}</td>`,
+            `<td class="text-end text-success">${formatCurrency(item.ingresos || 0)}</td>`,
+            `<td class="text-end text-danger">${formatCurrency(item.gastos || 0)}</td>`,
+            `<td class="text-end ${amountClass(Number(item.saldo || 0))}">${formatCurrency(item.saldo || 0)}</td>`
+        ])).join('');
+
+        const presupuestos = data.presupuestos || {};
+        const desempeno = presupuestos.desempeno || {};
+        setText('budgetName', desempeno.nombre || 'Sin presupuesto activo');
+        setText('budgetEstimado', formatCurrency(desempeno.estimado_total || 0));
+        setText('budgetReal', formatCurrency(desempeno.real_total || 0));
+
+        const execution = Number(desempeno.ejecucion_pct || 0);
+        const bar = document.getElementById('budgetExecutionBar');
+        bar.style.width = `${Math.min(100, execution)}%`;
+        bar.className = `progress-bar ${execution > 100 ? 'bg-danger' : execution > 85 ? 'bg-warning' : 'bg-success'}`;
+        setText('budgetExecutionText', `${execution.toFixed(2)}%`);
+
+        const presupuestoCategoria = presupuestos.resumen_categoria || [];
+        document.getElementById('tbodyBudgetCategory').innerHTML = presupuestoCategoria.map((item) => rowHtml([
+            `<td>${item.categoria || '-'}</td>`,
+            `<td class="text-end">${formatCurrency(item.estimado || 0)}</td>`,
+            `<td class="text-end text-danger">${formatCurrency(item.real || 0)}</td>`,
+            `<td class="text-end ${amountClass(Number(item.diferencia || 0))}">${formatCurrency(item.diferencia || 0)}</td>`,
+            `<td class="text-end">${Number(item.ejecucion_pct || 0).toFixed(2)}%</td>`
+        ])).join('');
+
+        document.getElementById('loadingSuite').style.display = 'none';
+        document.getElementById('suiteContent').style.display = 'block';
 
     } catch (err) {
-        document.getElementById('loadingReporte').style.display = 'none';
-        showToast('Error al cargar reporte: ' + (err.message || ''), 'danger');
+        document.getElementById('loadingSuite').style.display = 'none';
+        showToast('Error al cargar suite de reportes: ' + (err.message || ''), 'danger');
     }
 }
 </script>

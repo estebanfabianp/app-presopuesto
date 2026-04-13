@@ -292,13 +292,23 @@ def create_movimiento():
         if estado not in ESTADOS_MOV:
             return jsonify({'message': f'Estado no valido. Use: {", ".join(ESTADOS_MOV)}'}), 400
 
-        valor = abs(float(payload.get('valor') or 0))
-        if valor <= 0:
-            return jsonify({'message': 'El valor debe ser mayor a 0'}), 400
-
-        nota = (payload.get('nota') or '').strip() or None
+        items = payload.get('items') or []
+        if items:
+            valor = sum(abs(float(it.get('monto', 0))) for it in items)
+            if valor <= 0:
+                return jsonify({'message': 'El total de ítems debe ser mayor a 0'}), 400
+            nota = ' \u2022 '.join(
+                f"{it.get('descripcion', 'Ítem')} (${int(abs(float(it.get('monto', 0)))):,})".replace(',', '.')
+                for it in items
+            )
+            id_categoria = (items[0].get('id_categoria') or None)
+        else:
+            valor = abs(float(payload.get('valor') or 0))
+            if valor <= 0:
+                return jsonify({'message': 'El valor debe ser mayor a 0'}), 400
+            nota = (payload.get('nota') or '').strip() or None
+            id_categoria = payload.get('id_categoria') or None
         fecha = payload.get('fecha') or datetime.now().strftime('%Y-%m-%d')
-        id_categoria = payload.get('id_categoria') or None
         id_beneficiario = payload.get('id_beneficiario') or None
         cuotas = max(1, int(payload.get('cuotas') or 1))
         tx_ref = payload.get('numero_transaccion') or f"TC-{user_id}-{int(datetime.now().timestamp())}"
@@ -315,6 +325,20 @@ def create_movimiento():
         )
         if not mov_id:
             return jsonify({'message': 'No se pudo crear el movimiento'}), 500
+
+        # Guardar items desglosados si aplica
+        if items:
+            for idx, item in enumerate(items, start=1):
+                db.execute_non_query(
+                    """
+                    INSERT INTO movimiento_tarjeta_item
+                        (id_movimiento_tarjeta, numero_item, descripcion, id_categoria, monto)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (mov_id, idx, item.get('descripcion', 'Ítem'), 
+                     item.get('id_categoria') or None, 
+                     float(item.get('monto', 0))),
+                )
 
         return jsonify({'message': 'Movimiento creado', 'id': mov_id}), 201
     except Exception as e:
@@ -691,16 +715,27 @@ def create_diferido():
         if not owner:
             return jsonify({'message': 'Tarjeta no valida para este usuario'}), 400
 
-        valor_total = _to_decimal(payload.get('valor_total'))
+        items = payload.get('items') or []
+        if items:
+            valor_total = _to_decimal(sum(float(it.get('monto', 0)) for it in items))
+            if valor_total <= 0:
+                return jsonify({'message': 'El total de ítems debe ser mayor a 0'}), 400
+            descripcion = ' • '.join(
+                f"{it.get('descripcion', 'Ítem')} (${int(abs(float(it.get('monto', 0)))):,})".replace(',', '.')
+                for it in items
+            )
+            id_categoria = items[0].get('id_categoria') or None
+        else:
+            valor_total = _to_decimal(payload.get('valor_total'))
+            if valor_total <= 0:
+                return jsonify({'message': 'Valor total debe ser mayor a 0'}), 400
+            id_categoria = payload.get('id_categoria') or None
+        
         numero_cuotas = int(payload.get('numero_cuotas') or 0)
         sin_interes = bool(payload.get('sin_interes') or False)
         tasa_mensual = _to_decimal(payload.get('tasa_mensual') or 0)
         fecha_compra = payload.get('fecha_compra') or datetime.now().strftime('%Y-%m-%d')
-        id_categoria = payload.get('id_categoria') or None
         id_beneficiario = payload.get('id_beneficiario') or None
-
-        if valor_total <= 0:
-            return jsonify({'message': 'Valor total debe ser mayor a 0'}), 400
         if numero_cuotas <= 0:
             return jsonify({'message': 'Numero de cuotas debe ser mayor a 0'}), 400
         if not sin_interes and tasa_mensual < 0:
@@ -717,8 +752,8 @@ def create_diferido():
             INSERT INTO tarjeta_diferido
                 (id_tarjeta, id_persona, descripcion, valor_total, numero_cuotas,
                  tasa_mensual, sin_interes, cuota_mensual, total_intereses, total_pagado_estimado,
-                 cuotas_pagadas, saldo_pendiente, fecha_compra, fecha_proximo_pago, estado)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 0, %s, %s, %s, 'activo')
+                 cuotas_pagadas, saldo_pendiente, fecha_compra, fecha_proximo_pago, id_categoria, estado)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 0, %s, %s, %s, %s, 'activo')
             """,
             (
                 id_tarjeta,
@@ -734,6 +769,7 @@ def create_diferido():
                 float(_q2(valor_total)),
                 fecha_compra,
                 fecha_proximo_pago.strftime('%Y-%m-%d'),
+                id_categoria,
             ),
         )
         if not id_diferido:
@@ -760,6 +796,20 @@ def create_diferido():
             ),
         )
 
+        # Guardar items desglosados si aplica
+        if items:
+            for idx, item in enumerate(items, start=1):
+                db.execute_non_query(
+                    """
+                    INSERT INTO movimiento_tarjeta_item
+                        (id_movimiento_tarjeta, numero_item, descripcion, id_categoria, monto)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (mov_id, idx, item.get('descripcion', 'Ítem'), 
+                     item.get('id_categoria') or None, 
+                     float(item.get('monto', 0))),
+                )
+
         db.execute_non_query(
             """
             UPDATE tarjeta_diferido
@@ -768,6 +818,16 @@ def create_diferido():
             WHERE id_diferido = %s
             """,
             (mov_id, numero_tx, id_diferido),
+        )
+
+        # Registrar relación en detalle_diferido_movimiento (cuota 1 de N)
+        db.execute_non_query(
+            """
+            INSERT INTO detalle_diferido_movimiento
+                (id_diferido, id_movimiento_tarjeta, numero_cuota, tipo_cuota, estado)
+            VALUES (%s, %s, 1, 'TOTAL', 'PENDIENTE')
+            """,
+            (id_diferido, mov_id),
         )
 
         return jsonify({
@@ -847,13 +907,16 @@ def pagar_cuota_diferido(id_diferido):
             nuevo_saldo = Decimal('0.00')
 
         fecha_pago = payload.get('fecha_pago') or datetime.now().strftime('%Y-%m-%d')
+        fecha_compra_base = d.get('fecha_compra')
+        if not fecha_compra_base:
+            fecha_compra_base = datetime.now().date()
+        if isinstance(fecha_compra_base, str):
+            fecha_compra_base = datetime.strptime(fecha_compra_base, '%Y-%m-%d').date()
+        fecha_movimiento_cuota = _add_months(fecha_compra_base, numero_cuota)
         if pagado_completo:
             fecha_proximo = None
         else:
-            fecha_compra = d.get('fecha_compra')
-            if isinstance(fecha_compra, str):
-                fecha_compra = datetime.strptime(fecha_compra, '%Y-%m-%d').date()
-            fecha_proximo = _add_months(fecha_compra, numero_cuota + 1).strftime('%Y-%m-%d')
+            fecha_proximo = _add_months(fecha_compra_base, numero_cuota + 1).strftime('%Y-%m-%d')
 
         db.execute_non_query(
             """
@@ -890,31 +953,97 @@ def pagar_cuota_diferido(id_diferido):
             ),
         )
 
-        db.execute_non_query(
+        categoria_pago = d.get('id_categoria') or None
+        numero_tx = f"DIFPAY-{id_diferido}-{numero_cuota}-{int(datetime.now().timestamp())}"
+
+        mov_id = db.execute_non_query(
             """
             INSERT INTO movimiento_tarjeta
-                (id_tarjeta, id_persona, fecha, valor, estado, nota, numero_transaccion, cuotas)
-            VALUES (%s, %s, %s, %s, 'abono', %s, %s, 1)
+                (id_tarjeta, id_persona, fecha, valor, estado, nota, numero_transaccion, id_categoria, cuotas)
+            VALUES (%s, %s, %s, %s, 'abono', %s, %s, %s, 1)
             """,
             (
                 int(d['id_tarjeta']),
                 user_id,
-                fecha_pago,
+                fecha_movimiento_cuota.strftime('%Y-%m-%d'),
                 float(_q2(valor_pagado)),
                 f"Pago cuota {numero_cuota}/{numero_cuotas} - {d.get('descripcion') or 'Diferido'}",
-                f"DIFPAY-{id_diferido}-{numero_cuota}-{int(datetime.now().timestamp())}",
+                numero_tx,
+                categoria_pago,
             ),
         )
+
+        # Desglose del pago: replica proporcionalmente los ítems de la compra diferida.
+        items_insertados = 0
+        mov_origen = d.get('id_movimiento_tarjeta')
+        if mov_origen:
+            items_origen = db.execute_query(
+                """
+                SELECT descripcion, id_categoria, monto
+                FROM movimiento_tarjeta_item
+                WHERE id_movimiento_tarjeta = %s
+                ORDER BY numero_item
+                """,
+                (int(mov_origen),),
+            ) or []
+
+            total_origen = _to_decimal(sum(float(it.get('monto') or 0) for it in items_origen))
+            if items_origen and total_origen > 0:
+                acumulado = Decimal('0.00')
+                for idx, it in enumerate(items_origen, start=1):
+                    if idx < len(items_origen):
+                        monto_item = _q2(_to_decimal(valor_pagado) * (_to_decimal(it.get('monto')) / total_origen))
+                        acumulado = _q2(acumulado + monto_item)
+                    else:
+                        # Último ítem absorbe diferencia de redondeo.
+                        monto_item = _q2(_to_decimal(valor_pagado) - acumulado)
+
+                    db.execute_non_query(
+                        """
+                        INSERT INTO movimiento_tarjeta_item
+                            (id_movimiento_tarjeta, numero_item, descripcion, id_categoria, monto)
+                        VALUES (%s, %s, %s, %s, %s)
+                        """,
+                        (
+                            int(mov_id),
+                            idx,
+                            it.get('descripcion') or f"Cuota {numero_cuota}/{numero_cuotas}",
+                            it.get('id_categoria') or categoria_pago,
+                            float(monto_item),
+                        ),
+                    )
+                    items_insertados += 1
+
+        if items_insertados == 0:
+            db.execute_non_query(
+                """
+                INSERT INTO movimiento_tarjeta_item
+                    (id_movimiento_tarjeta, numero_item, descripcion, id_categoria, monto)
+                VALUES (%s, 1, %s, %s, %s)
+                """,
+                (
+                    int(mov_id),
+                    f"Cuota {numero_cuota}/{numero_cuotas}",
+                    categoria_pago,
+                    float(_q2(valor_pagado)),
+                ),
+            )
+            items_insertados = 1
 
         return jsonify({
             'message': 'Pago registrado',
             'id_diferido': id_diferido,
+            'id_movimiento': int(mov_id or 0),
             'numero_cuota': numero_cuota,
             'numero_cuotas': numero_cuotas,
             'valor_pagado': float(_q2(valor_pagado)),
             'interes_pagado': float(_q2(interes)),
             'capital_pagado': float(_q2(capital)),
             'saldo_restante': float(_q2(nuevo_saldo)),
+            'items_desglose': items_insertados,
+            'id_categoria': categoria_pago,
+            'fecha_movimiento': fecha_movimiento_cuota.strftime('%Y-%m-%d'),
+            'fecha_registro_pago': fecha_pago,
             'estado': 'pagado' if pagado_completo else 'activo',
         }), 200
     except Exception as e:
@@ -1215,5 +1344,225 @@ def get_tarjetas_summary():
     except Exception as e:
         logger.error('Error obteniendo resumen de tarjetas: %s', e)
         return jsonify({'message': 'Error al obtener datos de tarjetas'}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/movimientos/<int:movimiento_id>/items', methods=['GET'])
+def get_movimiento_items(movimiento_id):
+    """Obtiene los items desglosados de un movimiento."""
+    verify_jwt_in_request()
+    db = DatabaseConnector()
+    try:
+        user_id = _get_user_id()
+
+        # Verificar que el movimiento pertenece al usuario
+        mov = db.execute_query(
+            "SELECT id_movimiento_tarjeta FROM movimiento_tarjeta WHERE id_movimiento_tarjeta = %s AND id_persona = %s LIMIT 1",
+            (movimiento_id, user_id),
+        )
+        if not mov:
+            return jsonify({'message': 'Movimiento no encontrado'}), 404
+
+        items = db.execute_query(
+            """
+            SELECT i.id_item, i.numero_item, i.descripcion, i.id_categoria, i.monto,
+                   c.nombre as categoria_nombre
+            FROM movimiento_tarjeta_item i
+            LEFT JOIN categoria c ON i.id_categoria = c.id_categoria
+            WHERE i.id_movimiento_tarjeta = %s
+            ORDER BY i.numero_item
+            """,
+            (movimiento_id,),
+        )
+
+        return jsonify({
+            'movimiento_id': movimiento_id,
+            'items': [
+                {
+                    'id': row['id_item'],
+                    'numero': row['numero_item'],
+                    'descripcion': row['descripcion'],
+                    'id_categoria': row['id_categoria'],
+                    'categoria': row.get('categoria_nombre') or 'Sin categoría',
+                    'monto': float(row['monto']),
+                }
+                for row in items
+            ],
+            'total_items': len(items),
+        }), 200
+    except Exception as e:
+        logger.error('Error obteniendo items del movimiento %s: %s', movimiento_id, e)
+        return jsonify({'message': 'Error al obtener items'}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/diferidos/<int:diferido_id>/movimientos', methods=['GET'])
+def get_diferido_movimientos(diferido_id):
+    """Obtiene los movimientos/cuotas asociados a un diferido."""
+    verify_jwt_in_request()
+    db = DatabaseConnector()
+    try:
+        _ensure_diferidos_tables(db)
+        user_id = _get_user_id()
+
+        # Verificar que el diferido pertenece al usuario
+        dif = db.execute_query(
+            "SELECT id_diferido FROM tarjeta_diferido WHERE id_diferido = %s AND id_persona = %s LIMIT 1",
+            (diferido_id, user_id),
+        )
+        if not dif:
+            return jsonify({'message': 'Diferido no encontrado'}), 404
+
+        movimientos = db.execute_query(
+            """
+            SELECT dm.id_detalle, dm.numero_cuota, dm.tipo_cuota, dm.estado,
+                   m.id_movimiento_tarjeta, m.valor, m.fecha, m.estado as mov_estado
+            FROM detalle_diferido_movimiento dm
+            LEFT JOIN movimiento_tarjeta m ON dm.id_movimiento_tarjeta = m.id_movimiento_tarjeta
+            WHERE dm.id_diferido = %s
+            ORDER BY dm.numero_cuota
+            """,
+            (diferido_id,),
+        )
+
+        return jsonify({
+            'diferido_id': diferido_id,
+            'cuotas': [
+                {
+                    'numero_cuota': row['numero_cuota'],
+                    'tipo': row['tipo_cuota'],
+                    'estado': row['estado'],
+                    'movimiento_id': row.get('id_movimiento_tarjeta'),
+                    'valor': float(row['valor']) if row.get('valor') else None,
+                    'fecha': row['fecha'].isoformat() if row.get('fecha') else None,
+                }
+                for row in movimientos
+            ],
+            'total_cuotas': len(movimientos),
+        }), 200
+    except Exception as e:
+        logger.error('Error obteniendo movimientos del diferido %s: %s', diferido_id, e)
+        return jsonify({'message': 'Error al obtener movimientos'}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/rechazos', methods=['GET'])
+def get_rechazos():
+    """Obtiene el historial de movimientos rechazados del usuario."""
+    verify_jwt_in_request()
+    db = DatabaseConnector()
+    try:
+        user_id = _get_user_id()
+        limit = int(request.args.get('limit', 50))
+
+        rechazos = db.execute_query(
+            """
+            SELECT id_rechazo, id_tarjeta, motivo, descripcion, intento_valor,
+                   intento_fecha, fecha_rechazo, intentos_consecutivos,
+                   fecha_resolucion, resolucion_nota
+            FROM movimiento_rechazo
+            WHERE id_persona = %s
+            ORDER BY fecha_rechazo DESC
+            LIMIT %s
+            """,
+            (user_id, limit),
+        )
+
+        return jsonify({
+            'rechazos': [
+                {
+                    'id': row['id_rechazo'],
+                    'id_tarjeta': row['id_tarjeta'],
+                    'motivo': row['motivo'],
+                    'descripcion': row['descripcion'],
+                    'valor_intento': float(row['intento_valor']),
+                    'fecha_rechazo': row['fecha_rechazo'].isoformat() if row.get('fecha_rechazo') else None,
+                    'intentos_consecutivos': row['intentos_consecutivos'],
+                    'resuelto': row.get('fecha_resolucion') is not None,
+                    'nota_resolucion': row.get('resolucion_nota'),
+                }
+                for row in rechazos
+            ],
+            'total': len(rechazos),
+        }), 200
+    except Exception as e:
+        logger.error('Error obteniendo rechazos del usuario %s: %s', user_id, e)
+        return jsonify({'message': 'Error al obtener rechazos'}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/rechazos/estadisticas', methods=['GET'])
+def get_rechazos_estadisticas():
+    """Analiza patrones de rechazos."""
+    verify_jwt_in_request()
+    db = DatabaseConnector()
+    try:
+        user_id = _get_user_id()
+
+        # Rechazos por motivo
+        por_motivo = db.execute_query(
+            """
+            SELECT motivo, COUNT(*) as cantidad, SUM(intento_valor) as valor_total
+            FROM movimiento_rechazo
+            WHERE id_persona = %s AND fecha_rechazo > DATE_SUB(NOW(), INTERVAL 90 DAY)
+            GROUP BY motivo
+            ORDER BY cantidad DESC
+            """,
+            (user_id,),
+        )
+
+        # Rechazos por tarjeta
+        por_tarjeta = db.execute_query(
+            """
+            SELECT id_tarjeta, COUNT(*) as cantidad, MAX(fecha_rechazo) as ultimo_rechazo
+            FROM movimiento_rechazo
+            WHERE id_persona = %s AND fecha_rechazo > DATE_SUB(NOW(), INTERVAL 90 DAY)
+            GROUP BY id_tarjeta
+            ORDER BY cantidad DESC
+            """,
+            (user_id,),
+        )
+
+        # Rechazos sin resolver
+        sin_resolver = db.execute_query(
+            """
+            SELECT COUNT(*) as cantidad, SUM(intento_valor) as valor_total
+            FROM movimiento_rechazo
+            WHERE id_persona = %s AND fecha_resolucion IS NULL
+            """,
+            (user_id,),
+        )
+        sr = sin_resolver[0] if sin_resolver else {}
+
+        return jsonify({
+            'periodo': '90 días',
+            'por_motivo': [
+                {
+                    'motivo': row['motivo'],
+                    'cantidad': row['cantidad'],
+                    'valor_total': float(row['valor_total']),
+                }
+                for row in por_motivo
+            ],
+            'por_tarjeta': [
+                {
+                    'id_tarjeta': row['id_tarjeta'],
+                    'cantidad': row['cantidad'],
+                    'ultimo_rechazo': row['ultimo_rechazo'].isoformat() if row.get('ultimo_rechazo') else None,
+                }
+                for row in por_tarjeta
+            ],
+            'sin_resolver': {
+                'cantidad': int(sr.get('cantidad') or 0),
+                'valor_total': float(sr.get('valor_total') or 0),
+            },
+        }), 200
+    except Exception as e:
+        logger.error('Error obteniendo estadísticas de rechazos del usuario %s: %s', user_id, e)
+        return jsonify({'message': 'Error al obtener estadísticas'}), 500
     finally:
         db.close()

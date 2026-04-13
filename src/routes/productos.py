@@ -62,7 +62,9 @@ def list_productos():
         productos_unificados = db.execute_query(
             """SELECT v.id_producto AS id, v.tipo_producto, v.nombre,
                       t.numero_tarjeta, v.limite_credito, v.saldo_actual,
-                      t.fecha_corte, t.fecha_pago, t.fecha_creacion,
+                     t.nombre_titular, t.banco, t.tipo_tarjeta,
+                     t.fecha_vencimiento, t.fecha_corte, t.fecha_pago, t.fecha_creacion,
+                     t.estado AS estado_tarjeta,
                       v.estado
                FROM v_producto_unificado v
                LEFT JOIN tarjeta_credito t ON t.id_tarjeta = v.id_producto
@@ -93,7 +95,10 @@ def list_productos():
 
         def filtrar(lista):
             if solo_activos:
-                return [r for r in lista if str(r.get('estado', '')).upper() in ('ACTIVO', 'ACTIVA')]
+                return [
+                    r for r in lista
+                    if str(r.get('estado_tarjeta') or r.get('estado', '')).upper() in ('ACTIVO', 'ACTIVA')
+                ]
             return lista
 
         resultado = {
@@ -147,11 +152,15 @@ def _serializar_tarjeta(r):
     return {
         'id': r['id'], 'nombre': r.get('nombre') or f"Tarjeta {r.get('numero_tarjeta','')[-4:]}",
         'numero_tarjeta': r.get('numero_tarjeta'),
+        'nombre_titular': r.get('nombre_titular'),
+        'banco': r.get('banco'),
+        'tipo_tarjeta': r.get('tipo_tarjeta') or 'credito',
         'limite_credito': float(r['limite_credito'] or 0),
         'saldo_actual': float(r['saldo_actual'] or 0),
+        'fecha_vencimiento': _fmt(r.get('fecha_vencimiento')),
         'fecha_corte': _fmt(r.get('fecha_corte')),
         'fecha_pago': _fmt(r.get('fecha_pago')),
-        'estado': r['estado'],
+        'estado': r.get('estado_tarjeta') or r['estado'],
         'fecha_creacion': _fmt(r.get('fecha_creacion')),
     }
 
@@ -395,6 +404,119 @@ def create_activo():
         db.close()
 
 
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# CRUD Tarjetas de Crédito
+# ──────────────────────────────────────────────────────────────────────────────
+@bp.route('/tarjetas', methods=['POST'])
+def create_tarjeta():
+    verify_jwt_in_request()
+    persona_id = _persona_id()
+    db = DatabaseConnector()
+    try:
+        d = request.get_json() or {}
+        numero_tarjeta = (d.get('numero_tarjeta') or '').strip().replace(' ', '')
+        nombre_titular = (d.get('nombre_titular') or '').strip()
+        banco = (d.get('banco') or '').strip()
+        tipo_tarjeta = (d.get('tipo_tarjeta') or 'credito').strip().lower()
+        limite_credito = float(d.get('limite_credito') or 0)
+        saldo_actual = float(d.get('saldo_actual') or 0)
+        fecha_vencimiento = d.get('fecha_vencimiento') or None
+        fecha_corte = d.get('fecha_corte') or None
+        fecha_pago = d.get('fecha_pago') or None
+        estado = (d.get('estado') or 'activa').strip().lower()
+
+        # Validaciones
+        if not numero_tarjeta or len(numero_tarjeta) != 16 or not numero_tarjeta.isdigit():
+            return jsonify({'message': 'El número de tarjeta debe tener 16 dígitos'}), 400
+        if not nombre_titular:
+            return jsonify({'message': 'El nombre del titular es obligatorio'}), 400
+
+        db.execute_non_query(
+            """INSERT INTO tarjeta_credito (numero_tarjeta, nombre_titular, banco, tipo_tarjeta,
+                    limite_credito, saldo_actual, fecha_vencimiento, fecha_corte, fecha_pago, estado, id_persona)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (numero_tarjeta, nombre_titular, banco, tipo_tarjeta, limite_credito, saldo_actual,
+                 fecha_vencimiento, fecha_corte, fecha_pago, estado, persona_id),
+        )
+        return jsonify({'message': 'Tarjeta creada', 'status': 'success'}), 201
+    except Exception as e:
+        logger.error('Error creando tarjeta: %s', e)
+        return jsonify({'message': 'Error al crear tarjeta', 'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/tarjetas/<int:tarjeta_id>', methods=['PUT'])
+def update_tarjeta(tarjeta_id):
+    verify_jwt_in_request()
+    persona_id = _persona_id()
+    db = DatabaseConnector()
+    try:
+        row = db.execute_query(
+            "SELECT id_tarjeta FROM tarjeta_credito WHERE id_tarjeta=%s AND (id_persona=%s OR id_persona IS NULL) LIMIT 1",
+            (tarjeta_id, persona_id),
+        )
+        if not row:
+            return jsonify({'message': 'Tarjeta no encontrada'}), 404
+
+        d = request.get_json() or {}
+        numero_tarjeta = (d.get('numero_tarjeta') or '').strip().replace(' ', '')
+        nombre_titular = (d.get('nombre_titular') or '').strip()
+        banco = (d.get('banco') or '').strip()
+        tipo_tarjeta = (d.get('tipo_tarjeta') or 'credito').strip().lower()
+        limite_credito = float(d.get('limite_credito') or 0)
+        saldo_actual = float(d.get('saldo_actual') or 0)
+        fecha_vencimiento = d.get('fecha_vencimiento') or None
+        fecha_corte = d.get('fecha_corte') or None
+        fecha_pago = d.get('fecha_pago') or None
+        estado = (d.get('estado') or 'activa').strip().lower()
+
+        # Validaciones
+        if not numero_tarjeta or len(numero_tarjeta) != 16 or not numero_tarjeta.isdigit():
+            return jsonify({'message': 'El número de tarjeta debe tener 16 dígitos'}), 400
+        if not nombre_titular:
+            return jsonify({'message': 'El nombre del titular es obligatorio'}), 400
+
+        db.execute_non_query(
+            """UPDATE tarjeta_credito SET numero_tarjeta=%s, nombre_titular=%s, banco=%s,
+                    tipo_tarjeta=%s, limite_credito=%s, saldo_actual=%s, fecha_vencimiento=%s,
+                          fecha_corte=%s, fecha_pago=%s, estado=%s, id_persona=%s
+               WHERE id_tarjeta=%s""",
+            (numero_tarjeta, nombre_titular, banco, tipo_tarjeta, limite_credito, saldo_actual,
+                      fecha_vencimiento, fecha_corte, fecha_pago, estado, persona_id, tarjeta_id),
+        )
+        return jsonify({'message': 'Tarjeta actualizada', 'status': 'success'}), 200
+    except Exception as e:
+        logger.error('Error actualizando tarjeta %s: %s', tarjeta_id, e)
+        return jsonify({'message': 'Error al actualizar tarjeta', 'error': str(e)}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/tarjetas/<int:tarjeta_id>/estado', methods=['PATCH'])
+def toggle_tarjeta(tarjeta_id):
+    verify_jwt_in_request()
+    persona_id = _persona_id()
+    db = DatabaseConnector()
+    try:
+        row = db.execute_query(
+            "SELECT estado FROM tarjeta_credito WHERE id_tarjeta=%s AND (id_persona=%s OR id_persona IS NULL) LIMIT 1",
+            (tarjeta_id, persona_id),
+        )
+        if not row:
+            return jsonify({'message': 'Tarjeta no encontrada'}), 404
+        nuevo = 'inactiva' if row[0]['estado'].lower() == 'activa' else 'activa'
+        db.execute_non_query("UPDATE tarjeta_credito SET estado=%s WHERE id_tarjeta=%s", (nuevo, tarjeta_id))
+        return jsonify({'message': 'Estado actualizado', 'estado': nuevo, 'status': 'success'}), 200
+    except Exception as e:
+        logger.error('Error toggle tarjeta %s: %s', tarjeta_id, e)
+        return jsonify({'message': 'Error al cambiar estado'}), 500
+    finally:
+        db.close()
+
+
 @bp.route('/activos/<int:activo_id>', methods=['PUT'])
 def update_activo(activo_id):
     verify_jwt_in_request()
@@ -442,6 +564,50 @@ def toggle_activo(activo_id):
         return jsonify({'message': 'Estado actualizado', 'estado': nuevo}), 200
     except Exception as e:
         logger.error('Error toggle activo %s: %s', activo_id, e)
+        return jsonify({'message': 'Error al cambiar estado'}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/prestamos/<int:prestamo_id>/estado', methods=['PATCH'])
+def toggle_prestamo(prestamo_id):
+    verify_jwt_in_request()
+    persona_id = _persona_id()
+    db = DatabaseConnector()
+    try:
+        row = db.execute_query(
+            "SELECT id_estado FROM prestamo WHERE id_prestamo=%s AND id_persona=%s LIMIT 1",
+            (prestamo_id, persona_id),
+        )
+        if not row:
+            return jsonify({'message': 'Préstamo no encontrado'}), 404
+
+        # Garantiza existencia de estado inactivo en catálogo.
+        inactivo = db.execute_query(
+            "SELECT id_estado FROM estado_prestamo WHERE LOWER(nombre)='inactivo' LIMIT 1"
+        )
+        if inactivo:
+            id_inactivo = int(inactivo[0]['id_estado'])
+        else:
+            db.execute_non_query("INSERT INTO estado_prestamo (nombre) VALUES ('inactivo')")
+            inactivo = db.execute_query(
+                "SELECT id_estado FROM estado_prestamo WHERE LOWER(nombre)='inactivo' LIMIT 1"
+            )
+            id_inactivo = int(inactivo[0]['id_estado'])
+
+        activo = db.execute_query(
+            "SELECT id_estado FROM estado_prestamo WHERE LOWER(nombre)='activo' LIMIT 1"
+        )
+        id_activo = int(activo[0]['id_estado']) if activo else 1
+
+        actual = int(row[0]['id_estado'] or id_activo)
+        nuevo = id_inactivo if actual == id_activo else id_activo
+        nombre_nuevo = 'INACTIVO' if nuevo == id_inactivo else 'ACTIVO'
+
+        db.execute_non_query("UPDATE prestamo SET id_estado=%s WHERE id_prestamo=%s", (nuevo, prestamo_id))
+        return jsonify({'message': 'Estado actualizado', 'estado': nombre_nuevo}), 200
+    except Exception as e:
+        logger.error('Error toggle prestamo %s: %s', prestamo_id, e)
         return jsonify({'message': 'Error al cambiar estado'}), 500
     finally:
         db.close()

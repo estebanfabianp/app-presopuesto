@@ -2,6 +2,16 @@
 
 {% block title %}Transacciones Programadas - App Presupuesto{% endblock %}
 
+{% block extra_css %}
+<style>
+.urg-chip { border:1px solid #cbd5e1; border-radius:999px; padding:.3rem .7rem; background:#fff; color:#334155; font-size:.8rem; }
+.urg-chip.active { background:#0ea5e9; color:#fff; border-color:#0ea5e9; }
+.sortable { cursor:pointer; user-select:none; }
+.sortable .sort-indicator { color:#94a3b8; font-size:.75rem; margin-left:.35rem; }
+.estado-pill { border-radius:999px; padding:.2rem .55rem; font-size:.75rem; font-weight:600; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
 
@@ -52,6 +62,42 @@
         </div>
     </div>
 
+    <!-- Resumen mensual proyectado -->
+    <div class="row g-3 mb-4" id="resumenMensualRow">
+        <div class="col-6 col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <div class="text-muted small mb-1">Ingresos mes (proy.)</div>
+                    <div class="fs-5 fw-bold text-success" id="kpiMesIngresos">—</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <div class="text-muted small mb-1">Gastos mes (proy.)</div>
+                    <div class="fs-5 fw-bold text-danger" id="kpiMesGastos">—</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <div class="text-muted small mb-1">Balance mes (proy.)</div>
+                    <div class="fs-5 fw-bold" id="kpiMesBalance">—</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <div class="text-muted small mb-1">Vencidas</div>
+                    <div class="fs-5 fw-bold text-secondary" id="kpiVencidas">—</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Filtros -->
     <div class="card mb-3">
         <div class="card-body py-2">
@@ -69,11 +115,30 @@
                     </select>
                 </div>
                 <div class="col-md-2">
+                    <select class="form-select" id="sortBy" onchange="filtrarTabla()">
+                        <option value="fecha_asc">Fecha próxima</option>
+                        <option value="fecha_desc">Fecha lejana</option>
+                        <option value="dias_asc">Días restantes</option>
+                        <option value="dias_desc">Días restantes (desc)</option>
+                        <option value="monto_desc">Monto mayor</option>
+                        <option value="monto_asc">Monto menor</option>
+                        <option value="tipo_asc">Tipo</option>
+                        <option value="tipo_desc">Tipo (desc)</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <button class="btn btn-outline-secondary w-100" onclick="cargarProgramadas()">
                         <i class="fas fa-sync-alt"></i> Actualizar
                     </button>
                 </div>
-                <div class="col-md-2 text-end">
+                <div class="col-md-12 d-flex flex-wrap gap-2 mt-2" id="filtrosUrgencia">
+                    <button class="urg-chip active" data-urg="todos">Todos</button>
+                    <button class="urg-chip" data-urg="hoy">Hoy</button>
+                    <button class="urg-chip" data-urg="3">Próx 3 días</button>
+                    <button class="urg-chip" data-urg="7">Próx 7 días</button>
+                    <button class="urg-chip" data-urg="vencidas">Vencidas</button>
+                </div>
+                <div class="col-md-12 text-end">
                     <small class="text-muted" id="contador"></small>
                 </div>
             </div>
@@ -98,13 +163,15 @@
                 <table class="table table-hover mb-0" id="tablaProg" style="display:none;">
                     <thead class="table-light">
                         <tr>
-                            <th>Próxima fecha</th>
+                            <th class="sortable" onclick="setSort('fecha')">Próxima fecha<span class="sort-indicator" id="si-fecha"></span></th>
+                            <th class="text-center sortable" onclick="setSort('dias')">Días restantes<span class="sort-indicator" id="si-dias"></span></th>
+                            <th class="text-center">Estado</th>
                             <th>Descripción / Nro.</th>
-                            <th>Tipo</th>
+                            <th class="sortable" onclick="setSort('tipo')">Tipo<span class="sort-indicator" id="si-tipo"></span></th>
                             <th>Categoría</th>
-                            <th>Beneficiario</th>
+                            <th class="sortable" onclick="setSort('beneficiario')">Beneficiario<span class="sort-indicator" id="si-beneficiario"></span></th>
                             <th>Repetición</th>
-                            <th class="text-end">Monto</th>
+                            <th class="text-end sortable" onclick="setSort('monto')">Monto<span class="sort-indicator" id="si-monto"></span></th>
                             <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -211,10 +278,17 @@
 /* ========================================================
    Transacciones Programadas — lógica JS
 ======================================================== */
-const BASE = '/api/programadas';
+const BASE = '/programadas';
 let todasProgramadas = [];
 let catalogos = {};
 let idEliminar = null;
+let filtroUrgencia = 'todos';
+let sortState = { key: 'fecha', dir: 'asc' };
+
+const apiGet = (endpoint) => api.request('GET', endpoint);
+const apiPost = (endpoint, payload) => api.request('POST', endpoint, payload);
+const apiPut = (endpoint, payload) => api.request('PUT', endpoint, payload);
+const apiDelete = (endpoint) => api.request('DELETE', endpoint);
 
 // ── Formateo ──────────────────────────────────────────
 const fmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
@@ -232,6 +306,15 @@ function diasHasta(fechaStr) {
     return Math.round((dest - hoy) / 86400000);
 }
 
+function estadoVisual(dias) {
+    if (dias === null) return { label: 'Sin fecha', cls: 'bg-secondary-subtle text-secondary' };
+    if (dias < 0) return { label: 'Vencida', cls: 'bg-secondary-subtle text-secondary' };
+    if (dias === 0) return { label: 'Hoy', cls: 'bg-danger-subtle text-danger' };
+    if (dias <= 3) return { label: 'Urgente', cls: 'bg-warning-subtle text-warning' };
+    if (dias <= 7) return { label: 'Próxima', cls: 'bg-info-subtle text-info' };
+    return { label: 'Programada', cls: 'bg-success-subtle text-success' };
+}
+
 // ── Carga inicial ─────────────────────────────────────
 async function init() {
     await Promise.all([cargarCatalogos(), cargarProgramadas()]);
@@ -239,7 +322,7 @@ async function init() {
 
 async function cargarCatalogos() {
     try {
-        const data = await api.get(`${BASE}/catalogos`);
+        const data = await apiGet(`${BASE}/catalogos`);
         catalogos = data;
         // Tipos
         const selTipo = document.getElementById('progTipo');
@@ -270,8 +353,9 @@ async function cargarProgramadas() {
     document.getElementById('emptyProg').style.display   = 'none';
 
     try {
-        todasProgramadas = await api.get(BASE);
+        todasProgramadas = await apiGet(BASE);
         actualizarKPIs(todasProgramadas);
+        actualizarResumenMensual(todasProgramadas);
         filtrarTabla();
     } catch(e) {
         console.error('Error cargando programadas:', e);
@@ -301,17 +385,109 @@ function actualizarKPIs(data) {
     document.getElementById('kpiProximas').textContent = proximas;
 }
 
+function actualizarResumenMensual(data) {
+    const hoy = new Date();
+    const y = hoy.getFullYear();
+    const m = hoy.getMonth();
+    let ingresosMes = 0;
+    let gastosMes = 0;
+    let vencidas = 0;
+
+    data.forEach(p => {
+        const dias = diasHasta(p.fecha);
+        if (dias !== null && dias < 0) vencidas += 1;
+
+        if (!p.fecha) return;
+        const d = new Date(p.fecha + 'T00:00:00');
+        if (Number.isNaN(d.getTime())) return;
+        if (d.getFullYear() === y && d.getMonth() === m) {
+            if ((p.tipo || '').toLowerCase() === 'ingreso') ingresosMes += Number(p.monto || 0);
+            else gastosMes += Number(p.monto || 0);
+        }
+    });
+
+    const balance = ingresosMes - gastosMes;
+    document.getElementById('kpiMesIngresos').textContent = fmt.format(ingresosMes);
+    document.getElementById('kpiMesGastos').textContent = fmt.format(gastosMes);
+    const elBalance = document.getElementById('kpiMesBalance');
+    elBalance.textContent = fmt.format(balance);
+    elBalance.classList.remove('text-success', 'text-danger');
+    elBalance.classList.add(balance >= 0 ? 'text-success' : 'text-danger');
+    document.getElementById('kpiVencidas').textContent = vencidas;
+}
+
+function actualizarIndicadoresOrden() {
+    document.querySelectorAll('.sort-indicator').forEach(el => { el.textContent = ''; });
+    const target = document.getElementById(`si-${sortState.key}`);
+    if (target) target.textContent = sortState.dir === 'asc' ? '▲' : '▼';
+}
+
+function setSort(key) {
+    if (sortState.key === key) {
+        sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortState.key = key;
+        sortState.dir = (key === 'monto') ? 'desc' : 'asc';
+    }
+    const map = {
+        fecha: `fecha_${sortState.dir}`,
+        dias: `dias_${sortState.dir}`,
+        monto: `monto_${sortState.dir}`,
+        tipo: `tipo_${sortState.dir}`,
+        beneficiario: `beneficiario_${sortState.dir}`,
+    };
+    document.getElementById('sortBy').value = map[key] || 'fecha_asc';
+    actualizarIndicadoresOrden();
+    filtrarTabla();
+}
+
 // ── Filtro + render tabla ─────────────────────────────
 function filtrarTabla() {
     const q    = (document.getElementById('filtroBuscar').value || '').toLowerCase();
     const tipo = (document.getElementById('filtroTipo').value || '').toLowerCase();
 
-    const filtradas = todasProgramadas.filter(p => {
+    let filtradas = todasProgramadas.filter(p => {
         const texto = `${p.numero_transaccion || ''} ${p.beneficiario || ''}`.toLowerCase();
         const matchQ    = !q    || texto.includes(q);
         const matchTipo = !tipo || (p.tipo || '').toLowerCase().includes(tipo);
-        return matchQ && matchTipo;
+        const dias = diasHasta(p.fecha);
+        const matchUrg = (
+            filtroUrgencia === 'todos' ||
+            (filtroUrgencia === 'hoy' && dias === 0) ||
+            (filtroUrgencia === '3' && dias !== null && dias >= 0 && dias <= 3) ||
+            (filtroUrgencia === '7' && dias !== null && dias >= 0 && dias <= 7) ||
+            (filtroUrgencia === 'vencidas' && dias !== null && dias < 0)
+        );
+        return matchQ && matchTipo && matchUrg;
     });
+
+    const sortBy = document.getElementById('sortBy').value;
+    const sorters = {
+        fecha_asc: (a, b) => (new Date((a.fecha || '9999-12-31') + 'T00:00:00')) - (new Date((b.fecha || '9999-12-31') + 'T00:00:00')),
+        fecha_desc: (a, b) => (new Date((b.fecha || '0001-01-01') + 'T00:00:00')) - (new Date((a.fecha || '0001-01-01') + 'T00:00:00')),
+        dias_asc: (a, b) => (diasHasta(a.fecha) ?? 99999) - (diasHasta(b.fecha) ?? 99999),
+        dias_desc: (a, b) => (diasHasta(b.fecha) ?? -99999) - (diasHasta(a.fecha) ?? -99999),
+        monto_desc: (a, b) => Number(b.monto || 0) - Number(a.monto || 0),
+        monto_asc: (a, b) => Number(a.monto || 0) - Number(b.monto || 0),
+        tipo_asc: (a, b) => String(a.tipo || '').localeCompare(String(b.tipo || ''), 'es'),
+        tipo_desc: (a, b) => String(b.tipo || '').localeCompare(String(a.tipo || ''), 'es'),
+        beneficiario_asc: (a, b) => String(a.beneficiario || '').localeCompare(String(b.beneficiario || ''), 'es'),
+        beneficiario_desc: (a, b) => String(b.beneficiario || '').localeCompare(String(a.beneficiario || ''), 'es'),
+    };
+    filtradas = [...filtradas].sort(sorters[sortBy] || sorters.fecha_asc);
+
+    const reverseMap = {
+        fecha_asc: ['fecha', 'asc'], fecha_desc: ['fecha', 'desc'],
+        dias_asc: ['dias', 'asc'], dias_desc: ['dias', 'desc'],
+        monto_desc: ['monto', 'desc'], monto_asc: ['monto', 'asc'],
+        tipo_asc: ['tipo', 'asc'], tipo_desc: ['tipo', 'desc'],
+        beneficiario_asc: ['beneficiario', 'asc'], beneficiario_desc: ['beneficiario', 'desc'],
+    };
+    if (reverseMap[sortBy]) {
+        sortState.key = reverseMap[sortBy][0];
+        sortState.dir = reverseMap[sortBy][1];
+    }
+    actualizarIndicadoresOrden();
 
     renderTabla(filtradas);
     document.getElementById('contador').textContent = `${filtradas.length} registro(s)`;
@@ -346,9 +522,12 @@ function renderTabla(data) {
 
         const rep = p.repeticion == 0 ? '<i class="fas fa-infinity text-muted"></i>'
                                      : `${p.repeticion}x`;
+        const est = estadoVisual(dias);
 
         return `<tr>
             <td><span class="fw-semibold">${fmtFecha(p.fecha)}</span>${badgeFecha}</td>
+            <td class="text-center">${dias === null ? '<span class="text-muted">—</span>' : (dias < 0 ? `<span class="text-danger fw-semibold">${Math.abs(dias)} día(s) vencido</span>` : (dias === 0 ? '<span class="text-danger fw-semibold">Hoy</span>' : `<span class="text-primary fw-semibold">${dias} día(s)</span>`))}</td>
+            <td class="text-center"><span class="estado-pill ${est.cls}">${est.label}</span></td>
             <td>${p.numero_transaccion || '<span class="text-muted">—</span>'}</td>
             <td>${tipoBadge}</td>
             <td>${p.categoria || '<span class="text-muted">—</span>'}</td>
@@ -382,7 +561,7 @@ function abrirModalNueva() {
 // ── Editar ────────────────────────────────────────────
 async function editarProgramada(id) {
     try {
-        const p = await api.get(`${BASE}/${id}`);
+        const p = await apiGet(`${BASE}/${id}`);
         document.getElementById('modalProgTitle').textContent = 'Editar transacción programada';
         document.getElementById('progId').value          = p.id_transaccion;
         document.getElementById('progTipo').value        = p.id_tipo || '';
@@ -422,9 +601,9 @@ document.getElementById('formProgramada').addEventListener('submit', async (e) =
     btn.disabled = true;
     try {
         if (id) {
-            await api.put(`${BASE}/${id}`, payload);
+            await apiPut(`${BASE}/${id}`, payload);
         } else {
-            await api.post(BASE, payload);
+            await apiPost(BASE, payload);
         }
         bootstrap.Modal.getInstance(document.getElementById('modalProgramada')).hide();
         await cargarProgramadas();
@@ -444,7 +623,7 @@ function confirmarEliminar(id) {
 document.getElementById('btnConfirmarEliminar').addEventListener('click', async () => {
     if (!idEliminar) return;
     try {
-        await api.delete(`${BASE}/${idEliminar}`);
+        await apiDelete(`${BASE}/${idEliminar}`);
         bootstrap.Modal.getInstance(document.getElementById('modalEliminar')).hide();
         await cargarProgramadas();
     } catch(e) {
@@ -455,6 +634,17 @@ document.getElementById('btnConfirmarEliminar').addEventListener('click', async 
 });
 
 // ── Arranque ──────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('filtrosUrgencia').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-urg]');
+        if (!btn) return;
+        document.querySelectorAll('#filtrosUrgencia .urg-chip').forEach(x => x.classList.remove('active'));
+        btn.classList.add('active');
+        filtroUrgencia = btn.dataset.urg;
+        filtrarTabla();
+    });
+    actualizarIndicadoresOrden();
+    init();
+});
 </script>
 {% endblock %}

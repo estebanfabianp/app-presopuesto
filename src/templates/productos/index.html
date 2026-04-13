@@ -27,6 +27,27 @@
 
 /* ── Sección vacía ───────────────────────────────────── */
 .empty-section { border:2px dashed #cbd5e1; border-radius:12px; padding:2rem; text-align:center; color:#94a3b8; }
+
+/* ── Alertas y filtros ───────────────────────────────── */
+.alertas-wrap .alert { border-radius:10px; }
+.quick-chip { border:1px solid #cbd5e1; background:#fff; color:#334155; border-radius:999px; padding:.35rem .75rem; font-size:.8rem; }
+.quick-chip.active { background:#0ea5e9; color:#fff; border-color:#0ea5e9; }
+.health-pill { border-radius:999px; padding:.2rem .55rem; font-size:.72rem; font-weight:600; }
+
+/* ── FAB móvil ───────────────────────────────────────── */
+.fab-nuevo {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1060;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  box-shadow: 0 8px 20px rgba(14, 165, 233, .35);
+}
+@media (min-width: 992px) {
+  .fab-nuevo { display: none; }
+}
 </style>
 {% endblock %}
 
@@ -46,7 +67,7 @@
             </div>
             <!-- botón principal con dropdown de tipo -->
             <div class="dropdown">
-                <button class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+              <button id="btnNuevoProducto" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
                     <i class="fas fa-plus"></i> Nuevo producto
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -58,9 +79,11 @@
                         <i class="fas fa-layer-group me-2 text-purple" style="color:#5b21b6"></i>Fondo de inversión</a></li>
                     <li><a class="dropdown-item" href="#" onclick="abrirModal('activo')">
                         <i class="fas fa-box me-2" style="color:#854d0e"></i>Activo físico</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="abrirModal('tarjeta')">
+                        <i class="fas fa-credit-card me-2" style="color:#be185d"></i>Tarjeta de crédito</a></li>
                     <li><hr class="dropdown-divider"></li>
                     <li><span class="dropdown-item-text small text-muted">
-                        <i class="fas fa-info-circle me-1"></i>Las tarjetas se gestionan en <a href="/tarjetas">Tarjetas</a>
+                        <i class="fas fa-info-circle me-1"></i><a href="/tarjetas">Gestionar tarjetas</a> desde el módulo de Tarjetas
                     </span></li>
                 </ul>
             </div>
@@ -69,6 +92,30 @@
 
     <!-- ── Chips resumen ──────────────────────────────────────────── -->
     <div id="resumenBar" class="row g-2 mb-4"></div>
+
+    <!-- ── Alertas accionables ───────────────────────────────────── -->
+    <div id="alertasHoy" class="alertas-wrap mb-3"></div>
+
+    <!-- ── Filtros rápidos y orden ───────────────────────────────── -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+      <div id="quickFilters" class="d-flex flex-wrap gap-2">
+        <button class="quick-chip active" data-qf="todos">Todos</button>
+        <button class="quick-chip" data-qf="riesgo">Con riesgo</button>
+        <button class="quick-chip" data-qf="vencimiento">Pago cercano</button>
+        <button class="quick-chip" data-qf="alto">Saldo alto</button>
+        <button class="quick-chip" data-qf="inactivos">Inactivos</button>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <label for="sortBy" class="small text-muted mb-0">Ordenar por</label>
+        <select id="sortBy" class="form-select form-select-sm" style="width:auto;min-width:220px;">
+          <option value="impacto">Mayor impacto</option>
+          <option value="deuda">Mayor deuda</option>
+          <option value="vencimiento">Próximo vencimiento</option>
+          <option value="estado">Estado (activos primero)</option>
+          <option value="nombre">Nombre A-Z</option>
+        </select>
+      </div>
+    </div>
 
     <!-- ── Tabs de tipo ───────────────────────────────────────────── -->
     <div class="d-flex flex-wrap gap-2 mb-3" id="tipoTabs">
@@ -94,6 +141,19 @@
         </div>
     </div>
 
+</div>
+
+<div class="dropup">
+  <button class="btn btn-info text-white fab-nuevo dropdown-toggle" data-bs-toggle="dropdown" aria-label="Nuevo producto">
+      <i class="fas fa-plus"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+      <li><a class="dropdown-item" href="#" onclick="abrirModal('cuenta')">Cuenta bancaria</a></li>
+      <li><a class="dropdown-item" href="#" onclick="abrirModal('tarjeta')">Tarjeta de crédito</a></li>
+      <li><a class="dropdown-item" href="#" onclick="abrirModal('accion')">Acción bursátil</a></li>
+      <li><a class="dropdown-item" href="#" onclick="abrirModal('fondo')">Fondo de inversión</a></li>
+      <li><a class="dropdown-item" href="#" onclick="abrirModal('activo')">Activo físico</a></li>
+  </ul>
 </div>
 
 <!-- ═══ MODAL CUENTA ════════════════════════════════════════════════════════ -->
@@ -234,6 +294,89 @@
   </div>
 </div>
 
+<!-- ═══ MODAL TARJETA ═══════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalTarjeta" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-credit-card me-2"></i><span id="tituloModalTarjeta">Nueva tarjeta</span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="tarjetaId">
+        <div class="mb-3">
+          <label class="form-label">Número de tarjeta <span class="text-danger">*</span></label>
+          <input type="text" id="tarjetaNumero" class="form-control" placeholder="4532 XXXX XXXX 1234" maxlength="16" pattern="[0-9]{16}">
+          <small class="text-muted">Ingresa solo números (16 dígitos)</small>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Nombre titular <span class="text-danger">*</span></label>
+          <input type="text" id="tarjetaNombreTitular" class="form-control" placeholder="Ej. Juan Pérez">
+        </div>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <small class="text-muted"><strong>Paso 1:</strong> datos obligatorios</small>
+          <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#tarjetaOpcionalWrap">
+            Paso 2 opcional
+          </button>
+        </div>
+        <div id="tarjetaOpcionalWrap" class="collapse show">
+        <div class="row">
+          <div class="col-6 mb-3">
+            <label class="form-label">Banco</label>
+            <input type="text" id="tarjetaBanco" class="form-control" placeholder="Ej. Bancolombia">
+          </div>
+          <div class="col-6 mb-3">
+            <label class="form-label">Tipo</label>
+            <select id="tarjetaTipo" class="form-select">
+              <option value="credito">Crédito</option>
+              <option value="debito">Débito</option>
+              <option value="prepago">Prepago</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-6 mb-3">
+            <label class="form-label">Límite crédito</label>
+            <input type="number" id="tarjetaLimite" class="form-control" value="0" step="0.01" min="0">
+          </div>
+          <div class="col-6 mb-3">
+            <label class="form-label">Saldo actual</label>
+            <input type="number" id="tarjetaSaldo" class="form-control" value="0" step="0.01">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Fecha vencimiento</label>
+          <input type="month" id="tarjetaVencimiento" class="form-control">
+        </div>
+        <div class="row">
+          <div class="col-6 mb-3">
+            <label class="form-label">Fecha de corte</label>
+            <input type="date" id="tarjetaFechaCorte" class="form-control">
+          </div>
+          <div class="col-6 mb-3">
+            <label class="form-label">Fecha de pago</label>
+            <input type="date" id="tarjetaFechaPago" class="form-control">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Estado</label>
+          <select id="tarjetaEstado" class="form-select">
+            <option value="activa">Activa</option>
+            <option value="bloqueada">Bloqueada</option>
+            <option value="vencida">Vencida</option>
+            <option value="inactiva">Inactiva</option>
+          </select>
+        </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarTarjeta()"><i class="fas fa-save me-1"></i>Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -244,6 +387,8 @@
 let _data   = {};          // última respuesta de /api/productos
 let _tipo   = 'todos';     // tab activo
 let _soloActivos = false;
+let _quickFilter = 'todos';
+let _sortBy = localStorage.getItem('productosSortBy') || 'impacto';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Bootstrap modals (lazy init)
@@ -265,11 +410,119 @@ async function cargarProductos() {
         if (res.status === 401) { window.location = '/login'; return; }
         _data = await res.json();
         renderResumen(_data.resumen);
+        renderAlertas();
         renderContenido();
     } catch (e) {
         document.getElementById('productosContent').innerHTML =
             `<div class="alert alert-danger">Error al cargar productos: ${e.message}</div>`;
     }
+}
+
+function fmtFecha(valor) {
+  if (!valor) return '';
+  const d = new Date(valor + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return valor;
+  return d.toLocaleDateString('es-CO', { year:'numeric', month:'short', day:'2-digit' });
+}
+
+function diasPara(fechaISO) {
+  if (!fechaISO) return null;
+  const hoy = new Date();
+  const base = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  const d = new Date(fechaISO + 'T00:00:00');
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.round((d.getTime() - base.getTime()) / 86400000);
+}
+
+function textoRelativo(fechaISO) {
+  const dias = diasPara(fechaISO);
+  if (dias === null) return '';
+  if (dias === 0) return 'hoy';
+  if (dias === 1) return 'mañana';
+  if (dias < 0) return `hace ${Math.abs(dias)} días`;
+  return `en ${dias} días`;
+}
+
+function healthBadge(tipo, item) {
+  let label = 'Normal';
+  let cls = 'bg-success-subtle text-success border border-success-subtle';
+
+  if (tipo === 'tarjetas') {
+    const limite = Number(item.limite_credito || 0);
+    const saldo = Number(item.saldo_actual || 0);
+    const uso = limite > 0 ? (saldo / limite) * 100 : 0;
+    const diasPago = diasPara(item.fecha_pago);
+    if (diasPago !== null && diasPago <= 3) {
+      label = 'Pago urgente';
+      cls = 'bg-danger-subtle text-danger border border-danger-subtle';
+    } else if (uso > 70) {
+      label = 'Uso alto';
+      cls = 'bg-warning-subtle text-warning border border-warning-subtle';
+    }
+  }
+
+  if ((item.estado || '').toUpperCase() === 'INACTIVO' || (item.estado || '').toUpperCase() === 'INACTIVA') {
+    label = 'Inactivo';
+    cls = 'bg-secondary-subtle text-secondary border border-secondary-subtle';
+  }
+
+  return `<span class="health-pill ${cls}">${label}</span>`;
+}
+
+function sparkline(values, color = '#0ea5e9') {
+  if (!values || !values.length) return '';
+  const w = 80;
+  const h = 20;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = Math.max(max - min, 1);
+  const step = values.length > 1 ? w / (values.length - 1) : w;
+  const points = values.map((v, i) => {
+    const x = i * step;
+    const y = h - ((v - min) / span) * h;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline fill="none" stroke="${color}" stroke-width="2" points="${points}"/></svg>`;
+}
+
+function renderAlertas() {
+  const box = document.getElementById('alertasHoy');
+  const alertas = [];
+  const tarjetas = _data.tarjetas || [];
+
+  tarjetas.forEach(t => {
+    const dias = diasPara(t.fecha_pago);
+    if (dias !== null && dias <= 3) {
+      alertas.push({
+        tipo: dias < 0 ? 'danger' : 'warning',
+        texto: `${t.nombre}: pago ${textoRelativo(t.fecha_pago)} (${fmtFecha(t.fecha_pago)})`,
+        accion: '/tarjetas',
+        cta: 'Ir a pagar'
+      });
+    }
+    const limite = Number(t.limite_credito || 0);
+    const uso = limite > 0 ? (Number(t.saldo_actual || 0) / limite) * 100 : 0;
+    if (uso > 80) {
+      alertas.push({
+        tipo: 'danger',
+        texto: `${t.nombre}: uso de cupo ${uso.toFixed(1)}%`,
+        accion: '/productos',
+        cta: 'Revisar'
+      });
+    }
+  });
+
+  if (!alertas.length) {
+    box.innerHTML = '';
+    return;
+  }
+
+  box.innerHTML = alertas.slice(0, 5).map(a => `
+    <div class="alert alert-${a.tipo} d-flex justify-content-between align-items-center py-2 px-3 mb-2">
+    <span><i class="fas fa-bell me-2"></i>${escHtml(a.texto)}</span>
+    <a class="btn btn-sm btn-outline-${a.tipo}" href="${a.accion}">${a.cta}</a>
+    </div>
+  `).join('');
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -335,7 +588,8 @@ function renderContenido() {
 
     let html = '';
     filtradas.forEach(s => {
-      const items = ordenarPorImpacto(s.key, _data[s.key] || []);
+      const itemsBase = _data[s.key] || [];
+      const items = ordenarItems(s.key, aplicarFiltroRapido(s.key, itemsBase));
         html += `
         <div class="mb-5 seccion-${s.key}">
             <h5 class="fw-semibold mb-3">
@@ -364,20 +618,64 @@ const estadoBadge = (e) => {
     return `<span class="badge bg-${activo?'success':'secondary'}">${activo?'Activo':'Inactivo'}</span>`;
 };
 
-function ordenarPorImpacto(tipo, items) {
-  const score = {
-    cuentas: (x) => Math.abs(Number(x.saldo_inicial || 0)),
-    tarjetas: (x) => Math.abs(Number(x.saldo_actual || 0)),
-    acciones: (x) => Math.abs(Number(x.valor_total || 0)),
-    fondos: (x) => Math.abs(Number(x.valor_total || 0)),
-    activos: (x) => Math.abs(Number(x.valor || 0)),
-    prestamos: (x) => Math.abs(Number(x.saldo_actual || 0)),
-  }[tipo] || (() => 0);
-  return [...items].sort((a, b) => score(b) - score(a));
+function valorImpacto(tipo, x) {
+  return {
+    cuentas: Number(x.saldo_inicial || 0),
+    tarjetas: Number(x.saldo_actual || 0),
+    acciones: Number(x.valor_total || 0),
+    fondos: Number(x.valor_total || 0),
+    activos: Number(x.valor || 0),
+    prestamos: Number(x.saldo_actual || 0),
+  }[tipo] || 0;
+}
+
+function aplicarFiltroRapido(tipo, items) {
+    if (_quickFilter === 'todos') return items;
+    return items.filter(x => {
+        const estado = (x.estado || '').toUpperCase();
+        if (_quickFilter === 'inactivos') return ['INACTIVO', 'INACTIVA'].includes(estado);
+        if (_quickFilter === 'alto') return Math.abs(valorImpacto(tipo, x)) >= 1000000;
+        if (_quickFilter === 'vencimiento' && tipo === 'tarjetas') {
+            const d = diasPara(x.fecha_pago);
+            return d !== null && d <= 7;
+        }
+        if (_quickFilter === 'riesgo' && tipo === 'tarjetas') {
+            const limite = Number(x.limite_credito || 0);
+            const uso = limite > 0 ? (Number(x.saldo_actual || 0) / limite) * 100 : 0;
+            return uso > 60;
+        }
+        if (_quickFilter === 'riesgo' && tipo === 'prestamos') {
+            return Number(x.saldo_actual || 0) > 0;
+        }
+        return _quickFilter === 'riesgo' ? Math.abs(valorImpacto(tipo, x)) > 0 : true;
+    });
+}
+
+function ordenarItems(tipo, items) {
+  const arr = [...items];
+  if (_sortBy === 'nombre') {
+      return arr.sort((a, b) => String(a.nombre || a.empresa || '').localeCompare(String(b.nombre || b.empresa || ''), 'es'));
+  }
+  if (_sortBy === 'estado') {
+      return arr.sort((a, b) => {
+          const aa = ['ACTIVO', 'ACTIVA'].includes((a.estado || '').toUpperCase()) ? 0 : 1;
+          const bb = ['ACTIVO', 'ACTIVA'].includes((b.estado || '').toUpperCase()) ? 0 : 1;
+          return aa - bb;
+      });
+  }
+  if (_sortBy === 'vencimiento' && tipo === 'tarjetas') {
+      return arr.sort((a, b) => (diasPara(a.fecha_pago) ?? 99999) - (diasPara(b.fecha_pago) ?? 99999));
+  }
+  if (_sortBy === 'deuda') {
+      return arr.sort((a, b) => Math.abs(valorImpacto(tipo, b)) - Math.abs(valorImpacto(tipo, a)));
+  }
+  return arr.sort((a, b) => Math.abs(valorImpacto(tipo, b)) - Math.abs(valorImpacto(tipo, a)));
 }
 
 function cardCuenta(c) {
     const cls = ['ACTIVO','ACTIVA'].includes((c.estado||'').toUpperCase()) ? '' : 'inactivo';
+    const saldo = Number(c.saldo_inicial || 0);
+    const trend = sparkline([saldo * 0.86, saldo * 0.92, saldo * 0.97, saldo], '#1d4ed8');
     return `
     <div class="col-12 col-sm-6 col-lg-4">
       <div class="card prod-card h-100 ${cls}">
@@ -387,6 +685,7 @@ function cardCuenta(c) {
             <div class="fw-semibold text-truncate">${escHtml(c.nombre)}</div>
             <small class="text-muted text-capitalize">${c.tipo}</small>
             <div class="mt-1 fw-bold text-primary">${fmt(c.saldo_inicial)} <span class="fw-normal small text-muted">${c.moneda}</span></div>
+            <small class="text-muted d-flex align-items-center gap-1">Tendencia: ${trend}</small>
             <div class="mt-1">${estadoBadge(c.estado)}</div>
           </div>
           <div class="d-flex flex-column gap-1">
@@ -407,6 +706,9 @@ function cardTarjeta(t) {
     const pct  = t.limite_credito > 0 ? Math.min(100, (t.saldo_actual/t.limite_credito)*100) : 0;
     const riesgo = pct < 30 ? 'success' : (pct <= 70 ? 'warning' : 'danger');
     const riesgoTxt = pct < 30 ? 'Bajo' : (pct <= 70 ? 'Medio' : 'Alto');
+    const pagoRel = textoRelativo(t.fecha_pago);
+    const estadoActivo = ['ACTIVO','ACTIVA'].includes((t.estado||'').toUpperCase());
+    const trend = sparkline([pct * 0.72, pct * 0.81, pct * 0.9, pct], '#be185d');
     return `
     <div class="col-12 col-sm-6 col-lg-4">
       <div class="card prod-card h-100 ${cls}">
@@ -419,6 +721,7 @@ function cardTarjeta(t) {
             </div>
             ${estadoBadge(t.estado)}
           </div>
+          <div class="mb-2">${healthBadge('tarjetas', t)}</div>
           <div class="mb-1 d-flex justify-content-between small">
             <span>Usado: ${fmt(t.saldo_actual)}</span><span>Límite: ${fmt(t.limite_credito)}</span>
           </div>
@@ -426,8 +729,19 @@ function cardTarjeta(t) {
             <div class="progress-bar bg-${riesgo}" style="width:${pct.toFixed(1)}%"></div>
           </div>
           <small class="text-${riesgo} d-block mb-1">Riesgo: ${riesgoTxt} (${pct.toFixed(1)}% del cupo)</small>
+          <small class="text-muted d-flex align-items-center gap-1">Tendencia uso: ${trend}</small>
           <small class="text-muted">Disponible: <strong>${fmt(disp)}</strong></small>
-          ${t.fecha_pago?`<br><small class="text-muted">Pago: ${t.fecha_pago}</small>`:''}
+          ${t.fecha_corte?`<br><small class="text-muted">Corte: ${fmtFecha(t.fecha_corte)}</small>`:''}
+          ${t.fecha_pago?`<br><small class="text-muted">Pago: ${fmtFecha(t.fecha_pago)} (${pagoRel})</small>`:''}
+          <div class="d-flex flex-wrap gap-1 mt-2">
+            <button class="btn btn-sm btn-outline-secondary" title="Editar" onclick="editarTarjeta(${JSON.stringify(t).replace(/"/g,'&quot;')})">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn btn-sm ${estadoActivo?'btn-outline-warning':'btn-outline-success'}" title="Cambiar estado" onclick="toggleEstado('tarjetas',${t.id},this)">
+              <i class="fas fa-${estadoActivo?'eye-slash':'eye'}"></i>
+            </button>
+            <a class="btn btn-sm btn-outline-primary" href="/tarjetas" title="Historial"><i class="fas fa-clock-rotate-left"></i></a>
+          </div>
         </div>
       </div>
     </div>`;
@@ -513,6 +827,7 @@ function cardActivo(a) {
 
 function cardPrestamo(p) {
     const cls = ['ACTIVO','ACTIVA'].includes((p.estado||'').toUpperCase()) ? '' : 'inactivo';
+    const estadoActivo = ['ACTIVO','ACTIVA'].includes((p.estado||'').toUpperCase());
     return `
     <div class="col-12 col-sm-6 col-lg-4">
       <div class="card prod-card h-100 ${cls}">
@@ -523,6 +838,11 @@ function cardPrestamo(p) {
             <small class="text-muted">Saldo pendiente</small>
             <div class="mt-1 fw-bold text-danger">${fmt(p.saldo_actual)}</div>
             <div class="mt-1">${estadoBadge(p.estado)}</div>
+          </div>
+          <div class="d-flex flex-column gap-1">
+            <button class="btn btn-sm ${estadoActivo?'btn-outline-warning':'btn-outline-success'}"
+                title="Cambiar estado" onclick="toggleEstado('prestamos',${p.id},this)">
+                <i class="fas fa-${estadoActivo?'eye-slash':'eye'}"></i></button>
           </div>
         </div>
       </div>
@@ -574,6 +894,20 @@ function abrirModal(tipo) {
         document.getElementById('activoValor').value = '0';
         document.getElementById('activoDepreciacion').value = '0';
         bsModal('modalActivo').show();
+    } else if (tipo === 'tarjeta') {
+        document.getElementById('tituloModalTarjeta').textContent = 'Nueva tarjeta';
+        document.getElementById('tarjetaId').value = '';
+        document.getElementById('tarjetaNumero').value = '';
+      document.getElementById('tarjetaNombreTitular').value = '';
+      document.getElementById('tarjetaBanco').value = '';
+      document.getElementById('tarjetaTipo').value = 'credito';
+      document.getElementById('tarjetaLimite').value = '0';
+      document.getElementById('tarjetaSaldo').value = '0';
+      document.getElementById('tarjetaVencimiento').value = '';
+      document.getElementById('tarjetaFechaCorte').value = '';
+      document.getElementById('tarjetaFechaPago').value = '';
+      document.getElementById('tarjetaEstado').value = 'activa';
+        bsModal('modalTarjeta').show();
     }
 }
 
@@ -626,6 +960,22 @@ function editarActivo(a) {
     bsModal('modalActivo').show();
 }
 
+  function editarTarjeta(t) {
+    document.getElementById('tituloModalTarjeta').textContent = 'Editar tarjeta';
+    document.getElementById('tarjetaId').value = t.id || '';
+    document.getElementById('tarjetaNumero').value = t.numero_tarjeta || '';
+    document.getElementById('tarjetaNombreTitular').value = t.nombre_titular || '';
+    document.getElementById('tarjetaBanco').value = t.banco || '';
+    document.getElementById('tarjetaTipo').value = t.tipo_tarjeta || 'credito';
+    document.getElementById('tarjetaLimite').value = t.limite_credito || 0;
+    document.getElementById('tarjetaSaldo').value = t.saldo_actual || 0;
+    document.getElementById('tarjetaVencimiento').value = (t.fecha_vencimiento || '').slice(0, 7);
+    document.getElementById('tarjetaFechaCorte').value = (t.fecha_corte || '').slice(0, 10);
+    document.getElementById('tarjetaFechaPago').value = (t.fecha_pago || '').slice(0, 10);
+    document.getElementById('tarjetaEstado').value = (t.estado || 'activa').toLowerCase();
+    bsModal('modalTarjeta').show();
+  }
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Guardar
 // ──────────────────────────────────────────────────────────────────────────────
@@ -637,6 +987,49 @@ async function apiCall(method, url, body) {
         body: JSON.stringify(body),
     });
     return res;
+}
+
+async function guardarTarjeta() {
+    const id = document.getElementById('tarjetaId').value;
+    const numero = (document.getElementById('tarjetaNumero').value || '').replace(/\D/g, '');
+    const nombreTitular = document.getElementById('tarjetaNombreTitular').value;
+    const banco = document.getElementById('tarjetaBanco').value;
+    const tipo = document.getElementById('tarjetaTipo').value;
+    const limite = parseFloat(document.getElementById('tarjetaLimite').value || 0);
+    const saldo = parseFloat(document.getElementById('tarjetaSaldo').value || 0);
+    const vencimiento = document.getElementById('tarjetaVencimiento').value;
+    const fechaCorte = document.getElementById('tarjetaFechaCorte').value;
+    const fechaPago = document.getElementById('tarjetaFechaPago').value;
+    const estado = document.getElementById('tarjetaEstado').value;
+
+    if (!numero || numero.length !== 16) { alert('El número de tarjeta debe tener 16 dígitos'); return; }
+    if (!nombreTitular) { alert('Ingresa el nombre del titular'); return; }
+
+    const body = {
+        numero_tarjeta: numero,
+        nombre_titular: nombreTitular,
+        banco: banco || null,
+        tipo_tarjeta: tipo,
+        limite_credito: limite,
+        saldo_actual: saldo,
+        fecha_vencimiento: vencimiento || null,
+        fecha_corte: fechaCorte || null,
+        fecha_pago: fechaPago || null,
+        estado: estado,
+    };
+
+    const res = id
+        ? await apiCall('PUT', `/api/productos/tarjetas/${id}`, body)
+        : await apiCall('POST', '/api/productos/tarjetas', body);
+
+    if (res.ok) {
+        toast('Tarjeta guardada correctamente');
+        bsModal('modalTarjeta').hide();
+        cargarProductos();
+    } else {
+        const error = await res.json();
+        alert(error.message || 'Error al guardar tarjeta');
+    }
 }
 
 async function guardarCuenta() {
@@ -701,7 +1094,7 @@ async function guardarActivo() {
 // ──────────────────────────────────────────────────────────────────────────────
 async function toggleEstado(tipo, id, btn) {
     const token = localStorage.getItem('authToken');
-    const mapa  = { cuentas:'cuentas', acciones:'acciones', activos:'activos' };
+  const mapa  = { cuentas:'cuentas', acciones:'acciones', activos:'activos', tarjetas:'tarjetas', prestamos:'prestamos' };
     const endpoint = `/api/productos/${mapa[tipo]}/${id}/estado`;
     btn.disabled = true;
     try {
@@ -725,6 +1118,9 @@ function escHtml(s) {
 // Eventos
 // ──────────────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  const sortBy = document.getElementById('sortBy');
+  sortBy.value = _sortBy;
+
     cargarProductos();
 
     document.getElementById('tipoTabs').addEventListener('click', e => {
@@ -739,6 +1135,21 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('soloActivos').addEventListener('change', e => {
         _soloActivos = e.target.checked;
         cargarProductos();
+    });
+
+    document.getElementById('quickFilters').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-qf]');
+      if (!btn) return;
+      document.querySelectorAll('#quickFilters .quick-chip').forEach(x => x.classList.remove('active'));
+      btn.classList.add('active');
+      _quickFilter = btn.dataset.qf;
+      renderContenido();
+    });
+
+    sortBy.addEventListener('change', (e) => {
+      _sortBy = e.target.value;
+      localStorage.setItem('productosSortBy', _sortBy);
+      renderContenido();
     });
 });
 </script>
