@@ -60,6 +60,8 @@ def create_app(env='development'):
         tarjetas,
         inversiones,
         metas,
+        programadas,
+        analisis,
     )
     
     app.register_blueprint(auth.bp)
@@ -75,6 +77,8 @@ def create_app(env='development'):
     app.register_blueprint(inversiones.bp)
     app.register_blueprint(metas.bp)
     app.register_blueprint(productos.bp)
+    app.register_blueprint(programadas.bp)
+    app.register_blueprint(analisis.bp)
     
     # Rutas de templates (pages, no API)
     @app.route('/')
@@ -149,6 +153,10 @@ def create_app(env='development'):
     @app.route('/perfil')
     def perfil_page():
         return render_template('perfil/index.html')
+
+    @app.route('/programadas')
+    def programadas_page():
+        return render_template('programadas/index.html')
 
     @app.route('/analisis')
     def analisis_page():

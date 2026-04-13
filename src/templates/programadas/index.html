@@ -1,0 +1,460 @@
+{% extends "base.html" %}
+
+{% block title %}Transacciones Programadas - App Presupuesto{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <!-- Encabezado -->
+    <div class="page-header mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h1 class="page-title"><i class="fas fa-calendar-alt"></i> Transacciones Programadas</h1>
+            <p class="text-muted mb-0">Gestiona tus pagos recurrentes y cobros automáticos.</p>
+        </div>
+        <button class="btn btn-primary" onclick="abrirModalNueva()">
+            <i class="fas fa-plus"></i> Nueva programada
+        </button>
+    </div>
+
+    <!-- KPIs -->
+    <div class="row g-3 mb-4" id="kpiRow">
+        <div class="col-6 col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <div class="text-muted small mb-1">Total registradas</div>
+                    <div class="fs-3 fw-bold text-primary" id="kpiTotal">—</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <div class="text-muted small mb-1">Gastos programados</div>
+                    <div class="fs-3 fw-bold text-danger" id="kpiGastos">—</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <div class="text-muted small mb-1">Ingresos programados</div>
+                    <div class="fs-3 fw-bold text-success" id="kpiIngresos">—</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <div class="text-muted small mb-1">Próximas (7 días)</div>
+                    <div class="fs-3 fw-bold text-warning" id="kpiProximas">—</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-5">
+                    <input type="text" class="form-control" id="filtroBuscar"
+                           placeholder="Buscar por descripción o beneficiario…"
+                           oninput="filtrarTabla()">
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="filtroTipo" onchange="filtrarTabla()">
+                        <option value="">— Todos los tipos —</option>
+                        <option value="gasto">Gastos</option>
+                        <option value="ingreso">Ingresos</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-outline-secondary w-100" onclick="cargarProgramadas()">
+                        <i class="fas fa-sync-alt"></i> Actualizar
+                    </button>
+                </div>
+                <div class="col-md-2 text-end">
+                    <small class="text-muted" id="contador"></small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div id="loadingProg" class="text-center py-5">
+                <div class="spinner-border text-primary"></div>
+                <p class="mt-2 text-muted">Cargando transacciones programadas…</p>
+            </div>
+            <div id="emptyProg" class="text-center py-5" style="display:none;">
+                <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                <p class="text-muted">No hay transacciones programadas. ¡Crea la primera!</p>
+                <button class="btn btn-primary" onclick="abrirModalNueva()">
+                    <i class="fas fa-plus"></i> Nueva programada
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="tablaProg" style="display:none;">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Próxima fecha</th>
+                            <th>Descripción / Nro.</th>
+                            <th>Tipo</th>
+                            <th>Categoría</th>
+                            <th>Beneficiario</th>
+                            <th>Repetición</th>
+                            <th class="text-end">Monto</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyProg"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     MODAL: Nueva / Editar transacción programada
+═══════════════════════════════════════════════ -->
+<div class="modal fade" id="modalProgramada" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="formProgramada" novalidate>
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalProgTitle">Nueva transacción programada</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="progId">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Tipo <span class="text-danger">*</span></label>
+                            <select class="form-select" id="progTipo" required>
+                                <option value="">Selecciona…</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Fecha de ejecución <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="progFecha" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Monto <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="progMonto"
+                                       min="0.01" step="0.01" placeholder="0.00" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Número / Referencia</label>
+                            <input type="text" class="form-control" id="progNumero"
+                                   placeholder="Ej. REF-2024-001" maxlength="45">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Categoría</label>
+                            <select class="form-select" id="progCategoria">
+                                <option value="">Sin categoría</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Beneficiario</label>
+                            <select class="form-select" id="progBeneficiario">
+                                <option value="">Sin beneficiario</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Repeticiones</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="progRepeticion"
+                                       min="0" step="1" placeholder="0 = sin límite" value="0">
+                                <span class="input-group-text text-muted">0 = ilimitado</span>
+                            </div>
+                            <div class="form-text">Número de veces que se ejecuta. 0 = recurrencia indefinida.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btnGuardarProg">
+                        <i class="fas fa-save"></i> Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal confirmar eliminación -->
+<div class="modal fade" id="modalEliminar" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-danger"><i class="fas fa-trash"></i> Eliminar</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Seguro que deseas eliminar esta transacción programada? Esta acción no se puede deshacer.</p>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">No</button>
+                <button type="button" class="btn btn-danger btn-sm" id="btnConfirmarEliminar">Sí, eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* ========================================================
+   Transacciones Programadas — lógica JS
+======================================================== */
+const BASE = '/api/programadas';
+let todasProgramadas = [];
+let catalogos = {};
+let idEliminar = null;
+
+// ── Formateo ──────────────────────────────────────────
+const fmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+
+function fmtFecha(str) {
+    if (!str) return '—';
+    const d = new Date(str + 'T00:00:00');
+    return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function diasHasta(fechaStr) {
+    if (!fechaStr) return null;
+    const hoy  = new Date(); hoy.setHours(0, 0, 0, 0);
+    const dest = new Date(fechaStr + 'T00:00:00');
+    return Math.round((dest - hoy) / 86400000);
+}
+
+// ── Carga inicial ─────────────────────────────────────
+async function init() {
+    await Promise.all([cargarCatalogos(), cargarProgramadas()]);
+}
+
+async function cargarCatalogos() {
+    try {
+        const data = await api.get(`${BASE}/catalogos`);
+        catalogos = data;
+        // Tipos
+        const selTipo = document.getElementById('progTipo');
+        (data.tipos || []).forEach(t => {
+            selTipo.insertAdjacentHTML('beforeend',
+                `<option value="${t.id}">${t.nombre}</option>`);
+        });
+        // Categorías
+        const selCat = document.getElementById('progCategoria');
+        (data.categorias || []).forEach(c => {
+            selCat.insertAdjacentHTML('beforeend',
+                `<option value="${c.id}">${c.nombre}</option>`);
+        });
+        // Beneficiarios
+        const selBen = document.getElementById('progBeneficiario');
+        (data.beneficiarios || []).forEach(b => {
+            selBen.insertAdjacentHTML('beforeend',
+                `<option value="${b.id}">${b.nombre}</option>`);
+        });
+    } catch(e) {
+        console.warn('Error cargando catálogos:', e);
+    }
+}
+
+async function cargarProgramadas() {
+    document.getElementById('loadingProg').style.display = '';
+    document.getElementById('tablaProg').style.display   = 'none';
+    document.getElementById('emptyProg').style.display   = 'none';
+
+    try {
+        todasProgramadas = await api.get(BASE);
+        actualizarKPIs(todasProgramadas);
+        filtrarTabla();
+    } catch(e) {
+        console.error('Error cargando programadas:', e);
+        document.getElementById('loadingProg').style.display = 'none';
+        document.getElementById('emptyProg').style.display   = '';
+    }
+}
+
+// ── KPIs ─────────────────────────────────────────────
+function actualizarKPIs(data) {
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    const en7 = new Date(hoy); en7.setDate(en7.getDate() + 7);
+
+    let gastos = 0, ingresos = 0, proximas = 0;
+    data.forEach(p => {
+        const t = (p.tipo || '').toLowerCase();
+        if (t === 'gasto')   gastos   += p.monto;
+        if (t === 'ingreso') ingresos += p.monto;
+        if (p.fecha) {
+            const d = new Date(p.fecha + 'T00:00:00');
+            if (d >= hoy && d <= en7) proximas++;
+        }
+    });
+    document.getElementById('kpiTotal').textContent    = data.length;
+    document.getElementById('kpiGastos').textContent   = fmt.format(gastos);
+    document.getElementById('kpiIngresos').textContent = fmt.format(ingresos);
+    document.getElementById('kpiProximas').textContent = proximas;
+}
+
+// ── Filtro + render tabla ─────────────────────────────
+function filtrarTabla() {
+    const q    = (document.getElementById('filtroBuscar').value || '').toLowerCase();
+    const tipo = (document.getElementById('filtroTipo').value || '').toLowerCase();
+
+    const filtradas = todasProgramadas.filter(p => {
+        const texto = `${p.numero_transaccion || ''} ${p.beneficiario || ''}`.toLowerCase();
+        const matchQ    = !q    || texto.includes(q);
+        const matchTipo = !tipo || (p.tipo || '').toLowerCase().includes(tipo);
+        return matchQ && matchTipo;
+    });
+
+    renderTabla(filtradas);
+    document.getElementById('contador').textContent = `${filtradas.length} registro(s)`;
+}
+
+function renderTabla(data) {
+    document.getElementById('loadingProg').style.display = 'none';
+
+    if (!data.length) {
+        document.getElementById('tablaProg').style.display = 'none';
+        document.getElementById('emptyProg').style.display = '';
+        return;
+    }
+
+    document.getElementById('emptyProg').style.display = 'none';
+    document.getElementById('tablaProg').style.display = '';
+
+    const tbody = document.getElementById('tbodyProg');
+    tbody.innerHTML = data.map(p => {
+        const dias  = diasHasta(p.fecha);
+        let badgeFecha = '';
+        if (dias !== null) {
+            if (dias < 0)      badgeFecha = `<span class="badge bg-secondary ms-1">Vencida</span>`;
+            else if (dias === 0) badgeFecha = `<span class="badge bg-danger ms-1">Hoy</span>`;
+            else if (dias <= 3) badgeFecha = `<span class="badge bg-warning text-dark ms-1">En ${dias}d</span>`;
+            else if (dias <= 7) badgeFecha = `<span class="badge bg-info ms-1">En ${dias}d</span>`;
+        }
+
+        const tipoBadge = (p.tipo || '').toLowerCase() === 'ingreso'
+            ? `<span class="badge bg-success-subtle text-success">${p.tipo}</span>`
+            : `<span class="badge bg-danger-subtle text-danger">${p.tipo || '—'}</span>`;
+
+        const rep = p.repeticion == 0 ? '<i class="fas fa-infinity text-muted"></i>'
+                                     : `${p.repeticion}x`;
+
+        return `<tr>
+            <td><span class="fw-semibold">${fmtFecha(p.fecha)}</span>${badgeFecha}</td>
+            <td>${p.numero_transaccion || '<span class="text-muted">—</span>'}</td>
+            <td>${tipoBadge}</td>
+            <td>${p.categoria || '<span class="text-muted">—</span>'}</td>
+            <td>${p.beneficiario || '<span class="text-muted">—</span>'}</td>
+            <td class="text-center">${rep}</td>
+            <td class="text-end fw-semibold">${fmt.format(p.monto)}</td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-outline-primary me-1" title="Editar"
+                        onclick="editarProgramada(${p.id_transaccion})">
+                    <i class="fas fa-pencil-alt"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" title="Eliminar"
+                        onclick="confirmarEliminar(${p.id_transaccion})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+// ── Modal nueva ────────────────────────────────────────
+function abrirModalNueva() {
+    document.getElementById('modalProgTitle').textContent = 'Nueva transacción programada';
+    document.getElementById('formProgramada').reset();
+    document.getElementById('progId').value = '';
+    // Fecha por defecto: hoy
+    document.getElementById('progFecha').value = new Date().toISOString().slice(0, 10);
+    new bootstrap.Modal(document.getElementById('modalProgramada')).show();
+}
+
+// ── Editar ────────────────────────────────────────────
+async function editarProgramada(id) {
+    try {
+        const p = await api.get(`${BASE}/${id}`);
+        document.getElementById('modalProgTitle').textContent = 'Editar transacción programada';
+        document.getElementById('progId').value          = p.id_transaccion;
+        document.getElementById('progTipo').value        = p.id_tipo || '';
+        document.getElementById('progFecha').value       = p.fecha || '';
+        document.getElementById('progMonto').value       = p.monto || '';
+        document.getElementById('progNumero').value      = p.numero_transaccion || '';
+        document.getElementById('progCategoria').value   = p.id_categoria || '';
+        document.getElementById('progBeneficiario').value = p.id_beneficiario || '';
+        document.getElementById('progRepeticion').value  = p.repeticion ?? 0;
+        new bootstrap.Modal(document.getElementById('modalProgramada')).show();
+    } catch(e) {
+        alert('Error cargando la transacción: ' + e.message);
+    }
+}
+
+// ── Guardar (create / update) ─────────────────────────
+document.getElementById('formProgramada').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('progId').value;
+
+    const payload = {
+        id_tipo:            parseInt(document.getElementById('progTipo').value),
+        fecha:              document.getElementById('progFecha').value,
+        monto:              parseFloat(document.getElementById('progMonto').value),
+        numero_transaccion: document.getElementById('progNumero').value.trim(),
+        id_categoria:       document.getElementById('progCategoria').value || null,
+        id_beneficiario:    document.getElementById('progBeneficiario').value || null,
+        repeticion:         parseInt(document.getElementById('progRepeticion').value) || 0,
+    };
+
+    if (!payload.id_tipo || !payload.fecha || !payload.monto) {
+        alert('Completa los campos obligatorios: Tipo, Fecha y Monto.');
+        return;
+    }
+
+    const btn = document.getElementById('btnGuardarProg');
+    btn.disabled = true;
+    try {
+        if (id) {
+            await api.put(`${BASE}/${id}`, payload);
+        } else {
+            await api.post(BASE, payload);
+        }
+        bootstrap.Modal.getInstance(document.getElementById('modalProgramada')).hide();
+        await cargarProgramadas();
+    } catch(e) {
+        alert('Error al guardar: ' + (e.message || e));
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+// ── Eliminar ──────────────────────────────────────────
+function confirmarEliminar(id) {
+    idEliminar = id;
+    new bootstrap.Modal(document.getElementById('modalEliminar')).show();
+}
+
+document.getElementById('btnConfirmarEliminar').addEventListener('click', async () => {
+    if (!idEliminar) return;
+    try {
+        await api.delete(`${BASE}/${idEliminar}`);
+        bootstrap.Modal.getInstance(document.getElementById('modalEliminar')).hide();
+        await cargarProgramadas();
+    } catch(e) {
+        alert('Error eliminando: ' + (e.message || e));
+    } finally {
+        idEliminar = null;
+    }
+});
+
+// ── Arranque ──────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', init);
+</script>
+{% endblock %}

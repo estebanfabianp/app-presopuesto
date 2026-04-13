@@ -1,51 +1,461 @@
 {% extends "base.html" %}
 
-{% block title %}Análisis - App Presupuesto{% endblock %}
+{% block title %}Análisis de Consumo - App Presupuesto{% endblock %}
+
+{% block extra_css %}
+<style>
+.chart-card { min-height: 320px; }
+.kpi-icon { font-size: 1.8rem; opacity: 0.15; }
+.var-positive { color: var(--bs-danger); }
+.var-negative  { color: var(--bs-success); }
+.var-neutral   { color: var(--bs-secondary); }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
-	<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
-		<div>
-			<h1 class="page-title mb-1"><i class="fas fa-magnifying-glass-chart"></i> Análisis</h1>
-			<p class="text-muted mb-0">Lectura avanzada de comportamiento financiero.</p>
-		</div>
-		<span class="badge bg-warning text-dark">En construcción</span>
-	</div>
 
-	<div class="card mb-4">
-		<div class="card-body">
-			<h5 class="mb-3">Resumen rápido</h5>
-			<div class="row g-3">
-				<div class="col-md-3"><strong>Ingresos:</strong> <span id="kpiIngresos">$0.00</span></div>
-				<div class="col-md-3"><strong>Gastos:</strong> <span id="kpiGastos">$0.00</span></div>
-				<div class="col-md-3"><strong>Saldo:</strong> <span id="kpiSaldo">$0.00</span></div>
-				<div class="col-md-3"><strong>Presupuestos:</strong> <span id="kpiPresupuestos">0</span></div>
-			</div>
-		</div>
-	</div>
+    <!-- Encabezado -->
+    <div class="page-header mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h1 class="page-title"><i class="fas fa-chart-bar"></i> Análisis de Consumo</h1>
+            <p class="text-muted mb-0">Visualiza y analiza tus patrones de gasto e ingreso.</p>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            <label class="text-muted small mb-0">Periodo:</label>
+            <select class="form-select form-select-sm" id="selMeses" onchange="recargarTodo()" style="width:auto;">
+                <option value="1">Último mes</option>
+                <option value="3" selected>Últimos 3 meses</option>
+                <option value="6">Últimos 6 meses</option>
+                <option value="12">Últimos 12 meses</option>
+            </select>
+            <button class="btn btn-sm btn-outline-secondary" onclick="recargarTodo()">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+    </div>
 
-	<div class="card">
-		<div class="card-body">
-			<h5 class="mb-2">Acceso temporal a análisis</h5>
-			<p class="text-muted mb-3">La funcionalidad avanzada estará disponible en esta sección. Mientras tanto, usa reportes para análisis mensual.</p>
-			<a href="/reportes" class="btn btn-outline-dark btn-sm"><i class="fas fa-chart-column"></i> Ir a reportes</a>
-		</div>
-	</div>
+    <!-- KPIs principales -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="flex-grow-1">
+                        <div class="text-muted small">Ingresos (periodo)</div>
+                        <div class="fs-4 fw-bold text-success" id="kpiIngresos">…</div>
+                    </div>
+                    <i class="fas fa-arrow-up kpi-icon text-success"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="flex-grow-1">
+                        <div class="text-muted small">Gastos (periodo)</div>
+                        <div class="fs-4 fw-bold text-danger" id="kpiGastos">…</div>
+                    </div>
+                    <i class="fas fa-arrow-down kpi-icon text-danger"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="flex-grow-1">
+                        <div class="text-muted small">Ahorro neto</div>
+                        <div class="fs-4 fw-bold" id="kpiAhorro">…</div>
+                        <div class="text-muted small" id="kpiTasaAhorro"></div>
+                    </div>
+                    <i class="fas fa-piggy-bank kpi-icon text-primary"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small mb-1">Ejecución presupuesto (mes)</div>
+                    <div class="fs-4 fw-bold" id="kpiPresupuesto">…</div>
+                    <div class="progress mt-2" style="height:6px;">
+                        <div class="progress-bar" id="barPresupuesto" style="width:0%"></div>
+                    </div>
+                    <div class="text-muted small mt-1" id="kpiPresupuestoSub"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gasto por categoría + Tendencia mensual -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-5">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold"><i class="fas fa-tags me-1"></i>Gasto por categoría</span>
+                    <small class="text-muted" id="lblPeriodoCat"></small>
+                </div>
+                <div class="card-body chart-card d-flex flex-column">
+                    <div class="flex-grow-1 position-relative">
+                        <canvas id="chartCategoria"></canvas>
+                    </div>
+                    <div id="loadingCat" class="text-center py-3 text-muted small">
+                        <div class="spinner-border spinner-border-sm me-1"></div> Cargando…
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-7">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold"><i class="fas fa-chart-line me-1"></i>Tendencia mensual</span>
+                    <small class="text-muted" id="lblPeriodoTend"></small>
+                </div>
+                <div class="card-body chart-card d-flex flex-column">
+                    <div class="flex-grow-1 position-relative">
+                        <canvas id="chartTendencia"></canvas>
+                    </div>
+                    <div id="loadingTend" class="text-center py-3 text-muted small">
+                        <div class="spinner-border spinner-border-sm me-1"></div> Cargando…
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comparativa + Top gastos -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <span class="fw-semibold"><i class="fas fa-balance-scale me-1"></i>Comparativa: mes actual vs anterior</span>
+                </div>
+                <div class="card-body p-0">
+                    <div id="loadingComp" class="text-center py-4 text-muted small">
+                        <div class="spinner-border spinner-border-sm me-1"></div> Cargando…
+                    </div>
+                    <div class="table-responsive" id="tablaCompWrap" style="display:none; max-height:320px; overflow-y:auto;">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Categoría</th>
+                                    <th class="text-end">Mes anterior</th>
+                                    <th class="text-end">Mes actual</th>
+                                    <th class="text-end">Variación</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyComp"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold"><i class="fas fa-fire me-1"></i>Top gastos del periodo</span>
+                    <select class="form-select form-select-sm" id="selTopMeses" onchange="cargarTopGastos()" style="width:auto;">
+                        <option value="1" selected>Este mes</option>
+                        <option value="3">3 meses</option>
+                    </select>
+                </div>
+                <div class="card-body p-0">
+                    <div id="loadingTop" class="text-center py-4 text-muted small">
+                        <div class="spinner-border spinner-border-sm me-1"></div> Cargando…
+                    </div>
+                    <div class="table-responsive" id="tablaTopWrap" style="display:none; max-height:320px; overflow-y:auto;">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Descripción</th>
+                                    <th>Categoría</th>
+                                    <th class="text-end">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyTop"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Análisis de Tarjetas -->
+    <div class="row g-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <span class="fw-semibold"><i class="fas fa-credit-card me-1"></i>Uso de tarjetas de crédito</span>
+                </div>
+                <div class="card-body">
+                    <div id="loadingTarj" class="text-center py-4 text-muted small">
+                        <div class="spinner-border spinner-border-sm me-1"></div> Cargando…
+                    </div>
+                    <div id="tarjetasGrid" class="row g-3" style="display:none;"></div>
+                    <div id="emptyTarj" class="text-center py-4 text-muted" style="display:none;">
+                        <i class="fas fa-credit-card fa-2x mb-2"></i>
+                        <p>No hay tarjetas de crédito registradas.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', async () => {
-	try {
-		const summary = await api.getDashboardSummary();
-		document.getElementById('kpiIngresos').textContent = formatCurrency(summary.total_ingresos || 0);
-		document.getElementById('kpiGastos').textContent = formatCurrency(summary.total_gastos || 0);
-		document.getElementById('kpiSaldo').textContent = formatCurrency(summary.saldo || 0);
-		document.getElementById('kpiPresupuestos').textContent = summary.presupuestos_activos || 0;
-	} catch (error) {
-		console.error('Error cargando resumen en análisis:', error);
-	}
-});
+/* ========================================================
+   Análisis de Consumo — lógica JS
+======================================================== */
+const BASE_AN = '/api/analisis';
+
+const fmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+const fmtPct = v => (v !== null && v !== undefined) ? `${v > 0 ? '+' : ''}${v}%` : '—';
+
+let chartCategoria = null;
+let chartTendencia = null;
+
+const PALETTE = [
+    '#FF6384','#36A2EB','#FFCE56','#4BC0C0','#9966FF',
+    '#FF9F40','#C9CBCF','#71B37C','#A8DADC','#E07B53',
+    '#6B5B93','#88B04B','#F7CAC9','#92A8D1','#955251',
+];
+
+function getMeses() { return parseInt(document.getElementById('selMeses').value); }
+
+function recargarTodo() {
+    const m = getMeses();
+    const lbl = m === 1 ? 'último mes' : `últimos ${m} meses`;
+    document.getElementById('lblPeriodoCat').textContent  = lbl;
+    document.getElementById('lblPeriodoTend').textContent = lbl;
+    cargarResumen(m);
+    cargarPorCategoria(m);
+    cargarTendencia(m);
+    cargarComparativa();
+    cargarTopGastos();
+    cargarTarjetas();
+}
+
+async function cargarResumen(meses) {
+    try {
+        const d = await api.get(`${BASE_AN}/resumen?meses=${meses}`);
+        document.getElementById('kpiIngresos').textContent = fmt.format(d.ingresos);
+        document.getElementById('kpiGastos').textContent   = fmt.format(d.gastos);
+
+        const ahorroEl = document.getElementById('kpiAhorro');
+        ahorroEl.textContent = fmt.format(d.ahorro);
+        ahorroEl.className   = `fs-4 fw-bold ${d.ahorro >= 0 ? 'text-success' : 'text-danger'}`;
+        document.getElementById('kpiTasaAhorro').textContent = `Tasa de ahorro: ${d.tasa_ahorro}%`;
+
+        if (d.pct_presupuesto !== null) {
+            const pct = Math.min(d.pct_presupuesto, 100);
+            document.getElementById('kpiPresupuesto').textContent = `${d.pct_presupuesto}%`;
+            const bar = document.getElementById('barPresupuesto');
+            bar.style.width = `${pct}%`;
+            bar.className   = `progress-bar ${pct >= 90 ? 'bg-danger' : pct >= 70 ? 'bg-warning' : 'bg-success'}`;
+            document.getElementById('kpiPresupuestoSub').textContent =
+                `${fmt.format(d.gasto_mes)} / ${fmt.format(d.presupuesto_total)}`;
+        } else {
+            document.getElementById('kpiPresupuesto').textContent = 'Sin datos';
+        }
+    } catch(e) { console.error('Error resumen:', e); }
+}
+
+async function cargarPorCategoria(meses) {
+    document.getElementById('loadingCat').style.display = '';
+    try {
+        const data = await api.get(`${BASE_AN}/por-categoria?meses=${meses}`);
+        document.getElementById('loadingCat').style.display = 'none';
+        if (!data.length) return;
+
+        const labels  = data.map(r => r.categoria);
+        const valores = data.map(r => r.total);
+
+        if (chartCategoria) chartCategoria.destroy();
+        chartCategoria = new Chart(
+            document.getElementById('chartCategoria').getContext('2d'),
+            {
+                type: 'doughnut',
+                data: {
+                    labels,
+                    datasets: [{
+                        data: valores,
+                        backgroundColor: PALETTE.slice(0, labels.length),
+                        borderWidth: 2,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { boxWidth: 14, font: { size: 12 } } },
+                        tooltip: { callbacks: { label: ctx => ` ${fmt.format(ctx.raw)}` } }
+                    }
+                }
+            }
+        );
+    } catch(e) {
+        console.error('Error por categoría:', e);
+        document.getElementById('loadingCat').style.display = 'none';
+    }
+}
+
+async function cargarTendencia(meses) {
+    document.getElementById('loadingTend').style.display = '';
+    try {
+        const data = await api.get(`${BASE_AN}/tendencia?meses=${meses}`);
+        document.getElementById('loadingTend').style.display = 'none';
+        if (!data.length) return;
+
+        if (chartTendencia) chartTendencia.destroy();
+        chartTendencia = new Chart(
+            document.getElementById('chartTendencia').getContext('2d'),
+            {
+                type: 'line',
+                data: {
+                    labels: data.map(r => r.mes),
+                    datasets: [
+                        { label: 'Ingresos', data: data.map(r => r.ingresos),
+                          borderColor: '#28a745', backgroundColor: 'rgba(40,167,69,.1)',
+                          tension: 0.3, fill: false, pointRadius: 4 },
+                        { label: 'Gastos', data: data.map(r => r.gastos),
+                          borderColor: '#dc3545', backgroundColor: 'rgba(220,53,69,.1)',
+                          tension: 0.3, fill: false, pointRadius: 4 },
+                        { label: 'Ahorro', data: data.map(r => r.ahorro),
+                          borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,.1)',
+                          tension: 0.3, fill: true, pointRadius: 3, borderDash: [5,3] },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt.format(ctx.raw)}` } }
+                    },
+                    scales: { y: { ticks: { callback: v => fmt.format(v) } } }
+                }
+            }
+        );
+    } catch(e) {
+        console.error('Error tendencia:', e);
+        document.getElementById('loadingTend').style.display = 'none';
+    }
+}
+
+async function cargarComparativa() {
+    document.getElementById('loadingComp').style.display = '';
+    document.getElementById('tablaCompWrap').style.display = 'none';
+    try {
+        const data = await api.get(`${BASE_AN}/comparativa-meses`);
+        document.getElementById('loadingComp').style.display = 'none';
+        if (!data.length) return;
+        document.getElementById('tablaCompWrap').style.display = '';
+
+        document.getElementById('tbodyComp').innerHTML = data.map(r => {
+            const varVal = r.variacion;
+            let varHtml = '—';
+            if (varVal !== null && varVal !== undefined) {
+                const cls  = varVal > 5  ? 'var-positive' : varVal < -5 ? 'var-negative' : 'var-neutral';
+                const icon = varVal > 0  ? 'fa-arrow-up' : varVal < 0 ? 'fa-arrow-down' : 'fa-minus';
+                varHtml = `<span class="${cls}"><i class="fas ${icon} me-1"></i>${fmtPct(varVal)}</span>`;
+            }
+            return `<tr>
+                <td>${r.categoria}</td>
+                <td class="text-end">${fmt.format(r.mes_anterior)}</td>
+                <td class="text-end fw-semibold">${fmt.format(r.mes_actual)}</td>
+                <td class="text-end">${varHtml}</td>
+            </tr>`;
+        }).join('');
+    } catch(e) {
+        console.error('Error comparativa:', e);
+        document.getElementById('loadingComp').style.display = 'none';
+    }
+}
+
+async function cargarTopGastos() {
+    const meses = parseInt(document.getElementById('selTopMeses').value);
+    document.getElementById('loadingTop').style.display = '';
+    document.getElementById('tablaTopWrap').style.display = 'none';
+    try {
+        const data = await api.get(`${BASE_AN}/top-gastos?meses=${meses}&limite=10`);
+        document.getElementById('loadingTop').style.display = 'none';
+        if (!data.length) return;
+        document.getElementById('tablaTopWrap').style.display = '';
+
+        document.getElementById('tbodyTop').innerHTML = data.map(r => `<tr>
+            <td>${r.fecha}</td>
+            <td>${r.descripcion || '<span class="text-muted">—</span>'}</td>
+            <td><span class="badge bg-secondary-subtle text-secondary">${r.categoria}</span></td>
+            <td class="text-end fw-semibold text-danger">${fmt.format(r.monto)}</td>
+        </tr>`).join('');
+    } catch(e) {
+        console.error('Error top-gastos:', e);
+        document.getElementById('loadingTop').style.display = 'none';
+    }
+}
+
+async function cargarTarjetas() {
+    document.getElementById('loadingTarj').style.display = '';
+    document.getElementById('tarjetasGrid').style.display = 'none';
+    document.getElementById('emptyTarj').style.display   = 'none';
+    try {
+        const data = await api.get(`${BASE_AN}/tarjetas`);
+        document.getElementById('loadingTarj').style.display = 'none';
+
+        if (!data.length) {
+            document.getElementById('emptyTarj').style.display = '';
+            return;
+        }
+        document.getElementById('tarjetasGrid').style.display = '';
+        document.getElementById('tarjetasGrid').innerHTML = data.map(t => {
+            const pct    = t.pct_uso;
+            const barCls = pct >= 90 ? 'bg-danger' : pct >= 70 ? 'bg-warning' : 'bg-success';
+            const estCls = (t.estado || '').toLowerCase() === 'activa'
+                ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary';
+            return `<div class="col-md-4 col-lg-3">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div><i class="fas fa-credit-card text-primary me-1"></i>
+                                <span class="fw-semibold">••• ${(t.numero || '').slice(-4)}</span></div>
+                            <span class="badge ${estCls}">${t.estado}</span>
+                        </div>
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between small text-muted mb-1">
+                                <span>Uso: ${pct}%</span>
+                                <span>${fmt.format(t.saldo)} / ${fmt.format(t.limite)}</span>
+                            </div>
+                            <div class="progress" style="height:6px;">
+                                <div class="progress-bar ${barCls}" style="width:${Math.min(pct,100)}%"></div>
+                            </div>
+                        </div>
+                        <div class="row g-1 text-center small mt-2">
+                            <div class="col-4">
+                                <div class="text-muted">Disponible</div>
+                                <div class="fw-semibold text-success">${fmt.format(t.disponible)}</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-muted">Gasto mes</div>
+                                <div class="fw-semibold text-danger">${fmt.format(t.gasto_mes)}</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-muted">Diferidos</div>
+                                <div class="fw-semibold">${t.diferidos}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e) {
+        console.error('Error tarjetas:', e);
+        document.getElementById('loadingTarj').style.display = 'none';
+        document.getElementById('emptyTarj').style.display   = '';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', recargarTodo);
 </script>
 {% endblock %}

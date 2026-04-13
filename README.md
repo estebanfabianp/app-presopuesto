@@ -1,14 +1,14 @@
 # App Presupuesto
 
-Aplicación de gestión financiera en transición desde una interfaz Flet hacia una capa web Flask + Jinja, manteniendo la lógica de negocio y la persistencia en Python y MySQL/MariaDB.
+Aplicación de gestión de finanzas personales con capa web Flask + Jinja y base de datos MySQL/MariaDB.
 
 ## Estado actual
 
-- Interfaz de escritorio existente en Flet con entrada principal en `main.py`.
-- Capa web inicial en Flask con entrada principal en `app.py`.
-- APIs web disponibles para autenticación, presupuestos, transacciones y reportes.
+- Capa web Flask como interfaz principal, con entrada en `app.py`.
+- Interfaz de escritorio Flet heredada disponible en `main.py` (en proceso de deprecación).
+- APIs REST completas para autenticación, dashboard, presupuesto, transacciones, reportes, tarjetas, inversiones, metas, categorías, beneficiarios, constantes, transacciones programadas y análisis de consumo.
 - Base de datos real en MySQL/MariaDB con script de inicialización y modo de mantenimiento seguro.
-- Módulos de ETL y utilidades de verificación todavía activos en el proyecto.
+- Módulos de ETL y utilidades de verificación activos en el proyecto.
 
 ## Modos de ejecución
 
@@ -59,17 +59,47 @@ Notas:
 
 ```text
 app-presopuesto/
-├── app.py                     # Entrada web Flask
-├── main.py                    # Entrada escritorio Flet
+├── app.py                     # Entrada web Flask (principal)
+├── main.py                    # Entrada escritorio Flet (heredado)
 ├── src/
 │   ├── business/services/     # ETL y servicios de negocio
 │   ├── controllers/           # Lógica usada por la UI de escritorio
 │   ├── database/              # Conector y configuración de BD
 │   ├── models/                # Modelos de dominio
 │   ├── routes/                # Blueprints Flask
+│   │   ├── auth.py
+│   │   ├── dashboard.py
+│   │   ├── transacciones.py
+│   │   ├── presupuesto.py
+│   │   ├── reportes.py
+│   │   ├── tarjetas.py
+│   │   ├── inversiones.py
+│   │   ├── metas.py
+│   │   ├── productos.py
+│   │   ├── cuentas_bancarias.py
+│   │   ├── categorias.py
+│   │   ├── beneficiarios.py
+│   │   ├── constantes.py
+│   │   ├── programadas.py     # Transacciones programadas (recurrentes)
+│   │   └── analisis.py        # Análisis de consumo
 │   ├── static/                # CSS y JS de la versión web
 │   ├── templates/             # Templates Jinja
-│   └── views/                 # Vistas Flet existentes
+│   │   ├── dashboard/
+│   │   ├── transacciones/
+│   │   ├── presupuesto/
+│   │   ├── reportes/
+│   │   ├── tarjetas/
+│   │   ├── inversiones/
+│   │   ├── metas/
+│   │   ├── productos/
+│   │   ├── cuentas_bancarias/
+│   │   ├── categorias/
+│   │   ├── beneficiarios/
+│   │   ├── constantes/
+│   │   ├── programadas/       # Interfaz transacciones programadas
+│   │   ├── analisis/          # Interfaz análisis de consumo
+│   │   └── components/
+│   └── views/                 # Vistas Flet existentes (heredadas)
 ├── base_de_datos/db/          # Scripts SQL y batch de inicialización
 ├── docs/                      # Documentación vigente
 ├── scripts/verify/            # Verificaciones manuales
@@ -82,14 +112,32 @@ app-presopuesto/
 - `docs/ARCHITECTURE.md`: arquitectura actual.
 - `docs/DATABASE_SETUP.md`: inicialización y mantenimiento de BD.
 - `docs/API_REFERENCE.md`: endpoints web disponibles.
-- `docs/MIGRATION_README.md`: estado de la migración Flet -> HTML.
+- `docs/USER_GUIDE.md`: guía de uso de módulos web.
 - `docs/ETL_TARJETA_CREDITO.md`: ETL de tarjetas de crédito.
+
+## Módulos web disponibles
+
+| Ruta                 | Descripción                                    |
+|----------------------|------------------------------------------------|
+| `/dashboard`         | Resumen principal de finanzas                 |
+| `/transacciones`     | Historial y CRUD de movimientos               |
+| `/presupuesto`       | Gestión de presupuestos por categoría         |
+| `/reportes`          | Reportes mensuales y por categoría            |
+| `/tarjetas`          | Tarjetas de crédito y compras diferidas       |
+| `/inversiones`       | Seguimiento de inversiones                    |
+| `/metas`             | Metas de ahorro                               |
+| `/productos`         | Resumen de productos financieros              |
+| `/cuentas-bancarias` | Gestión de cuentas bancarias                  |
+| `/categorias`        | Catálogo de categorías                        |
+| `/beneficiarios`     | Catálogo de beneficiarios                     |
+| `/constantes`        | Constantes del sistema                        |
+| `/programadas`       | Transacciones programadas y recurrentes       |
+| `/analisis`          | Análisis de consumo con gráficos interactivos |
 
 ## Limitaciones conocidas
 
-- El dashboard web todavía usa datos demo en parte del flujo.
+- La UI Flet (`main.py`) convive con la web pero ya no es el foco principal de desarrollo.
 - La instalación `full` desde cero sobre algunos entornos MariaDB aún requiere saneamiento adicional de scripts históricos.
-- La UI Flet y la UI web conviven; no todo el sistema ha sido migrado a HTML.
 
 ## Verificación rápida
 
