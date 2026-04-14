@@ -14,6 +14,8 @@ Migrar gradualmente la UI desde Flet a una capa web Flask + Jinja, conservando l
 - `src/routes/presupuesto.py` con CRUD real.
 - `src/routes/transacciones.py` con operaciones reales.
 - `src/routes/reportes.py` con agregaciones reales.
+- `src/routes/dashboard.py` con KPIs reales, comparativos, alertas y compromisos.
+- ETL de tarjeta y ETL de cuenta bancaria disponibles en flujo web de transacciones.
 - templates base en `src/templates/`.
 - assets en `src/static/`.
 - autenticación JWT corregida.
@@ -21,7 +23,6 @@ Migrar gradualmente la UI desde Flet a una capa web Flask + Jinja, conservando l
 
 ## Pendiente
 
-- reemplazar datos demo del dashboard web,
 - completar módulos HTML secundarios,
 - terminar saneamiento de instalación `full` en MariaDB,
 - ampliar pruebas automatizadas de la capa web.

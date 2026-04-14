@@ -90,5 +90,5 @@ python tests/manual/test_etl_tarjeta.py
 ## Observaciones
 
 - El servicio sigue siendo útil aunque la migración web avance.
-- Actualmente el flujo ETL está más alineado con la experiencia Flet que con la web.
+- El flujo ETL está disponible tanto en la interfaz web (`/transacciones`, pestaña Importar) como en Flet.
 - Si cambias el esquema de `movimiento` o `movimiento_tarjeta`, revisa este servicio primero.

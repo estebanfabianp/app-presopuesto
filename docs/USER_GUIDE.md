@@ -41,7 +41,13 @@ Pasos:
 
 ### Dashboard (`/dashboard`)
 
-Resumen financiero del mes: ingresos, gastos, saldo, presupuestos activos, transacciones recientes y gráfico de dona por categoría.
+Resumen financiero ampliado:
+
+- KPIs del mes con variación vs mes anterior (ingresos, gastos, saldo).
+- Tasa de ahorro y estado de presupuestos activos.
+- Alertas de presupuesto y flujo mensual.
+- Gráficos de dona por categoría, tendencia mensual y flujo semanal.
+- Rankings de categorías/beneficiarios y próximos compromisos programados.
 
 ### Transacciones (`/transacciones`)
 
@@ -132,7 +138,12 @@ El menú lateral agrupa los módulos en secciones:
 
 ## 6. ETL de tarjeta de crédito
 
-El ETL de carga masiva desde Excel está disponible principalmente desde la interfaz de escritorio. Consulta `docs/ETL_TARJETA_CREDITO.md` para más detalle.
+El ETL de carga masiva desde Excel está disponible desde:
+
+- interfaz web en `/transacciones` (pestaña Importar),
+- interfaz de escritorio Flet (flujo legado).
+
+Consulta `docs/ETL_TARJETA_CREDITO.md` para el formato de tarjetas y `docs/ETL_CUENTA_BANCARIA.md` para extractos bancarios.
 
 ## 7. Limitaciones conocidas
 

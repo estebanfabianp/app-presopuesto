@@ -67,6 +67,16 @@ Cierre de sesión del lado cliente.
 
 ### Dashboard (`/api/dashboard`)
 
+#### `GET /api/dashboard/overview`
+
+Dashboard extendido con:
+
+- KPIs comparativos del mes,
+- alertas financieras,
+- flujo semanal,
+- top categorías y beneficiarios,
+- próximos compromisos (programadas).
+
 #### `GET /api/dashboard/summary`
 
 Resumen: ingresos, gastos, saldo, presupuestos activos, transacciones recientes y datos para gráfico dona.
@@ -74,6 +84,10 @@ Resumen: ingresos, gastos, saldo, presupuestos activos, transacciones recientes 
 #### `GET /api/dashboard/gastos-por-categoria`
 
 Estructura para gráficos de categorías.
+
+#### `GET /api/dashboard/tendencia`
+
+Serie de ingresos vs gastos por mes para gráfica de tendencia.
 
 ---
 
@@ -166,6 +180,18 @@ Actualiza una transacción.
 #### `DELETE /api/transacciones/<id>`
 
 Elimina una transacción.
+
+#### `GET /api/transacciones/import/catalogos`
+
+Obtiene catálogos requeridos para importación ETL (personas, cuentas, tipos, categorías, estados).
+
+#### `POST /api/transacciones/import/upload`
+
+Recibe archivo Excel y procesa ETL según la fuente (`tarjeta_credito` o `cuenta_bancaria`).
+
+#### `GET /api/transacciones/import/template?source=<origen>`
+
+Descarga plantilla de ejemplo para el origen seleccionado.
 
 ---
 

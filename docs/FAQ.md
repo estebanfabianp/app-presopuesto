@@ -17,7 +17,9 @@ MySQL o MariaDB, con inicialización oficial desde `base_de_datos/db/init_db.bat
 
 ## ¿La API web ya cubre todo el sistema?
 
-No. Hoy cubre autenticación, presupuestos, transacciones y reportes. El dashboard sigue parcialmente demo y otros módulos todavía dependen de Flet.
+La cobertura web ya incluye autenticación, dashboard, presupuestos, transacciones, reportes, tarjetas, inversiones, metas, productos, categorías, beneficiarios, constantes, programadas y análisis.
+
+El repositorio sigue en modo híbrido porque aún existen flujos heredados en Flet, pero la web es la interfaz principal.
 
 ## ¿Qué pasa con las contraseñas antiguas?
 
@@ -33,7 +35,7 @@ Porque la migración es incremental. Parte del código antiguo se conserva mient
 
 ## ¿El ETL de tarjeta sigue vigente?
 
-Sí. El servicio `etl_tarjeta_credito.py` sigue activo y documentado.
+Sí. El servicio `etl_tarjeta_credito.py` sigue activo y documentado, y ahora también existe ETL para cuenta bancaria (`etl_cuenta_bancaria.py`) con integración web.
 
 ## ¿Qué archivos no deben quedarse versionados?
 

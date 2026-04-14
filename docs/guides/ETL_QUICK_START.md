@@ -1,9 +1,10 @@
-# ETL Tarjeta - Inicio Rápido
+# ETL - Inicio Rápido
 
-## 1. Ubicación del servicio
+## 1. Ubicación de servicios
 
 ```text
 src/business/services/etl_tarjeta_credito.py
+src/business/services/etl_cuenta_bancaria.py
 ```
 
 ## 2. Formato mínimo del Excel
@@ -35,4 +36,7 @@ python tests/manual/test_etl_tarjeta.py
 
 ## 6. Cuándo revisar la guía completa
 
-Si cambias columnas, lógica de categorías o tablas destino, consulta `docs/ETL_TARJETA_CREDITO.md`.
+Si cambias columnas, lógica de categorías o tablas destino, consulta:
+
+- `docs/ETL_TARJETA_CREDITO.md`
+- `docs/ETL_CUENTA_BANCARIA.md`

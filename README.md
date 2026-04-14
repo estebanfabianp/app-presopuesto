@@ -114,6 +114,8 @@ app-presopuesto/
 - `docs/API_REFERENCE.md`: endpoints web disponibles.
 - `docs/USER_GUIDE.md`: guía de uso de módulos web.
 - `docs/ETL_TARJETA_CREDITO.md`: ETL de tarjetas de crédito.
+- `docs/ETL_CUENTA_BANCARIA.md`: ETL de extractos de cuenta bancaria.
+- `docs/README.md`: índice maestro de documentación.
 
 ## Módulos web disponibles
 
@@ -138,6 +140,12 @@ app-presopuesto/
 
 - La UI Flet (`main.py`) convive con la web pero ya no es el foco principal de desarrollo.
 - La instalación `full` desde cero sobre algunos entornos MariaDB aún requiere saneamiento adicional de scripts históricos.
+
+## Organización del repositorio
+
+- Los documentos de estado y resúmenes técnicos viven en `docs/status/`.
+- Las pruebas manuales y de exploración deben guardarse en `tests/manual/`.
+- Evita dejar scripts de prueba en la raíz del proyecto.
 
 ## Verificación rápida
 

@@ -32,10 +32,13 @@ python app.py
 - `src/templates/`: vistas HTML.
 - `src/static/`: JS y CSS de la versión web.
 - `src/models/` y `src/database/`: lógica de acceso a datos compartida.
+- `docs/status/`: resúmenes técnicos e informes de cierre.
+- `tests/manual/`: pruebas exploratorias/manuales (incluye scripts Python y JS).
 
 ## Reglas prácticas
 
 - Mantén cambios de Flet y Flask separados por archivo cuando sea posible.
+- Mantén limpia la raíz del proyecto: evita dejar `.md` y `test_*` fuera de `docs/` y `tests/`.
 - No agregues archivos generados al repositorio: `__pycache__`, logs, salidas debug, entornos virtuales.
 - Si modificas el esquema o el flujo de inicialización, actualiza `docs/DATABASE_SETUP.md`.
 - Si agregas endpoints web, actualiza `docs/API_REFERENCE.md`.
