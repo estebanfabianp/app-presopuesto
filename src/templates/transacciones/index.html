@@ -7,84 +7,198 @@
     <div class="page-header mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
             <h1 class="page-title"><i class="fas fa-exchange-alt"></i> Transacciones</h1>
-            <p class="text-muted mb-0">Historial de movimientos de tu cuenta.</p>
+            <p class="text-muted mb-0">Registro, analisis e importacion ETL de movimientos.</p>
         </div>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalTransaccion"
-                onclick="resetTransForm()">
-            <i class="fas fa-plus"></i> Nueva transacción
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalTransaccion" onclick="resetTransForm()">
+            <i class="fas fa-plus"></i> Nueva transaccion
         </button>
     </div>
 
-    <!-- Buscador rápido -->
-    <div class="card mb-3">
-        <div class="card-body py-2">
-            <div class="row g-2 align-items-center">
-                <div class="col-md-5">
-                    <input type="text" class="form-control" id="txBuscar"
-                           placeholder="Buscar por descripción o categoría…"
-                           oninput="filtrarTabla()">
+    <ul class="nav nav-tabs mb-3" id="txTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-registrar" data-bs-toggle="tab" data-bs-target="#pane-registrar" type="button" role="tab">
+                Registrar y gestionar
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-importar" data-bs-toggle="tab" data-bs-target="#pane-importar" type="button" role="tab">
+                Importar ETL
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="pane-registrar" role="tabpanel" aria-labelledby="tab-registrar">
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="small text-muted">Ingresos filtrados</div>
+                            <div id="kpiIngresos" class="h5 text-success mb-0">$0</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-3">
-                    <select class="form-select" id="txTipo" onchange="filtrarTabla()">
-                        <option value="">— Todos los tipos —</option>
-                        <option value="ingreso">Ingresos</option>
-                        <option value="gasto">Gastos</option>
-                    </select>
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="small text-muted">Gastos filtrados</div>
+                            <div id="kpiGastos" class="h5 text-danger mb-0">$0</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-2">
-                    <button class="btn btn-outline-secondary w-100" onclick="cargarTransacciones()">
-                        <i class="fas fa-sync-alt"></i> Actualizar
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="small text-muted">Balance filtrado</div>
+                            <div id="kpiBalance" class="h5 mb-0">$0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body py-2">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-3">
+                            <input type="text" class="form-control" id="txBuscar" placeholder="Buscar descripcion o categoria..." oninput="filtrarTabla()">
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" id="txTipo" onchange="filtrarTabla()">
+                                <option value="">Todos los tipos</option>
+                                <option value="ingreso">Ingresos</option>
+                                <option value="gasto">Gastos</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="date" class="form-control" id="txDesde" onchange="filtrarTabla()">
+                        </div>
+                        <div class="col-md-2">
+                            <input type="date" class="form-control" id="txHasta" onchange="filtrarTabla()">
+                        </div>
+                        <div class="col-md-3 d-flex gap-2">
+                            <button class="btn btn-outline-secondary w-100" onclick="setQuickRange('mes')">Este mes</button>
+                            <button class="btn btn-outline-secondary w-100" onclick="setQuickRange('anio')">Este anio</button>
+                            <button class="btn btn-outline-secondary w-100" onclick="clearDateFilters()">Limpiar</button>
+                        </div>
+                    </div>
+                    <div class="row g-2 align-items-center mt-1">
+                        <div class="col-md-2">
+                            <select id="txPageSize" class="form-select form-select-sm" onchange="changePageSize()">
+                                <option value="25">25 por pagina</option>
+                                <option value="50" selected>50 por pagina</option>
+                                <option value="100">100 por pagina</option>
+                            </select>
+                        </div>
+                        <div class="col-md-8 d-flex justify-content-center gap-2" id="txPager"></div>
+                        <div class="col-md-2 text-end">
+                            <small class="text-muted" id="txContador"></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body p-0">
+                    <div id="loadingTx" class="text-center py-5">
+                        <div class="spinner-border text-primary"></div>
+                        <p class="mt-2 text-muted">Cargando transacciones...</p>
+                    </div>
+                    <div id="emptyTx" class="text-center py-5" style="display:none;">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No hay transacciones para mostrar.</p>
+                    </div>
+                    <table class="table table-hover mb-0" id="tablaTx" style="display:none;">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Descripcion</th>
+                                <th>Categoria</th>
+                                <th>Tipo</th>
+                                <th class="text-end">Monto</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyTx"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="pane-importar" role="tabpanel" aria-labelledby="tab-importar">
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="fas fa-file-import"></i> Importacion ETL de archivos</h6>
+                    <button class="btn btn-outline-primary btn-sm" onclick="descargarPlantillaEtl()">
+                        <i class="fas fa-download"></i> Plantilla
                     </button>
                 </div>
-                <div class="col-md-2 text-end">
-                    <small class="text-muted" id="txContador"></small>
+                <div class="card-body">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label">Fuente ETL</label>
+                            <select id="etlSource" class="form-select" onchange="toggleImportSource()">
+                                <option value="cuenta_bancaria">Cuenta bancaria</option>
+                                <option value="tarjeta_credito">Tarjeta de credito</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3" id="wrapCuentaImport">
+                            <label class="form-label">Cuenta bancaria</label>
+                            <select id="etlCuenta" class="form-select"></select>
+                        </div>
+                        <div class="col-md-3" id="wrapTarjetaImport" style="display:none;">
+                            <label class="form-label">Tarjeta de credito</label>
+                            <select id="etlTarjeta" class="form-select"></select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Archivo Excel</label>
+                            <input type="file" id="etlFile" class="form-control" accept=".xlsx,.xls" onchange="previewArchivoEtl()">
+                        </div>
+                        <div class="col-md-2 d-grid">
+                            <button class="btn btn-primary" id="btnImportEtl" onclick="subirArchivoEtl()">
+                                <i class="fas fa-upload"></i> Importar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="alert alert-info mt-3 mb-0" id="etlResult" style="display:none;"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">Vista previa y errores ETL</div>
+                <div class="card-body">
+                    <div id="etlPreviewMeta" class="small text-muted mb-2">Sin archivo seleccionado.</div>
+                    <div class="table-responsive" style="max-height: 280px; overflow:auto;">
+                        <table class="table table-sm table-bordered">
+                            <thead id="etlPreviewHead"></thead>
+                            <tbody id="etlPreviewBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="mt-2">
+                        <button class="btn btn-outline-danger btn-sm" id="btnVerErroresEtl" style="display:none;" onclick="toggleEtlErrors()">
+                            Ver errores ETL
+                        </button>
+                    </div>
+                    <div id="etlErrorsWrap" class="mt-2" style="display:none;">
+                        <ul id="etlErrorsList" class="small text-danger mb-0"></ul>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Tabla -->
-    <div class="card">
-        <div class="card-body p-0">
-            <div id="loadingTx" class="text-center py-5">
-                <div class="spinner-border text-primary"></div>
-                <p class="mt-2 text-muted">Cargando transacciones…</p>
-            </div>
-            <div id="emptyTx" class="text-center py-5" style="display:none;">
-                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                <p class="text-muted">No hay transacciones registradas.</p>
-            </div>
-            <table class="table table-hover mb-0" id="tablaTx" style="display:none;">
-                <thead>
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Descripción</th>
-                        <th>Categoría</th>
-                        <th>Tipo</th>
-                        <th class="text-end">Monto</th>
-                        <th class="text-center">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody id="tbodyTx"></tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Modal nueva/editar transacción -->
     <div class="modal fade" id="modalTransaccion" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <form id="formTransaccion">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="modalTxTitle">Nueva transacción</h5>
+                        <h5 class="modal-title" id="modalTxTitle">Nueva transaccion</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
                         <input type="hidden" id="txId">
                         <div class="mb-3">
-                            <label class="form-label">Descripción</label>
-                            <input type="text" class="form-control" id="txDescripcion"
-                                   required placeholder="Ej: Compra supermercado">
+                            <label class="form-label">Descripcion</label>
+                            <input type="text" class="form-control" id="txDescripcion" required placeholder="Ej: Compra supermercado">
                         </div>
                         <div class="row">
                             <div class="col-6 mb-3">
@@ -98,16 +212,14 @@
                                 <label class="form-label">Monto</label>
                                 <div class="input-group">
                                     <span class="input-group-text">$</span>
-                                    <input type="number" class="form-control" id="txMonto"
-                                           min="0.01" step="0.01" required placeholder="0.00">
+                                    <input type="number" class="form-control" id="txMonto" min="0.01" step="0.01" required>
                                 </div>
                             </div>
                         </div>
                         <div class="row">
                             <div class="col-6 mb-3">
-                                <label class="form-label">Categoría</label>
-                                <input type="text" class="form-control" id="txCategoria"
-                                       placeholder="Ej: Alimentación">
+                                <label class="form-label">Categoria</label>
+                                <input type="text" class="form-control" id="txCategoria" placeholder="Ej: Alimentacion">
                             </div>
                             <div class="col-6 mb-3">
                                 <label class="form-label">Fecha</label>
@@ -124,14 +236,41 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="modalEliminarTx" tabindex="-1">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title text-danger"><i class="fas fa-trash"></i> Confirmar eliminacion</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-1">Se eliminara esta transaccion:</p>
+                    <div id="txDeleteSummary" class="small text-muted"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-danger btn-sm" onclick="confirmDeleteTx()">Eliminar</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 let allTransacciones = [];
+let filteredTransacciones = [];
+let currentPage = 1;
+let pageSize = 50;
+let txToDelete = null;
+let lastEtlErrors = [];
+
+const CATEGORY_COLORS = ['primary', 'success', 'warning', 'info', 'secondary', 'dark'];
 
 document.addEventListener('DOMContentLoaded', () => {
+    cargarCatalogosImportacion();
     cargarTransacciones();
     document.getElementById('formTransaccion').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -139,17 +278,50 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+function getCategoryBadgeClass(name) {
+    const key = (name || '').toLowerCase();
+    let sum = 0;
+    for (let i = 0; i < key.length; i++) sum += key.charCodeAt(i);
+    return CATEGORY_COLORS[sum % CATEGORY_COLORS.length];
+}
+
+function setQuickRange(kind) {
+    const now = new Date();
+    if (kind === 'mes') {
+        const from = new Date(now.getFullYear(), now.getMonth(), 1);
+        document.getElementById('txDesde').value = from.toISOString().split('T')[0];
+        document.getElementById('txHasta').value = now.toISOString().split('T')[0];
+    } else {
+        const from = new Date(now.getFullYear(), 0, 1);
+        document.getElementById('txDesde').value = from.toISOString().split('T')[0];
+        document.getElementById('txHasta').value = now.toISOString().split('T')[0];
+    }
+    filtrarTabla();
+}
+
+function clearDateFilters() {
+    document.getElementById('txDesde').value = '';
+    document.getElementById('txHasta').value = '';
+    filtrarTabla();
+}
+
+function changePageSize() {
+    pageSize = Number(document.getElementById('txPageSize').value || 50);
+    currentPage = 1;
+    renderTabla();
+}
+
 async function cargarTransacciones() {
     const loading = document.getElementById('loadingTx');
-    const empty   = document.getElementById('emptyTx');
-    const tabla   = document.getElementById('tablaTx');
+    const empty = document.getElementById('emptyTx');
+    const tabla = document.getElementById('tablaTx');
 
     loading.style.display = 'block';
-    empty.style.display   = 'none';
-    tabla.style.display   = 'none';
+    empty.style.display = 'none';
+    tabla.style.display = 'none';
 
     try {
-        allTransacciones = await api.getTransacciones({ limit: 200 });
+        allTransacciones = await api.getTransacciones({ limit: 500 });
         loading.style.display = 'none';
         filtrarTabla();
     } catch (err) {
@@ -160,53 +332,91 @@ async function cargarTransacciones() {
 
 function filtrarTabla() {
     const query = (document.getElementById('txBuscar').value || '').toLowerCase();
-    const tipo  = (document.getElementById('txTipo').value || '').toLowerCase();
+    const tipo = (document.getElementById('txTipo').value || '').toLowerCase();
+    const desde = document.getElementById('txDesde').value || null;
+    const hasta = document.getElementById('txHasta').value || null;
 
-    const filtered = allTransacciones.filter(t => {
+    filteredTransacciones = allTransacciones.filter((t) => {
         const matchText = !query ||
             (t.descripcion || '').toLowerCase().includes(query) ||
-            (t.categoria   || '').toLowerCase().includes(query);
+            (t.categoria || '').toLowerCase().includes(query);
         const matchTipo = !tipo || (t.tipo || '').toLowerCase() === tipo;
-        return matchText && matchTipo;
+
+        let matchDate = true;
+        if (desde || hasta) {
+            const txDate = (t.fecha || '').slice(0, 10);
+            if (desde && txDate < desde) matchDate = false;
+            if (hasta && txDate > hasta) matchDate = false;
+        }
+
+        return matchText && matchTipo && matchDate;
     });
 
-    renderTabla(filtered);
+    currentPage = 1;
+    updateKpis(filteredTransacciones);
+    renderTabla();
 }
 
-function renderTabla(rows) {
-    const empty  = document.getElementById('emptyTx');
-    const tabla  = document.getElementById('tablaTx');
-    const tbody  = document.getElementById('tbodyTx');
+function updateKpis(rows) {
+    const ingresos = rows.filter(r => (r.tipo || '').toLowerCase() === 'ingreso').reduce((a, b) => a + Math.abs(Number(b.monto || 0)), 0);
+    const gastos = rows.filter(r => (r.tipo || '').toLowerCase() === 'gasto').reduce((a, b) => a + Math.abs(Number(b.monto || 0)), 0);
+    const balance = ingresos - gastos;
+
+    document.getElementById('kpiIngresos').textContent = formatCurrency(ingresos);
+    document.getElementById('kpiGastos').textContent = formatCurrency(gastos);
+    const kpiBalance = document.getElementById('kpiBalance');
+    kpiBalance.textContent = formatCurrency(balance);
+    kpiBalance.className = `h5 mb-0 ${balance >= 0 ? 'text-success' : 'text-danger'}`;
+}
+
+function renderTabla() {
+    const empty = document.getElementById('emptyTx');
+    const tabla = document.getElementById('tablaTx');
+    const tbody = document.getElementById('tbodyTx');
     const counter = document.getElementById('txContador');
 
-    counter.textContent = `${rows.length} resultado(s)`;
+    const total = filteredTransacciones.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    if (currentPage > totalPages) currentPage = totalPages;
+
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    const rows = filteredTransacciones.slice(start, end);
+
+    counter.textContent = `${total} resultado(s)`;
 
     if (!rows.length) {
         empty.style.display = 'block';
         tabla.style.display = 'none';
+        renderPager(totalPages);
         return;
     }
 
-    tbody.innerHTML = rows.map(t => {
+    tbody.innerHTML = rows.map((t) => {
         const esIngreso = (t.tipo || '').toLowerCase() === 'ingreso';
-        const montoStr  = formatCurrency(Math.abs(t.monto));
-        const badge     = esIngreso
+        const montoStr = formatCurrency(Math.abs(t.monto));
+        const badge = esIngreso
             ? '<span class="badge bg-success">Ingreso</span>'
             : '<span class="badge bg-danger">Gasto</span>';
         const montoCell = esIngreso
             ? `<td class="text-end text-success fw-semibold">${montoStr}</td>`
             : `<td class="text-end text-danger fw-semibold">-${montoStr}</td>`;
 
+        const catColor = getCategoryBadgeClass(t.categoria || 'General');
+        const txJson = encodeURIComponent(JSON.stringify(t));
+
         return `
         <tr>
             <td class="text-muted small">${t.fecha ? formatDate(t.fecha) : '—'}</td>
             <td>${t.descripcion || '—'}</td>
-            <td><span class="badge bg-light text-dark border">${t.categoria || 'General'}</span></td>
+            <td><span class="badge bg-${catColor}">${t.categoria || 'General'}</span></td>
             <td>${badge}</td>
             ${montoCell}
             <td class="text-center">
-                <button class="btn btn-sm btn-outline-danger"
-                        onclick="eliminarTransaccion(${t.id})">
+                <button class="btn btn-sm btn-outline-primary" onclick="editarTransaccion('${txJson}')" title="Editar">
+                    <i class="fas fa-pen"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="pedirEliminarTransaccion('${txJson}')" title="Eliminar">
                     <i class="fas fa-trash"></i>
                 </button>
             </td>
@@ -215,39 +425,88 @@ function renderTabla(rows) {
 
     empty.style.display = 'none';
     tabla.style.display = 'table';
+    renderPager(totalPages);
+}
+
+function renderPager(totalPages) {
+    const pager = document.getElementById('txPager');
+    if (totalPages <= 1) {
+        pager.innerHTML = '';
+        return;
+    }
+
+    const btn = (label, page, disabled = false, active = false) =>
+        `<button class="btn btn-sm ${active ? 'btn-primary' : 'btn-outline-secondary'}" ${disabled ? 'disabled' : ''} onclick="goToPage(${page})">${label}</button>`;
+
+    let html = '';
+    html += btn('<<', 1, currentPage === 1);
+    html += btn('<', Math.max(1, currentPage - 1), currentPage === 1);
+
+    const start = Math.max(1, currentPage - 2);
+    const end = Math.min(totalPages, currentPage + 2);
+    for (let p = start; p <= end; p++) {
+        html += btn(String(p), p, false, p === currentPage);
+    }
+
+    html += btn('>', Math.min(totalPages, currentPage + 1), currentPage === totalPages);
+    html += btn('>>', totalPages, currentPage === totalPages);
+    pager.innerHTML = html;
+}
+
+function goToPage(page) {
+    currentPage = page;
+    renderTabla();
 }
 
 function resetTransForm() {
-    document.getElementById('txId').value          = '';
+    document.getElementById('txId').value = '';
     document.getElementById('txDescripcion').value = '';
-    document.getElementById('txTipoForm').value    = 'gasto';
-    document.getElementById('txMonto').value       = '';
-    document.getElementById('txCategoria').value   = '';
-    document.getElementById('txFecha').value       = new Date().toISOString().split('T')[0];
+    document.getElementById('txTipoForm').value = 'gasto';
+    document.getElementById('txMonto').value = '';
+    document.getElementById('txCategoria').value = '';
+    document.getElementById('txFecha').value = new Date().toISOString().split('T')[0];
     document.getElementById('txFormError').style.display = 'none';
-    document.getElementById('modalTxTitle').textContent  = 'Nueva transacción';
+    document.getElementById('modalTxTitle').textContent = 'Nueva transaccion';
+}
+
+function editarTransaccion(encodedTx) {
+    const t = JSON.parse(decodeURIComponent(encodedTx));
+    document.getElementById('txId').value = t.id;
+    document.getElementById('txDescripcion').value = t.descripcion || '';
+    document.getElementById('txTipoForm').value = (t.tipo || 'gasto').toLowerCase();
+    document.getElementById('txMonto').value = Math.abs(Number(t.monto || 0));
+    document.getElementById('txCategoria').value = t.categoria || '';
+    document.getElementById('txFecha').value = (t.fecha || '').slice(0, 10) || new Date().toISOString().split('T')[0];
+    document.getElementById('txFormError').style.display = 'none';
+    document.getElementById('modalTxTitle').textContent = 'Editar transaccion';
+    new bootstrap.Modal(document.getElementById('modalTransaccion')).show();
 }
 
 async function guardarTransaccion() {
-    const btn   = document.getElementById('btnGuardarTx');
+    const btn = document.getElementById('btnGuardarTx');
     const errEl = document.getElementById('txFormError');
     errEl.style.display = 'none';
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando…';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
 
+    const txId = document.getElementById('txId').value;
     const payload = {
         descripcion: document.getElementById('txDescripcion').value.trim(),
-        tipo:        document.getElementById('txTipoForm').value,
-        monto:       parseFloat(document.getElementById('txMonto').value) || 0,
-        categoria:   document.getElementById('txCategoria').value.trim() || null,
-        fecha:       document.getElementById('txFecha').value || null,
+        tipo: document.getElementById('txTipoForm').value,
+        monto: parseFloat(document.getElementById('txMonto').value) || 0,
+        categoria: document.getElementById('txCategoria').value.trim() || null,
+        fecha: document.getElementById('txFecha').value || null,
     };
 
     try {
-        await api.createTransaccion(payload);
+        if (txId) {
+            await api.updateTransaccion(txId, payload);
+        } else {
+            await api.createTransaccion(payload);
+        }
         bootstrap.Modal.getInstance(document.getElementById('modalTransaccion')).hide();
         await cargarTransacciones();
-        showToast('Transacción registrada correctamente.', 'success');
+        showToast(`Transaccion ${txId ? 'actualizada' : 'registrada'} correctamente.`, 'success');
     } catch (err) {
         errEl.textContent = err.message || 'Error al guardar.';
         errEl.style.display = 'block';
@@ -257,14 +516,136 @@ async function guardarTransaccion() {
     }
 }
 
-async function eliminarTransaccion(id) {
-    if (!confirm('¿Eliminar esta transacción?')) return;
+function pedirEliminarTransaccion(encodedTx) {
+    txToDelete = JSON.parse(decodeURIComponent(encodedTx));
+    document.getElementById('txDeleteSummary').innerHTML = `
+        <strong>${txToDelete.descripcion || 'Sin descripcion'}</strong><br>
+        ${txToDelete.fecha ? formatDate(txToDelete.fecha) : ''} | ${txToDelete.categoria || 'General'} | ${formatCurrency(Math.abs(txToDelete.monto || 0))}
+    `;
+    new bootstrap.Modal(document.getElementById('modalEliminarTx')).show();
+}
+
+async function confirmDeleteTx() {
+    if (!txToDelete) return;
     try {
-        await api.deleteTransaccion(id);
+        await api.deleteTransaccion(txToDelete.id);
+        bootstrap.Modal.getInstance(document.getElementById('modalEliminarTx')).hide();
         await cargarTransacciones();
-        showToast('Transacción eliminada.', 'success');
+        showToast('Transaccion eliminada.', 'success');
     } catch (err) {
         showToast('Error al eliminar: ' + (err.message || ''), 'danger');
+    }
+}
+
+async function cargarCatalogosImportacion() {
+    try {
+        const data = await api.getTransaccionesImportCatalogos();
+        const cuentas = data.cuentas || [];
+        const tarjetas = data.tarjetas || [];
+
+        const selCuenta = document.getElementById('etlCuenta');
+        selCuenta.innerHTML = cuentas.map(c => `<option value="${c.id_cuenta}">#${c.id_cuenta} - ${c.nombre}</option>`).join('');
+
+        const selTarjeta = document.getElementById('etlTarjeta');
+        selTarjeta.innerHTML = tarjetas.map(t => {
+            const tail = t.numero_tarjeta ? String(t.numero_tarjeta).slice(-4) : '----';
+            return `<option value="${t.id_tarjeta}">#${t.id_tarjeta} - ****${tail}</option>`;
+        }).join('');
+
+        toggleImportSource();
+    } catch (err) {
+        showToast('No se pudieron cargar catalogos ETL: ' + (err.message || ''), 'danger');
+    }
+}
+
+function toggleImportSource() {
+    const source = document.getElementById('etlSource').value;
+    document.getElementById('wrapCuentaImport').style.display = source === 'cuenta_bancaria' ? '' : 'none';
+    document.getElementById('wrapTarjetaImport').style.display = source === 'tarjeta_credito' ? '' : 'none';
+}
+
+function descargarPlantillaEtl() {
+    const source = document.getElementById('etlSource').value;
+    const url = api.getTransaccionesTemplateUrl(source);
+    window.open(url, '_blank');
+}
+
+function previewArchivoEtl() {
+    const file = document.getElementById('etlFile').files?.[0];
+    const meta = document.getElementById('etlPreviewMeta');
+    const head = document.getElementById('etlPreviewHead');
+    const body = document.getElementById('etlPreviewBody');
+
+    if (!file) {
+        meta.textContent = 'Sin archivo seleccionado.';
+        head.innerHTML = '';
+        body.innerHTML = '';
+        return;
+    }
+
+    meta.textContent = `Archivo: ${file.name} | Tamano: ${(file.size / 1024).toFixed(1)} KB`;
+    head.innerHTML = '<tr><th>Preview</th></tr>';
+    body.innerHTML = '<tr><td class="text-muted">La vista previa completa depende del parseo Excel en backend. Puedes importar para validar filas y errores.</td></tr>';
+}
+
+function toggleEtlErrors() {
+    const wrap = document.getElementById('etlErrorsWrap');
+    wrap.style.display = wrap.style.display === 'none' ? '' : 'none';
+}
+
+async function subirArchivoEtl() {
+    const source = document.getElementById('etlSource').value;
+    const fileInput = document.getElementById('etlFile');
+    const file = fileInput.files && fileInput.files[0];
+    const resultEl = document.getElementById('etlResult');
+    const btn = document.getElementById('btnImportEtl');
+
+    if (!file) {
+        showToast('Selecciona un archivo Excel para importar.', 'warning');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('source', source);
+    formData.append('file', file);
+    if (source === 'cuenta_bancaria') {
+        formData.append('id_cuenta', document.getElementById('etlCuenta').value || '');
+    } else {
+        formData.append('id_tarjeta', document.getElementById('etlTarjeta').value || '');
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importando...';
+
+    try {
+        const data = await api.uploadTransaccionesImport(formData);
+        const errCount = (data.errors || []).length;
+        lastEtlErrors = data.errors || [];
+
+        resultEl.className = `alert ${errCount ? 'alert-warning' : 'alert-success'} mt-3 mb-0`;
+        resultEl.style.display = 'block';
+        resultEl.innerHTML = `
+            <strong>Resultado ETL:</strong><br>
+            Filas procesadas: ${data.processed || 0}<br>
+            Filas con error: ${errCount}
+        `;
+
+        const btnErrors = document.getElementById('btnVerErroresEtl');
+        const list = document.getElementById('etlErrorsList');
+        list.innerHTML = lastEtlErrors.map((e) => `<li>Fila ${e.row || '?'}: ${(e.errors || []).join('; ')}</li>`).join('');
+        btnErrors.style.display = errCount ? '' : 'none';
+        document.getElementById('etlErrorsWrap').style.display = 'none';
+
+        await cargarTransacciones();
+        fileInput.value = '';
+        previewArchivoEtl();
+    } catch (err) {
+        resultEl.className = 'alert alert-danger mt-3 mb-0';
+        resultEl.style.display = 'block';
+        resultEl.textContent = err.message || 'Error al importar archivo ETL.';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-upload"></i> Importar';
     }
 }
 </script>

@@ -133,6 +133,13 @@ class APIClient {
     }
 
     /**
+     * Obtener dashboard extendido (KPIs, alertas, rankings, compromisos)
+     */
+    async getDashboardOverview() {
+        return this.request('GET', '/dashboard/overview');
+    }
+
+    /**
      * Obtener gastos por categoría
      */
     async getGastosPorCategoria() {
@@ -238,6 +245,50 @@ class APIClient {
         return this.request('DELETE', `/transacciones/${id}`);
     }
 
+    /**
+     * Obtener catalogos para importacion ETL de transacciones.
+     */
+    async getTransaccionesImportCatalogos() {
+        return this.request('GET', '/transacciones/import/catalogos');
+    }
+
+    /**
+     * Subir archivo para importacion ETL de transacciones.
+     */
+    async uploadTransaccionesImport(formData) {
+        const headers = {};
+        if (this.token) {
+            headers['Authorization'] = `Bearer ${this.token}`;
+        }
+
+        const response = await fetch(`${this.baseURL}/transacciones/import/upload`, {
+            method: 'POST',
+            headers,
+            body: formData,
+        });
+
+        const contentType = response.headers.get('content-type') || '';
+        const payload = contentType.includes('application/json')
+            ? await response.json()
+            : { message: await response.text() };
+
+        if (!response.ok) {
+            const error = new Error(payload.message || 'Error en importacion ETL');
+            error.status = response.status;
+            error.data = payload;
+            throw error;
+        }
+
+        return payload;
+    }
+
+    /**
+     * Descargar plantilla ETL por fuente.
+     */
+    getTransaccionesTemplateUrl(source) {
+        return `${this.baseURL}/transacciones/import/template?source=${encodeURIComponent(source)}`;
+    }
+
     // ==================== REPORTES ====================
     
     /**
@@ -254,6 +305,21 @@ class APIClient {
     async getReporteSuite(params = {}) {
         const queryString = new URLSearchParams(params).toString();
         return this.request('GET', `/reportes/suite${queryString ? '?' + queryString : ''}`);
+    }
+
+    /**
+     * Obtener metadata para filtros globales de reportes.
+     */
+    async getReporteMetadata() {
+        return this.request('GET', '/reportes/metadata');
+    }
+
+    /**
+     * Obtener detalle de movimientos para drill-down desde graficos.
+     */
+    async getReporteDetalleMovimientos(params = {}) {
+        const queryString = new URLSearchParams(params).toString();
+        return this.request('GET', `/reportes/detalle-movimientos${queryString ? '?' + queryString : ''}`);
     }
 
     // ==================== TARJETAS ====================

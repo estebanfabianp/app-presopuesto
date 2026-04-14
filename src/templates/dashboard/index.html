@@ -5,13 +5,19 @@
 {% block content %}
 <div class="dashboard-container">
     <div class="page-header mb-4">
-        <h1 class="page-title">
-            <i class="fas fa-chart-line"></i> Dashboard
-        </h1>
-        <p class="text-muted">Bienvenido a tu panel de control financiero</p>
+        <div class="d-flex flex-wrap justify-content-between align-items-end gap-2">
+            <div>
+                <h1 class="page-title mb-1"><i class="fas fa-chart-line"></i> Dashboard</h1>
+                <p class="text-muted mb-0">Control financiero con foco semanal y comparativos</p>
+            </div>
+            <div class="text-muted small">
+                <i class="fas fa-clock me-1"></i>
+                Actualizado: <strong id="ultimaActualizacion">-</strong>
+            </div>
+        </div>
     </div>
 
-    <!-- Cards Summary -->
+    <!-- KPI cards -->
     <div class="row mb-4">
         <div class="col-md-3">
             <div class="card card-summary card-ingresos">
@@ -20,6 +26,7 @@
                         <div>
                             <h6 class="card-subtitle mb-2 text-muted">Ingresos (mes)</h6>
                             <h3 class="amount" id="totalIngresos">$0.00</h3>
+                            <small id="deltaIngresos" class="text-muted">vs mes anterior: $0.00</small>
                         </div>
                         <div class="card-icon"><i class="fas fa-arrow-up"></i></div>
                     </div>
@@ -33,6 +40,7 @@
                         <div>
                             <h6 class="card-subtitle mb-2 text-muted">Gastos (mes)</h6>
                             <h3 class="amount" id="totalGastos">$0.00</h3>
+                            <small id="deltaGastos" class="text-muted">vs mes anterior: $0.00</small>
                         </div>
                         <div class="card-icon"><i class="fas fa-arrow-down"></i></div>
                     </div>
@@ -46,6 +54,7 @@
                         <div>
                             <h6 class="card-subtitle mb-2 text-muted">Saldo (mes)</h6>
                             <h3 class="amount" id="totalSaldo">$0.00</h3>
+                            <small class="text-muted">Tasa de ahorro: <span id="tasaAhorro">0%</span></small>
                         </div>
                         <div class="card-icon"><i class="fas fa-wallet"></i></div>
                     </div>
@@ -59,9 +68,25 @@
                         <div>
                             <h6 class="card-subtitle mb-2 text-muted">Presupuestos Activos</h6>
                             <h3 class="amount" id="presupuestosActivos">0</h3>
+                            <small class="text-muted">Total: <span id="presupuestoTotal">$0.00</span></small>
                         </div>
                         <div class="card-icon"><i class="fas fa-tasks"></i></div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alertas -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-bell"></i> Alertas y recomendaciones</h5>
+                    <small class="text-muted">se actualizan con tus movimientos</small>
+                </div>
+                <div class="card-body" id="alertasContainer">
+                    <p class="text-muted mb-0">Sin alertas por mostrar.</p>
                 </div>
             </div>
         </div>
@@ -103,24 +128,70 @@
         </div>
     </div>
 
-    <!-- Info row -->
-    <div class="row">
+    <!-- Flujo + top rankings -->
+    <div class="row mb-4">
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-wave-square"></i> Flujo Semanal</h5>
+                    <small class="text-muted">últimas 8 semanas</small>
+                </div>
+                <div class="card-body">
+                    <div style="position:relative;width:100%;height:260px;">
+                        <canvas id="weeklyChart"></canvas>
+                        <p id="noDataWeekly" class="text-muted text-center" style="display:none;">Sin datos suficientes.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-tags"></i> Top categorías (30 días)</h6>
+                </div>
+                <div class="card-body">
+                    <div id="topCategorias" class="small text-muted">Sin datos.</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-store"></i> Top beneficiarios (30 días)</h6>
+                </div>
+                <div class="card-body">
+                    <div id="topBeneficiarios" class="small text-muted">Sin datos.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Próximos compromisos -->
+    <div class="row mb-3">
         <div class="col-12">
             <div class="card">
-                <div class="card-body py-2 px-3">
-                    <div class="d-flex flex-wrap gap-4 align-items-center">
-                        <span class="text-muted small">
-                            <i class="fas fa-exchange-alt me-1"></i>
-                            Transacciones (30 días): <strong id="transaccionesRecientes">0</strong>
-                        </span>
-                        <span class="text-muted small">
-                            <i class="fas fa-clock me-1"></i>
-                            Actualizado: <strong id="ultimaActualizacion">-</strong>
-                        </span>
-                        <span class="text-muted small ms-auto">
-                            <i class="fas fa-lightbulb text-warning me-1"></i>
-                            Revisa periódicamente tus presupuestos para mantenerte en control.
-                        </span>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-calendar-check"></i> Próximos compromisos</h5>
+                    <small class="text-muted">transacciones programadas</small>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Beneficiario</th>
+                                    <th>Categoría</th>
+                                    <th>Tipo</th>
+                                    <th class="text-end">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody id="compromisosBody">
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-3">Sin compromisos próximos.</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -144,6 +215,7 @@
 <script>
 let pieChart   = null;
 let trendChart = null;
+let weeklyChart = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     await loadDashboard();
@@ -158,23 +230,35 @@ async function loadDashboard() {
         spinner.style.display  = 'block';
         errAlert.style.display = 'none';
 
-        const [summary, trend] = await Promise.all([
+        const [overview, summary, trend] = await Promise.all([
+            api.getDashboardOverview(),
             api.getDashboardSummary(),
             api.request('GET', '/dashboard/tendencia'),
         ]);
 
+        const kpis = overview.kpis || {};
+
         // Cards
-        document.getElementById('totalIngresos').textContent       = formatCurrency(summary.total_ingresos);
-        document.getElementById('totalGastos').textContent         = formatCurrency(summary.total_gastos);
-        document.getElementById('totalSaldo').textContent          = formatCurrency(summary.saldo);
-        document.getElementById('presupuestosActivos').textContent = summary.presupuestos_activos;
-        document.getElementById('transaccionesRecientes').textContent = summary.transacciones_recientes;
+        document.getElementById('totalIngresos').textContent       = formatCurrency(kpis.ingresos_mes || 0);
+        document.getElementById('totalGastos').textContent         = formatCurrency(kpis.gastos_mes || 0);
+        document.getElementById('totalSaldo').textContent          = formatCurrency(kpis.saldo_mes || 0);
+        document.getElementById('presupuestosActivos').textContent = (kpis.presupuestos_activos || 0);
+        document.getElementById('presupuestoTotal').textContent    = formatCurrency(kpis.presupuesto_total || 0);
+        document.getElementById('deltaIngresos').textContent       = `vs mes anterior: ${formatSignedCurrency(kpis.delta_ingresos || 0)}`;
+        document.getElementById('deltaGastos').textContent         = `vs mes anterior: ${formatSignedCurrency(kpis.delta_gastos || 0)}`;
+        document.getElementById('tasaAhorro').textContent          = `${Number(kpis.tasa_ahorro_pct || 0).toFixed(1)}%`;
         document.getElementById('ultimaActualizacion').textContent =
             new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+        renderAlertas(overview.alertas || [], kpis.transacciones_recientes || 0);
+        renderRanking('topCategorias', overview.top_categorias || []);
+        renderRanking('topBeneficiarios', overview.top_beneficiarios || []);
+        renderCompromisos(overview.proximos_compromisos || []);
 
         // Dona: gastos por categoría (mes actual)
         const pie = summary.chart_data;
         if (pie && pie.labels && pie.labels.length > 0) {
+            document.getElementById('categoryChart').style.display = 'block';
             document.getElementById('noDataPie').style.display = 'none';
             if (pieChart) pieChart.destroy();
             pieChart = new Chart(
@@ -199,6 +283,7 @@ async function loadDashboard() {
 
         // Barras: tendencia ingresos vs gastos (6 meses)
         if (trend && trend.months && trend.months.length > 0) {
+            document.getElementById('trendChart').style.display = 'block';
             document.getElementById('noDataTrend').style.display = 'none';
             if (trendChart) trendChart.destroy();
             trendChart = new Chart(
@@ -245,6 +330,54 @@ async function loadDashboard() {
             document.getElementById('noDataTrend').style.display = 'block';
         }
 
+        const flujo = overview.flujo_semanal || {};
+        if (flujo.labels && flujo.labels.length > 0) {
+            document.getElementById('weeklyChart').style.display = 'block';
+            document.getElementById('noDataWeekly').style.display = 'none';
+            if (weeklyChart) weeklyChart.destroy();
+            weeklyChart = new Chart(
+                document.getElementById('weeklyChart').getContext('2d'),
+                {
+                    type: 'line',
+                    data: {
+                        labels: flujo.labels,
+                        datasets: [
+                            {
+                                label: 'Ingresos',
+                                data: flujo.ingresos,
+                                borderColor: '#198754',
+                                backgroundColor: 'rgba(25,135,84,0.10)',
+                                tension: 0.35,
+                                fill: true,
+                            },
+                            {
+                                label: 'Gastos',
+                                data: flujo.gastos,
+                                borderColor: '#dc3545',
+                                backgroundColor: 'rgba(220,53,69,0.08)',
+                                tension: 0.35,
+                                fill: true,
+                            },
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom' },
+                            tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}` } }
+                        },
+                        scales: {
+                            y: { ticks: { callback: v => formatCurrency(v) } }
+                        }
+                    }
+                }
+            );
+        } else {
+            document.getElementById('weeklyChart').style.display = 'none';
+            document.getElementById('noDataWeekly').style.display = 'block';
+        }
+
         spinner.style.display = 'none';
 
     } catch (error) {
@@ -253,6 +386,82 @@ async function loadDashboard() {
         errAlert.style.display = 'block';
         spinner.style.display  = 'none';
     }
+}
+
+function renderAlertas(alertas, transaccionesRecientes) {
+    const container = document.getElementById('alertasContainer');
+    if (!alertas.length) {
+        container.innerHTML = '<p class="text-muted mb-0">Sin alertas por mostrar.</p>';
+        return;
+    }
+
+    const html = alertas.map(item => `
+        <div class="alert alert-${item.nivel || 'info'} mb-2 py-2">
+            <strong>${escapeHtml(item.titulo || 'Alerta')}</strong>
+            <div class="small">${escapeHtml(item.detalle || '')}</div>
+        </div>
+    `).join('');
+
+    container.innerHTML = html + `
+        <div class="small text-muted mt-2">
+            <i class="fas fa-exchange-alt me-1"></i>
+            Transacciones en 30 días: <strong>${transaccionesRecientes}</strong>
+        </div>
+    `;
+}
+
+function renderRanking(containerId, items) {
+    const el = document.getElementById(containerId);
+    if (!items.length) {
+        el.innerHTML = '<p class="text-muted mb-0">Sin datos.</p>';
+        return;
+    }
+
+    el.innerHTML = items.map((item, idx) => `
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span>${idx + 1}. ${escapeHtml(item.nombre || 'N/A')}</span>
+            <strong>${formatCurrency(item.total || 0)}</strong>
+        </div>
+    `).join('');
+}
+
+function renderCompromisos(items) {
+    const body = document.getElementById('compromisosBody');
+    if (!items.length) {
+        body.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Sin compromisos próximos.</td></tr>';
+        return;
+    }
+
+    body.innerHTML = items.map(item => `
+        <tr>
+            <td>${formatDate(item.fecha)}</td>
+            <td>${escapeHtml(item.beneficiario || '-')}</td>
+            <td>${escapeHtml(item.categoria || '-')}</td>
+            <td>${escapeHtml(item.tipo || '-')}</td>
+            <td class="text-end fw-semibold">${formatCurrency(item.monto || 0)}</td>
+        </tr>
+    `).join('');
+}
+
+function formatSignedCurrency(value) {
+    const amount = Number(value || 0);
+    return `${amount >= 0 ? '+' : ''}${formatCurrency(amount)}`;
+}
+
+function formatDate(value) {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function escapeHtml(raw) {
+    return String(raw)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 </script>
 {% endblock %}

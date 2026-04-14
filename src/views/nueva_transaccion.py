@@ -24,6 +24,11 @@ try:
 except ImportError:
     from business.services.etl_tarjeta_credito import ETLTarjetaCredito, validate_excel_file
 
+try:
+    from ..business.services.etl_cuenta_bancaria import ETLCuentaBancaria, validate_bank_excel_file
+except ImportError:
+    from business.services.etl_cuenta_bancaria import ETLCuentaBancaria, validate_bank_excel_file
+
 
 class NuevaTransaccionView(ft.View):
     """Vista principal para registrar transacciones financieras."""
@@ -45,14 +50,28 @@ class NuevaTransaccionView(ft.View):
         if self.file_picker not in self.page.overlay:
             self.page.overlay.append(self.file_picker)
 
+        # Registro de fuentes ETL para escalar facilmente (fondos y otras en el futuro).
+        self.etl_sources = {
+            "cuenta_bancaria": {
+                "label": "Carga a Cuenta Bancaria",
+                "requires": "account",
+                "loader": self._load_bank_excel_with_etl,
+            },
+            "tarjeta_credito": {
+                "label": "Carga a Tarjeta de Crédito",
+                "requires": "card",
+                "loader": self._load_excel_with_etl,
+            },
+        }
+
         # Configuracion para carga masiva por origen de pago
         self.massive_mode_group = ft.RadioGroup(
             value="cuenta_bancaria",
             on_change=self._on_massive_mode_change,
             content=ft.Row(
                 [
-                    ft.Radio(value="cuenta_bancaria", label="Carga a Cuenta Bancaria"),
-                    ft.Radio(value="tarjeta_credito", label="Carga a Tarjeta de Crédito"),
+                    ft.Radio(value=key, label=cfg["label"])
+                    for key, cfg in self.etl_sources.items()
                 ],
                 spacing=20,
             ),
@@ -161,9 +180,12 @@ class NuevaTransaccionView(ft.View):
             db.close()
 
     def _on_massive_mode_change(self, e: ft.ControlEvent) -> None:
-        is_account = self.massive_mode_group.value == "cuenta_bancaria"
-        self.account_dropdown.disabled = not is_account
-        self.card_dropdown.disabled = is_account
+        mode = self.massive_mode_group.value or "cuenta_bancaria"
+        source = self.etl_sources.get(mode, {})
+        required = source.get("requires")
+
+        self.account_dropdown.disabled = required != "account"
+        self.card_dropdown.disabled = required != "card"
         self.page.update()
 
     def _show_message(self, message: str, color: str = ft.Colors.BLUE_700) -> None:
@@ -317,23 +339,28 @@ class NuevaTransaccionView(ft.View):
             if not e.files:
                 return
             file_path = Path(e.files[0].path)
-            
+
             selected_mode = self.massive_mode_group.value or "cuenta_bancaria"
-            
-            # Validar que se haya seleccionado cuenta/tarjeta
-            if selected_mode == "cuenta_bancaria" and not self.account_dropdown.value:
+            source = self.etl_sources.get(selected_mode)
+            if not source:
+                self._show_message("Modo de carga no configurado.", ft.Colors.RED_600)
+                return
+
+            # Validar dependencia del modo seleccionado.
+            required = source.get("requires")
+            if required == "account" and not self.account_dropdown.value:
                 self._show_message("Debes seleccionar una cuenta bancaria para la carga masiva.", ft.Colors.RED_600)
                 return
-            if selected_mode == "tarjeta_credito" and not self.card_dropdown.value:
+            if required == "card" and not self.card_dropdown.value:
                 self._show_message("Debes seleccionar una tarjeta de crédito para la carga masiva.", ft.Colors.RED_600)
                 return
-            
-            # Para tarjeta de crédito, usar ETL
-            if selected_mode == "tarjeta_credito":
-                self._load_excel_with_etl(file_path)
-            else:
-                # Para cuenta bancaria, usar lógica existente
-                self._load_excel_legacy(file_path, selected_mode)
+
+            loader = source.get("loader")
+            if not loader:
+                self._show_message("No hay ETL asociado al modo seleccionado.", ft.Colors.RED_600)
+                return
+
+            loader(file_path)
         
         elif self._picker_mode == "save_template":
             if not e.path:
@@ -370,7 +397,7 @@ class NuevaTransaccionView(ft.View):
                 self._show_message(f"No se pudo generar la plantilla: {ex}", ft.Colors.RED_600)
     
     def _load_excel_with_etl(self, file_path: Path) -> None:
-        """Carga Excel usando ETL para tarjeta de crédito."""
+        """Carga Excel usando ETL para tarjeta de credito."""
         try:
             # Validar archivo
             is_valid, errors = validate_excel_file(str(file_path))
@@ -427,6 +454,58 @@ class NuevaTransaccionView(ft.View):
         
         except Exception as ex:
             self._show_message(f"Error procesando archivo: {ex}", ft.Colors.RED_600)
+
+    def _load_bank_excel_with_etl(self, file_path: Path) -> None:
+        """Carga Excel de cuenta bancaria usando ETL especifico para extractos."""
+        try:
+            is_valid, errors = validate_bank_excel_file(str(file_path))
+            if not is_valid:
+                self._show_message(f"Archivo invalido: {'; '.join(errors)}", ft.Colors.RED_600)
+                return
+
+            db = DatabaseConnector()
+            user_rows = db.execute_query(
+                """
+                SELECT id_persona
+                FROM persona
+                WHERE estado = 1
+                ORDER BY COALESCE(fecha_actualizacion, fecha_creacion) DESC, id_persona DESC
+                LIMIT 1
+                """
+            )
+            if not user_rows:
+                self._show_message("No hay usuario activo.", ft.Colors.RED_600)
+                db.close()
+                return
+
+            id_persona = int(user_rows[0]['id_persona'])
+            id_cuenta = int(self.account_dropdown.value)
+
+            etl = ETLCuentaBancaria(db)
+            processed_count, validation_errors = etl.process_file(
+                str(file_path),
+                id_persona,
+                id_cuenta,
+            )
+
+            db.close()
+
+            if processed_count > 0:
+                self._show_message(
+                    f"Carga bancaria completada: {processed_count} movimiento(s) registrado(s).",
+                    ft.Colors.GREEN_700,
+                )
+
+            if validation_errors:
+                error_msg = "Filas con errores:\n"
+                for err in validation_errors[:5]:
+                    error_msg += f"\nFila {err.get('row', '?')}: {'; '.join(err.get('errors', ['Error desconocido']))}"
+                if len(validation_errors) > 5:
+                    error_msg += f"\n... y {len(validation_errors) - 5} error(es) mas"
+                self._show_message(error_msg, ft.Colors.ORANGE_700)
+
+        except Exception as ex:
+            self._show_message(f"Error procesando extracto bancario: {ex}", ft.Colors.RED_600)
     
     def _load_excel_legacy(self, file_path: Path, selected_mode: str) -> None:
         """Carga Excel para cuentas bancarias (lógica existente)."""

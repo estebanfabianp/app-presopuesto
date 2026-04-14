@@ -7,13 +7,49 @@
     <div class="page-header mb-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
         <div>
             <h1 class="page-title"><i class="fas fa-chart-area"></i> Centro de reportes</h1>
-            <p class="text-muted mb-0">Vista integral de flujo, categorias, uso, cuentas y desempeno presupuestario.</p>
+            <p class="text-muted mb-0">Filtros globales, comparativos y detalle interactivo de movimientos.</p>
         </div>
-        <div class="d-flex gap-2 align-items-center">
-            <select id="yearSelector" class="form-select form-select-sm" style="width: 120px;"></select>
-            <button class="btn btn-sm btn-outline-secondary" onclick="loadReportSuite()">
-                <i class="fas fa-sync-alt"></i> Actualizar
-            </button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="loadReportSuite()">
+            <i class="fas fa-sync-alt"></i> Actualizar
+        </button>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Anio</label>
+                    <select id="yearSelector" class="form-select form-select-sm"></select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Desde</label>
+                    <input id="startDate" type="date" class="form-control form-control-sm">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Hasta</label>
+                    <input id="endDate" type="date" class="form-control form-control-sm">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Cuenta</label>
+                    <select id="cuentaFilter" class="form-select form-select-sm"></select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Categoria</label>
+                    <select id="categoriaFilter" class="form-select form-select-sm"></select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Beneficiario</label>
+                    <select id="beneficiarioFilter" class="form-select form-select-sm"></select>
+                </div>
+            </div>
+            <div class="mt-3 d-flex gap-2">
+                <button class="btn btn-primary btn-sm" onclick="applyFilters()">
+                    <i class="fas fa-filter"></i> Aplicar filtros
+                </button>
+                <button class="btn btn-light btn-sm border" onclick="resetFilters()">
+                    Limpiar
+                </button>
+            </div>
         </div>
     </div>
 
@@ -28,7 +64,8 @@
                 <div class="card h-100 border-0 shadow-sm">
                     <div class="card-body">
                         <div class="text-muted small">Ingresos totales</div>
-                        <div class="h4 mb-0 text-success" id="kpiIngresos">$0</div>
+                        <div class="h4 mb-1 text-success" id="kpiIngresos">$0</div>
+                        <span id="deltaIngresos" class="badge text-bg-light">0%</span>
                     </div>
                 </div>
             </div>
@@ -36,7 +73,8 @@
                 <div class="card h-100 border-0 shadow-sm">
                     <div class="card-body">
                         <div class="text-muted small">Gastos totales</div>
-                        <div class="h4 mb-0 text-danger" id="kpiGastos">$0</div>
+                        <div class="h4 mb-1 text-danger" id="kpiGastos">$0</div>
+                        <span id="deltaGastos" class="badge text-bg-light">0%</span>
                     </div>
                 </div>
             </div>
@@ -44,7 +82,8 @@
                 <div class="card h-100 border-0 shadow-sm">
                     <div class="card-body">
                         <div class="text-muted small">Saldo acumulado</div>
-                        <div class="h4 mb-0" id="kpiSaldo">$0</div>
+                        <div class="h4 mb-1" id="kpiSaldo">$0</div>
+                        <span id="deltaSaldo" class="badge text-bg-light">0%</span>
                     </div>
                 </div>
             </div>
@@ -53,8 +92,9 @@
         <div class="row mb-4">
             <div class="col-lg-7">
                 <div class="card h-100">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="fas fa-wave-square"></i> Flujo de caja</h5>
+                        <small class="text-muted">Click en barras/linea para ver detalle</small>
                     </div>
                     <div class="card-body">
                         <div style="position:relative; height:300px;">
@@ -64,7 +104,7 @@
                 </div>
             </div>
             <div class="col-lg-5">
-                <div class="card">
+                <div class="card h-100">
                     <div class="card-header">
                         <h5 class="mb-0"><i class="fas fa-calendar-alt"></i> Ingresos vs gastos mensual</h5>
                     </div>
@@ -80,20 +120,22 @@
         <div class="row mb-4">
             <div class="col-lg-6">
                 <div class="card">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="fas fa-arrow-down"></i> Donde va el dinero</h5>
+                        <small class="text-muted">Click en segmento</small>
                     </div>
                     <div class="card-body">
                         <div style="position:relative; height:250px;">
                             <canvas id="whereMoneyGoesChart"></canvas>
                         </div>
                         <div class="table-responsive mt-3">
-                        <table class="table table-sm table-hover mb-0" id="whereMoneyGoesTable">
+                        <table class="table table-sm table-hover mb-0">
                             <thead>
                                 <tr>
                                     <th>Categoria</th>
                                     <th class="text-end">Monto</th>
                                     <th class="text-end">%</th>
+                                    <th class="text-end">Var %</th>
                                 </tr>
                             </thead>
                             <tbody id="tbodyWhereMoneyGoes"></tbody>
@@ -104,8 +146,9 @@
             </div>
             <div class="col-lg-6">
                 <div class="card">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="fas fa-arrow-up"></i> De donde viene el dinero</h5>
+                        <small class="text-muted">Click en segmento</small>
                     </div>
                     <div class="card-body">
                         <div style="position:relative; height:250px;">
@@ -118,6 +161,7 @@
                                     <th>Origen</th>
                                     <th class="text-end">Monto</th>
                                     <th class="text-end">%</th>
+                                    <th class="text-end">Var %</th>
                                 </tr>
                             </thead>
                             <tbody id="tbodyIncomeSources"></tbody>
@@ -159,6 +203,7 @@
                                     <th>Beneficiario</th>
                                     <th class="text-end">Movimientos</th>
                                     <th class="text-end">Gasto total</th>
+                                    <th class="text-end">Var %</th>
                                 </tr>
                             </thead>
                             <tbody id="tbodyBeneficiarios"></tbody>
@@ -173,7 +218,7 @@
             <div class="col-lg-6">
                 <div class="card">
                     <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-wallet"></i> Resumen cuentas mensual</h5>
+                        <h5 class="mb-0"><i class="fas fa-wallet"></i> Resumen cuentas (periodo filtrado)</h5>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
@@ -186,7 +231,7 @@
                                     <th class="text-end">Saldo</th>
                                 </tr>
                             </thead>
-                            <tbody id="tbodyCuentasMensual"></tbody>
+                            <tbody id="tbodyCuentasPeriodo"></tbody>
                         </table>
                         </div>
                     </div>
@@ -269,6 +314,35 @@
         No hay datos para mostrar en este periodo.
     </div>
 </div>
+
+<div class="modal fade" id="modalDetalleMovimientos" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalDetalleTitulo">Detalle de movimientos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Cuenta</th>
+                                <th>Tipo</th>
+                                <th>Categoria</th>
+                                <th>Beneficiario</th>
+                                <th>Detalle</th>
+                                <th class="text-end">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyDetalleMovimientos"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -277,6 +351,8 @@ let flujoChart = null;
 let ingresosGastosChart = null;
 let whereMoneyGoesChart = null;
 let incomeSourcesChart = null;
+let currentSuite = null;
+let detailModal = null;
 
 const COLORS = [
     '#0d6efd', '#20c997', '#fd7e14', '#6f42c1', '#dc3545',
@@ -284,9 +360,12 @@ const COLORS = [
     '#e83e8c', '#6610f2'
 ];
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     initYearSelector();
-    loadReportSuite();
+    await loadFilterMetadata();
+    resetDateInputs();
+    await loadReportSuite();
+    detailModal = new bootstrap.Modal(document.getElementById('modalDetalleMovimientos'));
 });
 
 function initYearSelector() {
@@ -300,7 +379,46 @@ function initYearSelector() {
         selector.appendChild(opt);
     }
     selector.value = String(currentYear);
-    selector.addEventListener('change', loadReportSuite);
+    selector.addEventListener('change', () => {
+        resetDateInputs();
+        loadReportSuite();
+    });
+}
+
+function resetDateInputs() {
+    const year = Number(document.getElementById('yearSelector').value);
+    document.getElementById('startDate').value = `${year}-01-01`;
+    document.getElementById('endDate').value = `${year}-12-31`;
+}
+
+async function loadFilterMetadata() {
+    const data = await api.getReporteMetadata();
+    populateSelect('cuentaFilter', data.cuentas || [], 'id_cuenta', 'nombre', 'Todas las cuentas');
+    populateSelect('categoriaFilter', data.categorias || [], 'id_categoria', 'nombre', 'Todas las categorias');
+    populateSelect('beneficiarioFilter', data.beneficiarios || [], 'id_beneficiario', 'nombre', 'Todos los beneficiarios');
+}
+
+function populateSelect(id, rows, valueKey, labelKey, allLabel) {
+    const el = document.getElementById(id);
+    el.innerHTML = `<option value="">${allLabel}</option>`;
+    rows.forEach((row) => {
+        const opt = document.createElement('option');
+        opt.value = String(row[valueKey]);
+        opt.textContent = row[labelKey];
+        el.appendChild(opt);
+    });
+}
+
+function applyFilters() {
+    loadReportSuite();
+}
+
+function resetFilters() {
+    document.getElementById('cuentaFilter').value = '';
+    document.getElementById('categoriaFilter').value = '';
+    document.getElementById('beneficiarioFilter').value = '';
+    resetDateInputs();
+    loadReportSuite();
 }
 
 function rowHtml(cells) {
@@ -320,7 +438,44 @@ function destroyChart(chartRef) {
     if (chartRef) chartRef.destroy();
 }
 
-function drawLineBarChart(id, labels, ingresos, gastos, balance) {
+function renderDeltaBadge(elementId, value, invertColor = false) {
+    const el = document.getElementById(elementId);
+    const hasValue = typeof value === 'number' && Number.isFinite(value);
+    if (!hasValue) {
+        el.className = 'badge text-bg-secondary';
+        el.textContent = 'N/A';
+        return;
+    }
+
+    const positive = value >= 0;
+    let cls = positive ? 'text-bg-success' : 'text-bg-danger';
+    if (invertColor) {
+        cls = positive ? 'text-bg-danger' : 'text-bg-success';
+    }
+    el.className = `badge ${cls}`;
+    const sign = value > 0 ? '+' : '';
+    el.textContent = `${sign}${value.toFixed(2)}%`;
+}
+
+function buildFilterParams() {
+    const year = Number(document.getElementById('yearSelector').value || new Date().getFullYear());
+    const startDate = document.getElementById('startDate').value || null;
+    const endDate = document.getElementById('endDate').value || null;
+    const cuentaId = document.getElementById('cuentaFilter').value || null;
+    const categoriaId = document.getElementById('categoriaFilter').value || null;
+    const beneficiarioId = document.getElementById('beneficiarioFilter').value || null;
+
+    return {
+        year,
+        start_date: startDate,
+        end_date: endDate,
+        cuenta_id: cuentaId,
+        categoria_id: categoriaId,
+        beneficiario_id: beneficiarioId,
+    };
+}
+
+function drawLineBarChart(id, labels, ingresos, gastos, balance, periodos) {
     const ctx = document.getElementById(id).getContext('2d');
     return new Chart(ctx, {
         data: {
@@ -365,6 +520,16 @@ function drawLineBarChart(id, labels, ingresos, gastos, balance) {
                     }
                 }
             },
+            onClick: (_evt, elements, chart) => {
+                if (!elements.length) return;
+                const item = elements[0];
+                const periodo = periodos[item.index];
+                const tipo = chart.data.datasets[item.datasetIndex].label.toLowerCase();
+                let movementType = null;
+                if (tipo.includes('ingresos')) movementType = 'ingreso';
+                if (tipo.includes('gastos')) movementType = 'gasto';
+                openDetalleMovimientos(`Detalle ${periodo}`, { period: periodo, movement_type: movementType });
+            },
             scales: {
                 y: {
                     ticks: { callback: (v) => formatCurrency(v) }
@@ -374,7 +539,7 @@ function drawLineBarChart(id, labels, ingresos, gastos, balance) {
     });
 }
 
-function drawDoughnut(id, labels, values) {
+function drawDoughnut(id, labels, values, clickHandler) {
     const ctx = document.getElementById(id).getContext('2d');
     return new Chart(ctx, {
         type: 'doughnut',
@@ -392,12 +557,17 @@ function drawDoughnut(id, labels, values) {
                         label: (ctx) => `${ctx.label}: ${formatCurrency(ctx.parsed)}`
                     }
                 }
+            },
+            onClick: (_evt, elements, chart) => {
+                if (!elements.length || !clickHandler) return;
+                const idx = elements[0].index;
+                clickHandler(chart.data.labels[idx]);
             }
         }
     });
 }
 
-function drawGroupedBar(id, labels, ingresos, gastos) {
+function drawGroupedBar(id, labels, ingresos, gastos, periodos) {
     const ctx = document.getElementById(id).getContext('2d');
     return new Chart(ctx, {
         type: 'bar',
@@ -423,6 +593,14 @@ function drawGroupedBar(id, labels, ingresos, gastos) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            onClick: (_evt, elements, chart) => {
+                if (!elements.length) return;
+                const item = elements[0];
+                const periodo = periodos[item.index];
+                const tipo = chart.data.datasets[item.datasetIndex].label.toLowerCase();
+                const movementType = tipo.includes('ingresos') ? 'ingreso' : 'gasto';
+                openDetalleMovimientos(`Detalle ${periodo}`, { period: periodo, movement_type: movementType });
+            },
             plugins: { legend: { position: 'bottom' } },
             scales: {
                 y: {
@@ -433,17 +611,40 @@ function drawGroupedBar(id, labels, ingresos, gastos) {
     });
 }
 
+async function openDetalleMovimientos(title, detailFilters = {}) {
+    try {
+        document.getElementById('modalDetalleTitulo').textContent = title;
+        const params = { ...buildFilterParams(), ...detailFilters, limit: 150 };
+        const data = await api.getReporteDetalleMovimientos(params);
+        const rows = data.movimientos || [];
+        document.getElementById('tbodyDetalleMovimientos').innerHTML = rows.map((item) => rowHtml([
+            `<td>${item.fecha || ''}</td>`,
+            `<td>${item.cuenta || ''}</td>`,
+            `<td>${item.tipo || ''}</td>`,
+            `<td>${item.categoria || ''}</td>`,
+            `<td>${item.beneficiario || ''}</td>`,
+            `<td>${item.detalle || ''}</td>`,
+            `<td class="text-end ${item.tipo === 'ingreso' ? 'text-success' : 'text-danger'}">${formatCurrency(item.monto || 0)}</td>`
+        ])).join('');
+        detailModal.show();
+    } catch (error) {
+        showToast(error.message || 'No se pudo cargar detalle de movimientos', 'danger');
+    }
+}
+
 async function loadReportSuite() {
-    const year = Number(document.getElementById('yearSelector').value || new Date().getFullYear());
     document.getElementById('loadingSuite').style.display = 'block';
     document.getElementById('suiteContent').style.display = 'none';
     document.getElementById('suiteEmpty').style.display = 'none';
 
     try {
-        const data = await api.getReporteSuite({ year });
+        const params = buildFilterParams();
+        const data = await api.getReporteSuite(params);
+        currentSuite = data;
 
         const flujo = data.flujo_caja || {};
         const meses = flujo.meses || [];
+        const periodos = flujo.periodos || [];
         const ingresos = flujo.ingresos || [];
         const gastos = flujo.gastos || [];
         const balance = flujo.balance || [];
@@ -460,38 +661,47 @@ async function loadReportSuite() {
         const saldo = Number(resumen.saldo_total || 0);
         const kpiSaldoEl = document.getElementById('kpiSaldo');
         kpiSaldoEl.textContent = formatCurrency(saldo);
-        kpiSaldoEl.className = `h4 mb-0 ${amountClass(saldo)}`;
+        kpiSaldoEl.className = `h4 mb-1 ${amountClass(saldo)}`;
+
+        const comp = resumen.comparativo || {};
+        renderDeltaBadge('deltaIngresos', comp.ingresos ? comp.ingresos.delta_pct : null);
+        renderDeltaBadge('deltaGastos', comp.gastos ? comp.gastos.delta_pct : null, true);
+        renderDeltaBadge('deltaSaldo', comp.saldo ? comp.saldo.delta_pct : null);
 
         destroyChart(flujoChart);
         destroyChart(ingresosGastosChart);
         destroyChart(whereMoneyGoesChart);
         destroyChart(incomeSourcesChart);
 
-        flujoChart = drawLineBarChart('flujoChart', meses, ingresos, gastos, balance);
-        ingresosGastosChart = drawGroupedBar('ingresosGastosChart', meses, ingresos, gastos);
+        flujoChart = drawLineBarChart('flujoChart', meses, ingresos, gastos, balance, periodos);
+        ingresosGastosChart = drawGroupedBar('ingresosGastosChart', meses, ingresos, gastos, periodos);
 
         const whereGoes = flujo.donde_va_dinero || [];
         whereMoneyGoesChart = drawDoughnut(
             'whereMoneyGoesChart',
             whereGoes.map((i) => i.categoria),
-            whereGoes.map((i) => Number(i.total || 0))
+            whereGoes.map((i) => Number(i.total || 0)),
+            (categoria) => openDetalleMovimientos(`Gastos en ${categoria}`, { movement_type: 'gasto', category_name: categoria })
         );
         document.getElementById('tbodyWhereMoneyGoes').innerHTML = whereGoes.map((item) => rowHtml([
             `<td>${item.categoria || '-'}</td>`,
             `<td class="text-end text-danger">${formatCurrency(item.total || 0)}</td>`,
-            `<td class="text-end">${Number(item.pct || 0).toFixed(2)}%</td>`
+            `<td class="text-end">${Number(item.pct || 0).toFixed(2)}%</td>`,
+            `<td class="text-end ${amountClass(Number(item.delta_pct || 0) * -1)}">${item.delta_pct === null ? 'N/A' : `${Number(item.delta_pct).toFixed(2)}%`}</td>`
         ])).join('');
 
         const sources = flujo.de_donde_viene || [];
         incomeSourcesChart = drawDoughnut(
             'incomeSourcesChart',
             sources.map((i) => i.categoria),
-            sources.map((i) => Number(i.total || 0))
+            sources.map((i) => Number(i.total || 0)),
+            (categoria) => openDetalleMovimientos(`Ingresos en ${categoria}`, { movement_type: 'ingreso', category_name: categoria })
         );
         document.getElementById('tbodyIncomeSources').innerHTML = sources.map((item) => rowHtml([
             `<td>${item.categoria || '-'}</td>`,
             `<td class="text-end text-success">${formatCurrency(item.total || 0)}</td>`,
-            `<td class="text-end">${Number(item.pct || 0).toFixed(2)}%</td>`
+            `<td class="text-end">${Number(item.pct || 0).toFixed(2)}%</td>`,
+            `<td class="text-end ${amountClass(Number(item.delta_pct || 0))}">${item.delta_pct === null ? 'N/A' : `${Number(item.delta_pct).toFixed(2)}%`}</td>`
         ])).join('');
 
         const prevision = flujo.prevision || {};
@@ -506,13 +716,14 @@ async function loadReportSuite() {
         document.getElementById('tbodyBeneficiarios').innerHTML = beneficiarios.map((item) => rowHtml([
             `<td>${item.beneficiario || 'Sin beneficiario'}</td>`,
             `<td class="text-end">${Number(item.movimientos || 0)}</td>`,
-            `<td class="text-end text-danger">${formatCurrency(item.gasto_total || 0)}</td>`
+            `<td class="text-end text-danger">${formatCurrency(item.gasto_total || 0)}</td>`,
+            `<td class="text-end ${amountClass(Number(item.delta_pct || 0) * -1)}">${item.delta_pct === null ? 'N/A' : `${Number(item.delta_pct).toFixed(2)}%`}</td>`
         ])).join('');
 
         const cuentas = data.resumen_cuentas || {};
-        const cuentasMensual = cuentas.mensual || [];
+        const cuentasPeriodo = cuentas.periodo || [];
         const cuentasAnual = cuentas.anual || [];
-        document.getElementById('tbodyCuentasMensual').innerHTML = cuentasMensual.map((item) => rowHtml([
+        document.getElementById('tbodyCuentasPeriodo').innerHTML = cuentasPeriodo.map((item) => rowHtml([
             `<td>${item.cuenta}</td>`,
             `<td class="text-end text-success">${formatCurrency(item.ingresos || 0)}</td>`,
             `<td class="text-end text-danger">${formatCurrency(item.gastos || 0)}</td>`,
