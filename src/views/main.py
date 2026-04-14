@@ -121,6 +121,7 @@ def main(page: ft.Page) -> None:
         "/notificaciones": [("configuracion", "configuracion_view")],
         "/configuracion": [("configuracion", "configuracion_view")],
         "/constantes": [("constante", "system_constants_view")],
+        "/optimizacion-categorias": [("optimizacion_categorias", "optimizacion_categorias_view")],
     }
 
     def route_change(route) -> None:

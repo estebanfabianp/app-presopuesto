@@ -174,6 +174,7 @@ class LeftSidebarMenu:
             {"type": "item", "icon": "pie_chart", "title": "Presupuestos", "index": 5, "route": "/presupuestos"},
             {"type": "item", "icon": "trending_up", "title": "Metas de Ahorro", "index": 6, "route": "/metas"},
             {"type": "item", "icon": "category", "title": "Categorías", "index": 7, "route": "/categorias"},
+            {"type": "item", "icon": "auto_fix_high", "title": "Optimización de Categorías", "index": 18, "route": "/optimizacion-categorias"},
             
             # Sección Cuentas
             {"type": "section", "title": "CUENTAS"},

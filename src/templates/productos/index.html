@@ -305,9 +305,9 @@
       <div class="modal-body">
         <input type="hidden" id="tarjetaId">
         <div class="mb-3">
-          <label class="form-label">Número de tarjeta <span class="text-danger">*</span></label>
-          <input type="text" id="tarjetaNumero" class="form-control" placeholder="4532 XXXX XXXX 1234" maxlength="16" pattern="[0-9]{16}">
-          <small class="text-muted">Ingresa solo números (16 dígitos)</small>
+          <label class="form-label">Número de tarjeta (opcional)</label>
+          <input type="text" id="tarjetaNumero" class="form-control" placeholder="Últimos 4 dígitos (recomendado)">
+          <small class="text-muted">Por seguridad no es obligatorio guardar los 16 dígitos. Puedes ingresar solo los últimos 4.</small>
         </div>
         <div class="mb-3">
           <label class="form-label">Nombre titular <span class="text-danger">*</span></label>
@@ -350,12 +350,12 @@
         </div>
         <div class="row">
           <div class="col-6 mb-3">
-            <label class="form-label">Fecha de corte</label>
-            <input type="date" id="tarjetaFechaCorte" class="form-control">
+            <label class="form-label">Dia de corte (1-31)</label>
+            <input type="number" id="tarjetaFechaCorte" class="form-control" min="1" max="31" step="1" placeholder="Ej. 15">
           </div>
           <div class="col-6 mb-3">
-            <label class="form-label">Fecha de pago</label>
-            <input type="date" id="tarjetaFechaPago" class="form-control">
+            <label class="form-label">Dia de pago (1-31)</label>
+            <input type="number" id="tarjetaFechaPago" class="form-control" min="1" max="31" step="1" placeholder="Ej. 30">
           </div>
         </div>
         <div class="mb-3">
@@ -395,6 +395,33 @@ let _sortBy = localStorage.getItem('productosSortBy') || 'impacto';
 // ──────────────────────────────────────────────────────────────────────────────
 const bsModal = (id) => bootstrap.Modal.getOrCreateInstance(document.getElementById(id));
 
+function toast(message, level = 'success') {
+  const containerId = 'productosToastContainer';
+  let container = document.getElementById(containerId);
+  if (!container) {
+    container = document.createElement('div');
+    container.id = containerId;
+    container.style.position = 'fixed';
+    container.style.top = '1rem';
+    container.style.right = '1rem';
+    container.style.zIndex = '1100';
+    container.style.minWidth = '260px';
+    document.body.appendChild(container);
+  }
+
+  const alertType = level === 'error' ? 'danger' : (level === 'warning' ? 'warning' : 'success');
+  const item = document.createElement('div');
+  item.className = `alert alert-${alertType} shadow-sm mb-2 py-2 px-3`;
+  item.role = 'alert';
+  item.textContent = message;
+  container.appendChild(item);
+
+  setTimeout(() => {
+    item.remove();
+    if (!container.children.length) container.remove();
+  }, 2500);
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Carga
 // ──────────────────────────────────────────────────────────────────────────────
@@ -423,6 +450,15 @@ function fmtFecha(valor) {
   const d = new Date(valor + 'T00:00:00');
   if (Number.isNaN(d.getTime())) return valor;
   return d.toLocaleDateString('es-CO', { year:'numeric', month:'short', day:'2-digit' });
+}
+
+function extraerDiaMes(valor) {
+  if (!valor) return '';
+  const d = new Date(valor + 'T00:00:00');
+  if (!Number.isNaN(d.getTime())) return String(d.getDate());
+  const n = parseInt(String(valor), 10);
+  if (!Number.isNaN(n) && n >= 1 && n <= 31) return String(n);
+  return '';
 }
 
 function diasPara(fechaISO) {
@@ -707,6 +743,8 @@ function cardTarjeta(t) {
     const riesgo = pct < 30 ? 'success' : (pct <= 70 ? 'warning' : 'danger');
     const riesgoTxt = pct < 30 ? 'Bajo' : (pct <= 70 ? 'Medio' : 'Alto');
     const pagoRel = textoRelativo(t.fecha_pago);
+    const diaCorte = extraerDiaMes(t.fecha_corte);
+    const diaPago = extraerDiaMes(t.fecha_pago);
     const estadoActivo = ['ACTIVO','ACTIVA'].includes((t.estado||'').toUpperCase());
     const trend = sparkline([pct * 0.72, pct * 0.81, pct * 0.9, pct], '#be185d');
     return `
@@ -731,8 +769,8 @@ function cardTarjeta(t) {
           <small class="text-${riesgo} d-block mb-1">Riesgo: ${riesgoTxt} (${pct.toFixed(1)}% del cupo)</small>
           <small class="text-muted d-flex align-items-center gap-1">Tendencia uso: ${trend}</small>
           <small class="text-muted">Disponible: <strong>${fmt(disp)}</strong></small>
-          ${t.fecha_corte?`<br><small class="text-muted">Corte: ${fmtFecha(t.fecha_corte)}</small>`:''}
-          ${t.fecha_pago?`<br><small class="text-muted">Pago: ${fmtFecha(t.fecha_pago)} (${pagoRel})</small>`:''}
+          ${diaCorte?`<br><small class="text-muted">Corte: dia ${diaCorte}</small>`:''}
+          ${diaPago?`<br><small class="text-muted">Pago: dia ${diaPago}${pagoRel ? ` (${pagoRel})` : ''}</small>`:''}
           <div class="d-flex flex-wrap gap-1 mt-2">
             <button class="btn btn-sm btn-outline-secondary" title="Editar" onclick="editarTarjeta(${JSON.stringify(t).replace(/"/g,'&quot;')})">
               <i class="fas fa-edit"></i>
@@ -963,15 +1001,15 @@ function editarActivo(a) {
   function editarTarjeta(t) {
     document.getElementById('tituloModalTarjeta').textContent = 'Editar tarjeta';
     document.getElementById('tarjetaId').value = t.id || '';
-    document.getElementById('tarjetaNumero').value = t.numero_tarjeta || '';
+    document.getElementById('tarjetaNumero').value = (t.numero_tarjeta || '').slice(-4);
     document.getElementById('tarjetaNombreTitular').value = t.nombre_titular || '';
     document.getElementById('tarjetaBanco').value = t.banco || '';
     document.getElementById('tarjetaTipo').value = t.tipo_tarjeta || 'credito';
     document.getElementById('tarjetaLimite').value = t.limite_credito || 0;
     document.getElementById('tarjetaSaldo').value = t.saldo_actual || 0;
     document.getElementById('tarjetaVencimiento').value = (t.fecha_vencimiento || '').slice(0, 7);
-    document.getElementById('tarjetaFechaCorte').value = (t.fecha_corte || '').slice(0, 10);
-    document.getElementById('tarjetaFechaPago').value = (t.fecha_pago || '').slice(0, 10);
+    document.getElementById('tarjetaFechaCorte').value = extraerDiaMes(t.fecha_corte);
+    document.getElementById('tarjetaFechaPago').value = extraerDiaMes(t.fecha_pago);
     document.getElementById('tarjetaEstado').value = (t.estado || 'activa').toLowerCase();
     bsModal('modalTarjeta').show();
   }
@@ -991,30 +1029,37 @@ async function apiCall(method, url, body) {
 
 async function guardarTarjeta() {
     const id = document.getElementById('tarjetaId').value;
-    const numero = (document.getElementById('tarjetaNumero').value || '').replace(/\D/g, '');
+  const numero = (document.getElementById('tarjetaNumero').value || '').replace(/\D/g, '');
     const nombreTitular = document.getElementById('tarjetaNombreTitular').value;
     const banco = document.getElementById('tarjetaBanco').value;
     const tipo = document.getElementById('tarjetaTipo').value;
     const limite = parseFloat(document.getElementById('tarjetaLimite').value || 0);
     const saldo = parseFloat(document.getElementById('tarjetaSaldo').value || 0);
     const vencimiento = document.getElementById('tarjetaVencimiento').value;
-    const fechaCorte = document.getElementById('tarjetaFechaCorte').value;
-    const fechaPago = document.getElementById('tarjetaFechaPago').value;
+    const fechaCorteRaw = document.getElementById('tarjetaFechaCorte').value;
+    const fechaPagoRaw = document.getElementById('tarjetaFechaPago').value;
+    const diaCorte = fechaCorteRaw ? parseInt(fechaCorteRaw, 10) : null;
+    const diaPago = fechaPagoRaw ? parseInt(fechaPagoRaw, 10) : null;
     const estado = document.getElementById('tarjetaEstado').value;
 
-    if (!numero || numero.length !== 16) { alert('El número de tarjeta debe tener 16 dígitos'); return; }
     if (!nombreTitular) { alert('Ingresa el nombre del titular'); return; }
+    if (numero && (numero.length < 4 || numero.length > 16)) {
+      alert('Si ingresas número de tarjeta, debe tener entre 4 y 16 dígitos');
+      return;
+    }
+    if (diaCorte !== null && (Number.isNaN(diaCorte) || diaCorte < 1 || diaCorte > 31)) { alert('El día de corte debe estar entre 1 y 31'); return; }
+    if (diaPago !== null && (Number.isNaN(diaPago) || diaPago < 1 || diaPago > 31)) { alert('El día de pago debe estar entre 1 y 31'); return; }
 
     const body = {
-        numero_tarjeta: numero,
+        numero_tarjeta: numero || null,
         nombre_titular: nombreTitular,
         banco: banco || null,
         tipo_tarjeta: tipo,
         limite_credito: limite,
         saldo_actual: saldo,
         fecha_vencimiento: vencimiento || null,
-        fecha_corte: fechaCorte || null,
-        fecha_pago: fechaPago || null,
+      dia_corte: diaCorte,
+      dia_pago: diaPago,
         estado: estado,
     };
 
@@ -1023,8 +1068,8 @@ async function guardarTarjeta() {
         : await apiCall('POST', '/api/productos/tarjetas', body);
 
     if (res.ok) {
-        toast('Tarjeta guardada correctamente');
         bsModal('modalTarjeta').hide();
+      toast('Tarjeta guardada correctamente', 'success');
         cargarProductos();
     } else {
         const error = await res.json();

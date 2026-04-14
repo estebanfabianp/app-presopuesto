@@ -69,14 +69,12 @@ def _default_cuenta_id(db: DatabaseConnector, user_id: int):
 def _user_cards(db: DatabaseConnector, user_id: int):
     rows = db.execute_query(
         """
-        SELECT tc.id_tarjeta, tc.numero_tarjeta
+        SELECT tc.id_tarjeta,
+               tc.numero_tarjeta,
+               CONCAT(COALESCE(tc.banco, 'Tarjeta'), ' ****', RIGHT(tc.numero_tarjeta, 4)) AS nombre
         FROM tarjeta_credito tc
-        WHERE EXISTS (
-            SELECT 1
-            FROM movimiento_tarjeta mt
-            WHERE mt.id_tarjeta = tc.id_tarjeta AND mt.id_persona = %s
-        )
-        ORDER BY tc.id_tarjeta
+        WHERE tc.id_persona = %s
+        ORDER BY tc.fecha_creacion DESC, tc.id_tarjeta DESC
         """,
         (user_id,),
     )
@@ -121,9 +119,10 @@ def import_upload():
         if suffix not in ('.xlsx', '.xls'):
             return jsonify({'message': 'Formato no soportado. Usa .xlsx o .xls'}), 400
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            file.save(tmp.name)
-            tmp_path = tmp.name
+        # mkstemp cierra el fd antes de guardar para evitar conflicto en Windows
+        fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+        os.close(fd)
+        file.save(tmp_path)
 
         if source == 'cuenta_bancaria':
             id_cuenta = request.form.get('id_cuenta', type=int)

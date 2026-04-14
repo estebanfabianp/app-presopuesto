@@ -11,6 +11,9 @@ Todos los endpoints requieren JWT.  El id_persona proviene del token.
 """
 
 import logging
+import calendar
+from datetime import date
+import secrets
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
 
@@ -37,6 +40,71 @@ def _fmt(v):
     if hasattr(v, 'isoformat'):
         return v.isoformat()
     return v
+
+
+def _next_date_from_day_or_date(raw_value):
+    """Acepta dia (1-31) o fecha ISO y retorna una fecha ISO valida."""
+    if raw_value is None:
+        return None
+
+    if isinstance(raw_value, str):
+        raw_value = raw_value.strip()
+        if not raw_value:
+            return None
+        # Compatibilidad hacia atras: si ya viene una fecha, se conserva.
+        if len(raw_value) >= 10 and raw_value[4] == '-' and raw_value[7] == '-':
+            return raw_value[:10]
+
+    try:
+        day = int(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError('El dia debe ser un numero entre 1 y 31') from exc
+
+    if day < 1 or day > 31:
+        raise ValueError('El dia debe estar entre 1 y 31')
+
+    today = date.today()
+
+    def _build(y, m):
+        max_day = calendar.monthrange(y, m)[1]
+        return date(y, m, min(day, max_day))
+
+    candidate = _build(today.year, today.month)
+    if candidate < today:
+        next_year = today.year + (1 if today.month == 12 else 0)
+        next_month = 1 if today.month == 12 else today.month + 1
+        candidate = _build(next_year, next_month)
+
+    return candidate.isoformat()
+
+
+def _normalize_card_day(payload, date_key, day_key):
+    day_value = payload.get(day_key)
+    source = day_value if day_value not in (None, '') else payload.get(date_key)
+    return _next_date_from_day_or_date(source)
+
+
+def _generate_surrogate_card_number(last4=None):
+    """Genera un numero tecnico de 16 digitos sin exponer el numero real."""
+    if last4 is None:
+        last4 = ''.join(str(secrets.randbelow(10)) for _ in range(4))
+    prefix = ''.join(str(secrets.randbelow(10)) for _ in range(12))
+    return f"{prefix}{last4}"
+
+
+def _normalize_card_number(raw_value, current_value=None):
+    """Acepta vacio o 4-16 digitos y guarda un numero tecnico seguro."""
+    raw_digits = ''.join(ch for ch in str(raw_value or '') if ch.isdigit())
+
+    if not raw_digits:
+        if current_value:
+            return current_value
+        return _generate_surrogate_card_number()
+
+    if len(raw_digits) < 4 or len(raw_digits) > 16:
+        raise ValueError('El numero de tarjeta debe tener entre 4 y 16 digitos (o dejarse vacio)')
+
+    return _generate_surrogate_card_number(raw_digits[-4:])
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -73,7 +141,30 @@ def list_productos():
             (persona_id,),
         ) or []
 
-        tarjetas = [r for r in productos_unificados if str(r.get('tipo_producto', '')).lower() == 'tarjeta_credito']
+        # Importante: v_producto_unificado infiere id_persona de movimiento_tarjeta
+        # para tarjetas; una tarjeta recien creada (sin movimientos) puede no aparecer.
+        # Por eso listamos tarjetas directamente por propietario desde tarjeta_credito.
+        tarjetas = db.execute_query(
+            """SELECT
+                    t.id_tarjeta AS id,
+                    CONCAT('Tarjeta ', RIGHT(t.numero_tarjeta, 4)) AS nombre,
+                    t.numero_tarjeta,
+                    t.nombre_titular,
+                    t.banco,
+                    t.tipo_tarjeta,
+                    t.limite_credito,
+                    t.saldo_actual,
+                    t.fecha_vencimiento,
+                    t.fecha_corte,
+                    t.fecha_pago,
+                    t.fecha_creacion,
+                    UPPER(COALESCE(t.estado, 'ACTIVA')) AS estado_tarjeta,
+                    t.id_persona
+               FROM tarjeta_credito t
+               WHERE t.id_persona = %s
+               ORDER BY t.fecha_creacion DESC, t.id_tarjeta DESC""",
+            (persona_id,),
+        ) or []
 
         # ── Acciones / Fondos ─────────────────────────────────────────────────
         acciones = db.execute_query(
@@ -416,20 +507,24 @@ def create_tarjeta():
     db = DatabaseConnector()
     try:
         d = request.get_json() or {}
-        numero_tarjeta = (d.get('numero_tarjeta') or '').strip().replace(' ', '')
+        try:
+            numero_tarjeta = _normalize_card_number(d.get('numero_tarjeta'))
+        except ValueError as ve:
+            return jsonify({'message': str(ve)}), 400
         nombre_titular = (d.get('nombre_titular') or '').strip()
         banco = (d.get('banco') or '').strip()
         tipo_tarjeta = (d.get('tipo_tarjeta') or 'credito').strip().lower()
         limite_credito = float(d.get('limite_credito') or 0)
         saldo_actual = float(d.get('saldo_actual') or 0)
         fecha_vencimiento = d.get('fecha_vencimiento') or None
-        fecha_corte = d.get('fecha_corte') or None
-        fecha_pago = d.get('fecha_pago') or None
+        try:
+            fecha_corte = _normalize_card_day(d, 'fecha_corte', 'dia_corte')
+            fecha_pago = _normalize_card_day(d, 'fecha_pago', 'dia_pago')
+        except ValueError as ve:
+            return jsonify({'message': str(ve)}), 400
         estado = (d.get('estado') or 'activa').strip().lower()
 
         # Validaciones
-        if not numero_tarjeta or len(numero_tarjeta) != 16 or not numero_tarjeta.isdigit():
-            return jsonify({'message': 'El número de tarjeta debe tener 16 dígitos'}), 400
         if not nombre_titular:
             return jsonify({'message': 'El nombre del titular es obligatorio'}), 400
 
@@ -455,27 +550,34 @@ def update_tarjeta(tarjeta_id):
     db = DatabaseConnector()
     try:
         row = db.execute_query(
-            "SELECT id_tarjeta FROM tarjeta_credito WHERE id_tarjeta=%s AND (id_persona=%s OR id_persona IS NULL) LIMIT 1",
+            "SELECT id_tarjeta, numero_tarjeta FROM tarjeta_credito WHERE id_tarjeta=%s AND id_persona=%s LIMIT 1",
             (tarjeta_id, persona_id),
         )
         if not row:
             return jsonify({'message': 'Tarjeta no encontrada'}), 404
 
         d = request.get_json() or {}
-        numero_tarjeta = (d.get('numero_tarjeta') or '').strip().replace(' ', '')
+        try:
+            numero_tarjeta = _normalize_card_number(
+                d.get('numero_tarjeta'),
+                current_value=row[0].get('numero_tarjeta'),
+            )
+        except ValueError as ve:
+            return jsonify({'message': str(ve)}), 400
         nombre_titular = (d.get('nombre_titular') or '').strip()
         banco = (d.get('banco') or '').strip()
         tipo_tarjeta = (d.get('tipo_tarjeta') or 'credito').strip().lower()
         limite_credito = float(d.get('limite_credito') or 0)
         saldo_actual = float(d.get('saldo_actual') or 0)
         fecha_vencimiento = d.get('fecha_vencimiento') or None
-        fecha_corte = d.get('fecha_corte') or None
-        fecha_pago = d.get('fecha_pago') or None
+        try:
+            fecha_corte = _normalize_card_day(d, 'fecha_corte', 'dia_corte')
+            fecha_pago = _normalize_card_day(d, 'fecha_pago', 'dia_pago')
+        except ValueError as ve:
+            return jsonify({'message': str(ve)}), 400
         estado = (d.get('estado') or 'activa').strip().lower()
 
         # Validaciones
-        if not numero_tarjeta or len(numero_tarjeta) != 16 or not numero_tarjeta.isdigit():
-            return jsonify({'message': 'El número de tarjeta debe tener 16 dígitos'}), 400
         if not nombre_titular:
             return jsonify({'message': 'El nombre del titular es obligatorio'}), 400
 
@@ -502,7 +604,7 @@ def toggle_tarjeta(tarjeta_id):
     db = DatabaseConnector()
     try:
         row = db.execute_query(
-            "SELECT estado FROM tarjeta_credito WHERE id_tarjeta=%s AND (id_persona=%s OR id_persona IS NULL) LIMIT 1",
+            "SELECT estado FROM tarjeta_credito WHERE id_tarjeta=%s AND id_persona=%s LIMIT 1",
             (tarjeta_id, persona_id),
         )
         if not row:

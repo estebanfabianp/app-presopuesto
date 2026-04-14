@@ -382,10 +382,12 @@ def get_overview():
             LEFT JOIN beneficiario b ON tp.id_beneficiario = b.id_beneficiario
             LEFT JOIN categoria ca ON tp.id_categoria = ca.id_categoria
             LEFT JOIN tipo_movimiento tm ON tp.id_tipo = tm.id_tipo
-            WHERE tp.fecha >= CURDATE()
+                        WHERE tp.id_persona = %s
+                            AND tp.fecha >= CURDATE()
             ORDER BY tp.fecha ASC
             LIMIT 5
             """,
+                        (user_id,),
         )
 
         saldo_actual = current_ingresos - current_gastos

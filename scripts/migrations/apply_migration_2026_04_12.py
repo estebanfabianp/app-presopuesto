@@ -6,6 +6,12 @@ Script para aplicar la migración de mejoras al modelo de datos
 - Tabla detalle_diferido_movimiento (relación diferido ↔ movimiento)
 - Tabla movimiento_rechazo (auditoría de rechazos)
 
+Nota funcional:
+- El ETL de tarjeta usa estas estructuras para separar dos capas distintas.
+- movimiento_tarjeta conserva el historial mensual de cuotas reportadas por el extracto.
+- tarjeta_diferido y detalle_diferido_movimiento soportan el seguimiento consolidado
+    de compras diferidas y su actualización por código de referencia del extracto.
+
 Uso:
     python scripts/migrations/apply_migration_2026_04_12.py
 
@@ -96,7 +102,8 @@ def apply_migration():
         
         for table_name in tables_to_check:
             result = db.execute_query(
-                f"SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='app_presupuesto' AND table_name='{table_name}'"
+                "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = %s AND table_name = %s",
+                ('app_presupuesto', table_name),
             )
             if result and result[0]['count'] > 0:
                 logger.info(f"  ✓ Tabla {table_name}: EXISTE")
@@ -134,7 +141,8 @@ def main():
             tables = ['movimiento_tarjeta_item', 'detalle_diferido_movimiento', 'movimiento_rechazo']
             for table in tables:
                 result = db.execute_query(
-                    f"SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema='app_presupuesto' AND table_name='{table}'"
+                    "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = %s AND table_name = %s",
+                    ('app_presupuesto', table),
                 )
                 status = "✓ EXISTE" if result and result[0]['count'] > 0 else "✗ NO EXISTE"
                 logger.info(f"  {table}: {status}")

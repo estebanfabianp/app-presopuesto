@@ -84,6 +84,13 @@ ALTER TABLE `movimiento_tarjeta`
   ADD KEY `fk_mt_categoria` (`id_categoria`),
   ADD KEY `fk_mt_beneficiario` (`id_beneficiario`);
 
+-- Índices para tabla transaccion_programada
+ALTER TABLE `transaccion_programada`
+  ADD KEY `idx_tp_persona` (`id_persona`),
+  ADD KEY `fk_tp_tipo` (`id_tipo`),
+  ADD KEY `fk_tp_categoria` (`id_categoria`),
+  ADD KEY `fk_tp_beneficiario` (`id_beneficiario`);
+
 -- AUTO_INCREMENT configuración
 ALTER TABLE `accion`
   MODIFY `id_accion` int(11) NOT NULL AUTO_INCREMENT;

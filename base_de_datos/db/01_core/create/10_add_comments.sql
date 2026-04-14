@@ -165,6 +165,7 @@ ALTER TABLE `tipo_movimiento`
 ALTER TABLE `transaccion_programada` COMMENT = 'Transacciones programadas y recurrentes por los usuarios';
 ALTER TABLE `transaccion_programada`
   MODIFY `id_transaccion` int(11) NOT NULL AUTO_INCREMENT COMMENT 'Identificador único de la transacción programada',
+  MODIFY `id_persona` int(11) NOT NULL COMMENT 'Usuario propietario de la transacción programada',
   MODIFY `fecha` date DEFAULT NULL COMMENT 'Fecha de ejecución de la transacción',
   MODIFY `id_tipo` int(11) DEFAULT NULL COMMENT 'Tipo de movimiento programado',
   MODIFY `numero_transaccion` varchar(45) DEFAULT NULL COMMENT 'Número de referencia de la transacción',

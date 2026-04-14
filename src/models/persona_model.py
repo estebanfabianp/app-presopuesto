@@ -1,6 +1,8 @@
 ﻿import sys
 import os
 import hashlib
+import logging
+from datetime import date
 
 # Configurar path para importación absoluta
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -10,6 +12,9 @@ if src_dir not in sys.path:
 
 from database import DatabaseConnector
 from typing import Optional, Dict, List, Any
+
+
+logger = logging.getLogger(__name__)
 
 
 class PersonaModel:
@@ -36,6 +41,96 @@ class PersonaModel:
         """
         self.db = DatabaseConnector(host=host, database=database, user=user, clave=clave)
 
+    def _build_default_constants(self) -> List[Dict[str, Any]]:
+        fiscal_year = str(date.today().year)
+        return [
+            {
+                'categoria': 'IMPUESTOS',
+                'nombre': 'IVA',
+                'valor': '0.19',
+                'tipo_dato': 'DECIMAL',
+                'descripcion': 'Tasa de IVA por defecto para calculos fiscales',
+                'es_editable': 1,
+            },
+            {
+                'categoria': 'FISCAL',
+                'nombre': 'ANIO_FISCAL',
+                'valor': fiscal_year,
+                'tipo_dato': 'INTEGER',
+                'descripcion': 'Anio fiscal de trabajo para reportes y presupuesto',
+                'es_editable': 1,
+            },
+            {
+                'categoria': 'TASAS',
+                'nombre': 'TASA_REFERENCIA',
+                'valor': '0.00',
+                'tipo_dato': 'DECIMAL',
+                'descripcion': 'Tasa de referencia editable del usuario',
+                'es_editable': 1,
+            },
+        ]
+
+    def _get_system_template_constants(self) -> List[Dict[str, Any]]:
+        """Obtiene plantilla base desde un usuario del sistema (id minimo)."""
+        defaults = self._build_default_constants()
+        keys = {(d['categoria'], d['nombre']) for d in defaults}
+
+        owner_row = self.db.execute_query("SELECT MIN(id_persona) AS id_persona FROM persona")
+        system_owner = owner_row[0]['id_persona'] if owner_row else None
+        if not system_owner:
+            return defaults
+
+        rows = self.db.execute_query(
+            """
+            SELECT categoria, nombre, valor, tipo_dato, descripcion, es_editable
+            FROM constantes
+            WHERE id_persona = %s AND estado = 1
+            """,
+            (system_owner,),
+        )
+
+        by_key = {}
+        for r in rows or []:
+            key = (r.get('categoria'), r.get('nombre'))
+            if key in keys:
+                by_key[key] = {
+                    'categoria': r.get('categoria'),
+                    'nombre': r.get('nombre'),
+                    'valor': str(r.get('valor') or ''),
+                    'tipo_dato': r.get('tipo_dato') or 'STRING',
+                    'descripcion': r.get('descripcion') or '',
+                    'es_editable': 1 if r.get('es_editable') else 0,
+                }
+
+        resolved = []
+        for item in defaults:
+            resolved.append(by_key.get((item['categoria'], item['nombre']), item))
+        return resolved
+
+    def ensure_default_constants_for_user(self, persona_id: int) -> None:
+        """Crea constantes base para el usuario si aun no existen."""
+        if not persona_id:
+            return
+
+        templates = self._get_system_template_constants()
+        for c in templates:
+            self.db.execute_non_query(
+                """
+                INSERT IGNORE INTO constantes
+                (id_persona, categoria, nombre, valor, tipo_dato, descripcion, es_editable, estado, creado_por)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 1, 'system')
+                """,
+                (
+                    persona_id,
+                    c['categoria'],
+                    c['nombre'],
+                    c['valor'],
+                    c['tipo_dato'],
+                    c['descripcion'],
+                    c['es_editable'],
+                ),
+            )
+
     @staticmethod
     def _hash_password(password: str) -> str:
         return hashlib.sha256(password.encode()).hexdigest()
@@ -51,6 +146,16 @@ class PersonaModel:
             return False
         candidate_hash = self._hash_password(candidate_password)
         return stored_password == candidate_password or stored_password == candidate_hash
+
+    @staticmethod
+    def _is_active_user_status(status_value: Any) -> bool:
+        """Compatibilidad: en datos legacy estado NULL equivale a usuario activo."""
+        if status_value is None:
+            return True
+        if isinstance(status_value, str):
+            normalized = status_value.strip().lower()
+            return normalized in ('1', 'true', 'activo')
+        return status_value == 1 or status_value is True
 
     def _upgrade_password_hash(self, persona_id: int, plain_password: str) -> None:
         hashed_password = self._hash_password(plain_password)
@@ -107,6 +212,32 @@ class PersonaModel:
         """
         results = self.db.execute_query(query, (identifier, identifier, identifier))
         return results[0] if results else None
+
+    def _build_unique_username(self, nombre: str, email: str) -> str:
+        base = (email.split('@')[0] if email and '@' in email else nombre).strip().lower()
+        base = ''.join(ch if ch.isalnum() else '_' for ch in base).strip('_')
+        if not base:
+            base = 'usuario'
+
+        candidate = base[:45]
+        i = 1
+        while True:
+            exists = self.db.execute_query(
+                "SELECT id_persona FROM persona WHERE usuario = %s LIMIT 1",
+                (candidate,),
+            )
+            if not exists:
+                return candidate
+            suffix = f"_{i}"
+            candidate = (base[: max(1, 45 - len(suffix))] + suffix)[:45]
+            i += 1
+
+    @staticmethod
+    def _derive_lastname(nombre: str) -> str:
+        parts = [p for p in (nombre or '').strip().split() if p]
+        if len(parts) >= 2:
+            return parts[-1][:20]
+        return 'N/A'
 
     def get_all_personas(self) -> List[Dict[str, Any]]:
         """
@@ -208,18 +339,24 @@ class PersonaModel:
         Returns:
             Optional[Dict[str, Any]]: Datos de la persona creada si es exitoso
         """
-        # Hash de la contraseña si se proporciona
-        password_hash = None
-        if clave:
-            password_hash = self._hash_password(clave)
+        # Contraseña por defecto para altas sin clave explícita.
+        plain_password = (clave or '').strip() or '123456'
+        password_hash = self._hash_password(plain_password)
         
+        apellido = self._derive_lastname(nombre)
+        usuario = self._build_unique_username(nombre, email)
+
         query = """
-        INSERT INTO persona (nombre, correo_electronico, telefono, clave, estado) 
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO persona (nombre, apellido, correo_electronico, usuario, clave, estado, fecha_creacion)
+        VALUES (%s, %s, %s, %s, %s, %s, NOW())
         """
-        persona_id = self.db.execute_non_query(query, (nombre, email, telefono, password_hash, estado_id))
+        persona_id = self.db.execute_non_query(query, (nombre, apellido, email, usuario, password_hash, estado_id))
         
         if persona_id:
+            try:
+                self.ensure_default_constants_for_user(persona_id)
+            except Exception as exc:
+                logger.warning("No se pudieron sembrar constantes base para usuario %s: %s", persona_id, exc)
             return self.get_persona_by_id(persona_id)
         return None
 
@@ -416,7 +553,7 @@ class PersonaModel:
                                     None si son inválidas o el usuario no está activo
         """
         user_data = self._get_user_for_auth(email)
-        if not user_data or user_data.get('estado') != 1:
+        if not user_data or not self._is_active_user_status(user_data.get('estado')):
             return None
 
         stored_password = user_data.get('clave')
@@ -426,6 +563,11 @@ class PersonaModel:
         if stored_password == password and not self._looks_like_sha256_hash(stored_password):
             self._upgrade_password_hash(user_data['id_persona'], password)
             user_data['clave'] = self._hash_password(password)
+
+        try:
+            self.ensure_default_constants_for_user(user_data['id_persona'])
+        except Exception as exc:
+            logger.warning("No se pudieron asegurar constantes base en login de %s: %s", user_data['id_persona'], exc)
 
         user_data.pop('clave', None)
         return user_data
@@ -446,7 +588,7 @@ class PersonaModel:
             return False
         
         user_data = self._get_user_for_auth(username)
-        if not user_data or user_data.get('estado') != 1:
+        if not user_data or not self._is_active_user_status(user_data.get('estado')):
             return False
 
         stored_password = user_data.get('clave')
@@ -480,7 +622,7 @@ class PersonaModel:
             return False
 
         user_data = results[0]
-        if user_data.get('estado') != 1:
+        if not self._is_active_user_status(user_data.get('estado')):
             return False
 
         stored_password = user_data.get('clave')
@@ -491,3 +633,29 @@ class PersonaModel:
             self._upgrade_password_hash(persona_id, password)
 
         return True
+
+    def reset_password_by_email(self, email: str, new_password: str) -> tuple:
+        """
+        Restablece la contraseña de un usuario por correo electrónico.
+
+        Returns:
+            (True, 'ok') si el cambio fue exitoso.
+            (False, 'not_found') si no existe el usuario.
+        """
+        if not email or not new_password:
+            return False, 'not_found'
+
+        results = self.db.execute_query(
+            "SELECT id_persona FROM persona WHERE correo_electronico = %s LIMIT 1",
+            (email,),
+        )
+        if not results:
+            return False, 'not_found'
+
+        persona_id = results[0]['id_persona']
+        new_hash = self._hash_password(new_password)
+        self.db.execute_non_query(
+            "UPDATE persona SET clave = %s WHERE id_persona = %s",
+            (new_hash, persona_id),
+        )
+        return True, 'ok'

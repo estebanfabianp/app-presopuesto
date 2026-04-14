@@ -131,10 +131,12 @@ def get_catalogos():
             (user_id,),
         )
         categorias = db.execute_query(
-            "SELECT id_categoria, nombre FROM categoria WHERE estado = 1 ORDER BY nombre"
+            "SELECT id_categoria, nombre FROM categoria WHERE id_persona = %s AND estado = 1 ORDER BY nombre",
+            (user_id,),
         )
         beneficiarios = db.execute_query(
-            "SELECT id_beneficiario, nombre FROM beneficiario WHERE estado = 1 ORDER BY nombre"
+            "SELECT id_beneficiario, nombre FROM beneficiario WHERE id_persona = %s AND estado = 1 ORDER BY nombre",
+            (user_id,),
         )
         estados = db.execute_query(
             "SELECT id_estado, nombre FROM estado_movimiento ORDER BY nombre"

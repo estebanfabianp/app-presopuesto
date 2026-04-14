@@ -3,7 +3,7 @@
 import logging
 
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import verify_jwt_in_request
+from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 
 from src.database.db_connector import DatabaseConnector
 
@@ -11,6 +11,15 @@ bp = Blueprint('constantes', __name__, url_prefix='/api/constantes')
 logger = logging.getLogger(__name__)
 
 TIPOS_DATO = ('STRING', 'INTEGER', 'DECIMAL', 'BOOLEAN', 'JSON', 'DATE')
+
+
+def _get_user_id() -> int:
+    identity = get_jwt_identity() or {}
+    if isinstance(identity, dict):
+        return int(identity.get('user_id', 1))
+    if str(identity).isdigit():
+        return int(identity)
+    return 1
 
 
 # ---------------------------------------------------------------------------
@@ -21,11 +30,12 @@ def list_constantes():
     verify_jwt_in_request()
     db = DatabaseConnector()
     try:
+        user_id = _get_user_id()
         categoria = request.args.get('categoria', '').strip()
         solo_activas = request.args.get('activas', 'true').lower() == 'true'
 
-        conditions = []
-        params = []
+        conditions = ['id_persona = %s']
+        params = [user_id]
 
         if categoria:
             conditions.append('categoria = %s')
@@ -34,14 +44,13 @@ def list_constantes():
             conditions.append('estado = 1')
 
         where = ('WHERE ' + ' AND '.join(conditions)) if conditions else ''
+        query = (
+            "SELECT id_constante, categoria, nombre, valor, tipo_dato, "
+            "descripcion, es_editable, estado, fecha_actualizacion "
+            "FROM constantes " + where + " ORDER BY categoria, nombre"
+        )
         rows = db.execute_query(
-            f"""
-            SELECT id_constante, categoria, nombre, valor, tipo_dato,
-                   descripcion, es_editable, estado, fecha_actualizacion
-            FROM constantes
-            {where}
-            ORDER BY categoria, nombre
-            """,
+            query,
             tuple(params) if params else None,
         )
 
@@ -64,7 +73,8 @@ def list_constantes():
 
         # Categorías disponibles para filtros
         cats = db.execute_query(
-            "SELECT DISTINCT categoria FROM constantes WHERE estado = 1 ORDER BY categoria"
+            "SELECT DISTINCT categoria FROM constantes WHERE id_persona = %s AND estado = 1 ORDER BY categoria",
+            (user_id,),
         )
         categorias = [c['categoria'] for c in (cats or [])]
 
@@ -84,6 +94,7 @@ def create_constante():
     verify_jwt_in_request()
     db = DatabaseConnector()
     try:
+        user_id = _get_user_id()
         data = request.get_json() or {}
         categoria = (data.get('categoria') or '').strip().upper()
         nombre = (data.get('nombre') or '').strip().upper()
@@ -99,13 +110,14 @@ def create_constante():
 
         db.execute_non_query(
             """
-            INSERT INTO constantes (categoria, nombre, valor, tipo_dato, descripcion, es_editable, estado)
-            VALUES (%s, %s, %s, %s, %s, %s, 1)
+            INSERT INTO constantes (id_persona, categoria, nombre, valor, tipo_dato, descripcion, es_editable, estado)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 1)
             """,
-            (categoria, nombre, valor, tipo_dato, descripcion, es_editable),
+            (user_id, categoria, nombre, valor, tipo_dato, descripcion, es_editable),
         )
         rows = db.execute_query(
-            'SELECT id_constante FROM constantes WHERE nombre = %s LIMIT 1', (nombre,)
+            'SELECT id_constante FROM constantes WHERE id_persona = %s AND categoria = %s AND nombre = %s LIMIT 1',
+            (user_id, categoria, nombre),
         )
         new_id = rows[0]['id_constante'] if rows else None
         return jsonify({'message': 'Constante creada', 'id': new_id}), 201
@@ -127,10 +139,11 @@ def update_constante(constante_id):
     verify_jwt_in_request()
     db = DatabaseConnector()
     try:
+        user_id = _get_user_id()
         # Verificar que existe y es editable
         rows = db.execute_query(
-            'SELECT es_editable FROM constantes WHERE id_constante = %s AND estado = 1 LIMIT 1',
-            (constante_id,),
+            'SELECT es_editable FROM constantes WHERE id_constante = %s AND id_persona = %s AND estado = 1 LIMIT 1',
+            (constante_id, user_id),
         )
         if not rows:
             return jsonify({'message': 'Constante no encontrada'}), 404
@@ -152,9 +165,9 @@ def update_constante(constante_id):
             """
             UPDATE constantes
             SET valor = %s, descripcion = %s, categoria = %s, tipo_dato = %s
-            WHERE id_constante = %s
+            WHERE id_constante = %s AND id_persona = %s
             """,
-            (valor, descripcion, categoria, tipo_dato, constante_id),
+            (valor, descripcion, categoria, tipo_dato, constante_id, user_id),
         )
         return jsonify({'message': 'Constante actualizada'}), 200
     except Exception as e:
@@ -172,9 +185,10 @@ def delete_constante(constante_id):
     verify_jwt_in_request()
     db = DatabaseConnector()
     try:
+        user_id = _get_user_id()
         rows = db.execute_query(
-            'SELECT es_editable FROM constantes WHERE id_constante = %s AND estado = 1 LIMIT 1',
-            (constante_id,),
+            'SELECT es_editable FROM constantes WHERE id_constante = %s AND id_persona = %s AND estado = 1 LIMIT 1',
+            (constante_id, user_id),
         )
         if not rows:
             return jsonify({'message': 'Constante no encontrada'}), 404
@@ -182,8 +196,8 @@ def delete_constante(constante_id):
             return jsonify({'message': 'Esta constante del sistema no se puede eliminar'}), 403
 
         db.execute_non_query(
-            'UPDATE constantes SET estado = 0 WHERE id_constante = %s',
-            (constante_id,),
+            'UPDATE constantes SET estado = 0 WHERE id_constante = %s AND id_persona = %s',
+            (constante_id, user_id),
         )
         return jsonify({'message': 'Constante eliminada'}), 200
     except Exception as e:

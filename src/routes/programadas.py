@@ -29,6 +29,7 @@ def list_programadas():
     verify_jwt_in_request()
     db = DatabaseConnector()
     try:
+        user_id = _get_user_id()
         rows = db.execute_query(
             """
             SELECT
@@ -45,8 +46,10 @@ def list_programadas():
             LEFT JOIN tipo_movimiento tm ON tm.id_tipo   = tp.id_tipo
             LEFT JOIN categoria       c  ON c.id_categoria = tp.id_categoria
             LEFT JOIN beneficiario    b  ON b.id_beneficiario = tp.id_beneficiario
+            WHERE tp.id_persona = %s
             ORDER BY tp.fecha ASC
             """,
+            (user_id,),
         )
         result = []
         for r in rows:
@@ -77,6 +80,7 @@ def get_programada(id_transaccion):
     verify_jwt_in_request()
     db = DatabaseConnector()
     try:
+        user_id = _get_user_id()
         rows = db.execute_query(
             """
             SELECT
@@ -96,10 +100,11 @@ def get_programada(id_transaccion):
             LEFT JOIN tipo_movimiento tm ON tm.id_tipo        = tp.id_tipo
             LEFT JOIN categoria       c  ON c.id_categoria    = tp.id_categoria
             LEFT JOIN beneficiario    b  ON b.id_beneficiario = tp.id_beneficiario
-            WHERE tp.id_transaccion = %s
+                        WHERE tp.id_transaccion = %s
+                            AND tp.id_persona = %s
             LIMIT 1
             """,
-            (id_transaccion,),
+                        (id_transaccion, user_id),
         )
         if not rows:
             return jsonify({'error': 'No encontrada'}), 404
@@ -132,6 +137,7 @@ def get_programada(id_transaccion):
 def create_programada():
     verify_jwt_in_request()
     data = request.get_json(silent=True) or {}
+    user_id = _get_user_id()
 
     fecha            = data.get('fecha')
     id_tipo          = data.get('id_tipo')
@@ -149,10 +155,10 @@ def create_programada():
         new_id = db.execute_non_query(
             """
             INSERT INTO transaccion_programada
-                (fecha, id_tipo, numero_transaccion, monto, repeticion, id_categoria, id_beneficiario)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                (id_persona, fecha, id_tipo, numero_transaccion, monto, repeticion, id_categoria, id_beneficiario)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
-            (fecha, id_tipo, numero_transaccion, monto, repeticion, id_categoria, id_beneficiario),
+            (user_id, fecha, id_tipo, numero_transaccion, monto, repeticion, id_categoria, id_beneficiario),
         )
         return jsonify({'id_transaccion': new_id, 'message': 'Creada correctamente'}), 201
     except Exception as e:
@@ -169,13 +175,14 @@ def create_programada():
 def update_programada(id_transaccion):
     verify_jwt_in_request()
     data = request.get_json(silent=True) or {}
+    user_id = _get_user_id()
 
     db = DatabaseConnector()
     try:
         # Verify exists
         existing = db.execute_query(
-            'SELECT id_transaccion FROM transaccion_programada WHERE id_transaccion = %s',
-            (id_transaccion,),
+            'SELECT id_transaccion FROM transaccion_programada WHERE id_transaccion = %s AND id_persona = %s',
+            (id_transaccion, user_id),
         )
         if not existing:
             return jsonify({'error': 'No encontrada'}), 404
@@ -199,9 +206,10 @@ def update_programada(id_transaccion):
                    id_categoria = %s,
                    id_beneficiario = %s
              WHERE id_transaccion = %s
+                             AND id_persona = %s
             """,
             (fecha, id_tipo, numero_transaccion, monto, repeticion,
-             id_categoria, id_beneficiario, id_transaccion),
+                         id_categoria, id_beneficiario, id_transaccion, user_id),
         )
         return jsonify({'message': 'Actualizada correctamente'})
     except Exception as e:
@@ -219,16 +227,17 @@ def delete_programada(id_transaccion):
     verify_jwt_in_request()
     db = DatabaseConnector()
     try:
+        user_id = _get_user_id()
         existing = db.execute_query(
-            'SELECT id_transaccion FROM transaccion_programada WHERE id_transaccion = %s',
-            (id_transaccion,),
+            'SELECT id_transaccion FROM transaccion_programada WHERE id_transaccion = %s AND id_persona = %s',
+            (id_transaccion, user_id),
         )
         if not existing:
             return jsonify({'error': 'No encontrada'}), 404
 
         db.execute_non_query(
-            'DELETE FROM transaccion_programada WHERE id_transaccion = %s',
-            (id_transaccion,),
+            'DELETE FROM transaccion_programada WHERE id_transaccion = %s AND id_persona = %s',
+            (id_transaccion, user_id),
         )
         return jsonify({'message': 'Eliminada correctamente'})
     except Exception as e:
@@ -246,9 +255,10 @@ def get_catalogos():
     verify_jwt_in_request()
     db = DatabaseConnector()
     try:
+        user_id = _get_user_id()
         tipos = db.execute_query('SELECT id_tipo, nombre FROM tipo_movimiento ORDER BY nombre')
-        cats  = db.execute_query('SELECT id_categoria, nombre FROM categoria ORDER BY nombre')
-        benes = db.execute_query('SELECT id_beneficiario, nombre FROM beneficiario ORDER BY nombre')
+        cats  = db.execute_query('SELECT id_categoria, nombre FROM categoria WHERE id_persona = %s ORDER BY nombre', (user_id,))
+        benes = db.execute_query('SELECT id_beneficiario, nombre FROM beneficiario WHERE id_persona = %s ORDER BY nombre', (user_id,))
         return jsonify({
             'tipos':         [{'id': r['id_tipo'],          'nombre': r['nombre']} for r in tipos],
             'categorias':    [{'id': r['id_categoria'],     'nombre': r['nombre']} for r in cats],

@@ -22,6 +22,69 @@ def _serialize_user(user_data):
     }
 
 
+@bp.route('/register', methods=['POST'])
+def register():
+    """
+    Registro de usuario nuevo.
+
+    POST /api/auth/register
+    JSON: {"nombre": "...", "email": "...", "password": "...", "telefono": "..."}
+    """
+    try:
+        data = request.get_json() or {}
+        nombre = (data.get('nombre') or '').strip()
+        email = (data.get('email') or '').strip().lower()
+        password = (data.get('password') or '').strip() or '123456'
+        telefono = (data.get('telefono') or '').strip() or None
+
+        if not nombre or not email:
+            return jsonify({'message': 'Debes enviar nombre y email'}), 400
+
+        if len(password) < 6:
+            return jsonify({'message': 'La contraseña debe tener al menos 6 caracteres'}), 400
+
+        persona_model = PersonaModel()
+
+        existing = persona_model.db.execute_query(
+            "SELECT id_persona FROM persona WHERE correo_electronico = %s LIMIT 1",
+            (email,),
+        )
+        if existing:
+            return jsonify({'message': 'Ya existe un usuario con ese correo'}), 409
+
+        user = persona_model.add_persona(
+            nombre=nombre,
+            email=email,
+            telefono=telefono,
+            clave=password,
+            estado_id=1,
+        )
+        if not user:
+            return jsonify({'message': 'No fue posible crear el usuario'}), 500
+
+        user_id = user.get('id_persona')
+        access_token = create_access_token(
+            identity=str(user_id),
+            additional_claims={
+                'email': user.get('correo_electronico'),
+                'nombre': user.get('nombre'),
+            },
+        )
+
+        return jsonify({
+            'message': 'Usuario creado correctamente',
+            'token': access_token,
+            'user': _serialize_user(user),
+        }), 201
+
+    except Exception as e:
+        logger.error(f"Register error: {str(e)}")
+        return jsonify({'message': 'Error interno del servidor'}), 500
+    finally:
+        if 'persona_model' in locals():
+            persona_model.close_connection()
+
+
 @bp.route('/login', methods=['POST'])
 def login():
     """
@@ -194,3 +257,39 @@ def update_profile():
     except Exception as e:
         logger.error(f"Update profile error: {str(e)}")
         return jsonify({'message': 'Error interno del servidor'}), 500
+
+
+@bp.route('/reset-password', methods=['POST'])
+def reset_password():
+    """
+    Recuperar contraseña por correo electrónico.
+
+    POST /api/auth/reset-password
+    JSON: {"email": "user@example.com", "new_password": "..."}
+    """
+    try:
+        data = request.get_json() or {}
+        email = (data.get('email') or '').strip()
+        new_password = (data.get('new_password') or '').strip()
+
+        if not email or not new_password:
+            return jsonify({'message': 'Debes enviar email y nueva contraseña'}), 400
+
+        if len(new_password) < 6:
+            return jsonify({'message': 'La nueva contraseña debe tener al menos 6 caracteres'}), 400
+
+        persona_model = PersonaModel()
+        success, reason = persona_model.reset_password_by_email(email, new_password)
+        if not success:
+            if reason == 'not_found':
+                return jsonify({'message': 'No existe un usuario con ese correo'}), 404
+            return jsonify({'message': 'No fue posible actualizar la contraseña'}), 400
+
+        return jsonify({'message': 'Contraseña actualizada correctamente. Ya puedes iniciar sesión.'}), 200
+
+    except Exception as e:
+        logger.error(f"Reset password error: {str(e)}")
+        return jsonify({'message': 'Error interno del servidor'}), 500
+    finally:
+        if 'persona_model' in locals():
+            persona_model.close_connection()

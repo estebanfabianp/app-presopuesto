@@ -148,10 +148,12 @@ def get_catalogos():
         )
 
         categorias = db.execute_query(
-            "SELECT id_categoria, nombre FROM categoria WHERE estado = 1 ORDER BY nombre"
+            "SELECT id_categoria, nombre FROM categoria WHERE id_persona = %s AND estado = 1 ORDER BY nombre",
+            (user_id,),
         )
         beneficiarios = db.execute_query(
-            "SELECT id_beneficiario, nombre FROM beneficiario WHERE estado = 1 ORDER BY nombre"
+            "SELECT id_beneficiario, nombre FROM beneficiario WHERE id_persona = %s AND estado = 1 ORDER BY nombre",
+            (user_id,),
         )
 
         for t in tarjetas:

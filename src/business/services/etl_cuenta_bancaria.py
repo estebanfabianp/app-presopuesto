@@ -143,8 +143,16 @@ class ETLCuentaBancaria:
                     })
                     continue
 
-                transformed = self._transform_row(validation.data, id_persona, id_cuenta, idx)
-                rows_to_insert.append(transformed)
+                try:
+                    transformed = self._transform_row(validation.data, id_persona, id_cuenta, idx)
+                    rows_to_insert.append(transformed)
+                except Exception as te:
+                    self.logger.error('Error transformando fila %s: %s', idx, te)
+                    self.validation_errors.append({
+                        'row': idx,
+                        'errors': [f'Error interno al procesar fila: {str(te)}'],
+                    })
+                    continue
 
             if rows_to_insert:
                 self._load_data(rows_to_insert)
@@ -162,6 +170,21 @@ class ETLCuentaBancaria:
         for col in columns:
             for key, aliases in self.EXPECTED_COLUMNS.items():
                 if col in [self._normalize_text(alias) for alias in aliases] and key in found:
+                    found[key] = True
+
+        missing = [k for k, ok in found.items() if not ok]
+        if missing:
+            raise ValueError(f"Columnas faltantes en Excel: {', '.join(missing)}")
+
+    @classmethod
+    def _validate_structure_static(cls, normalized_columns: List[str]) -> None:
+        """Valida estructura sin necesitar instancia (no abre conexión BD)."""
+        required = ['fecha', 'descripcion', 'valor']
+        found = {k: False for k in required}
+
+        for col in normalized_columns:
+            for key, aliases in cls.EXPECTED_COLUMNS.items():
+                if col in [cls._normalize_text(alias) for alias in aliases] and key in found:
                     found[key] = True
 
         missing = [k for k, ok in found.items() if not ok]
@@ -249,18 +272,18 @@ class ETLCuentaBancaria:
         finally:
             cursor.close()
 
-    def _resolve_categoria_id(self, categoria: str) -> int:
+    def _resolve_categoria_id(self, categoria: str, id_persona: int) -> int:
         cursor = self.db.conn.cursor(dictionary=True)
         try:
             cursor.execute(
-                'SELECT id_categoria FROM categoria WHERE LOWER(nombre) = %s LIMIT 1',
-                (categoria.lower(),),
+                'SELECT id_categoria FROM categoria WHERE LOWER(nombre) = %s AND id_persona = %s LIMIT 1',
+                (categoria.lower(), id_persona),
             )
             row = cursor.fetchone()
             if row:
                 return int(row['id_categoria'])
 
-            cursor.execute('INSERT INTO categoria (nombre) VALUES (%s)', (categoria,))
+            cursor.execute('INSERT INTO categoria (nombre, id_persona) VALUES (%s, %s)', (categoria, id_persona))
             return int(cursor.lastrowid)
         finally:
             cursor.close()
@@ -279,28 +302,23 @@ class ETLCuentaBancaria:
         tipo = self._infer_tipo(validated_data.get('dcto', ''), valor)
         id_tipo = self._resolve_tipo_id(tipo)
         id_estado = self._resolve_estado_id()
-        categoria_nombre = 'Ingreso bancario' if tipo == 'ingreso' else 'Gasto bancario'
-        id_categoria = self._resolve_categoria_id(categoria_nombre)
 
         timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
         numero_transaccion = f"BNK-{timestamp}-{row_number}"
 
-        nota_parts = [validated_data['descripcion']]
-        if validated_data.get('dcto'):
-            nota_parts.append(f"Tipo: {validated_data['dcto']}")
-        if validated_data.get('saldo') is not None:
-            nota_parts.append(f"Saldo: {validated_data['saldo']}")
+        # Nota: solo descripción (sin dcto ni saldo para mantener limpio)
+        nota = validated_data['descripcion']
 
         return {
             'codigo': f"MOV-BNK-{timestamp}-{row_number}",
             'monto': abs(valor),
             'id_tipo': id_tipo,
             'id_estado': id_estado,
-            'id_categoria': id_categoria,
+            'id_categoria': None,  # Dejar sin categoría para que el usuario la seleccione después
             'id_beneficiario': None,
             'fecha_creacion': validated_data['fecha'],
             'id_cuenta': id_cuenta,
-            'nota': ' | '.join(nota_parts),
+            'nota': nota,
             'numero_transaccion': numero_transaccion,
         }
 
@@ -341,9 +359,9 @@ def validate_bank_excel_file(file_path: str) -> Tuple[bool, List[str]]:
         if df.empty:
             return False, ['Archivo Excel vacio']
 
-        etl = ETLCuentaBancaria()
-        normalized_cols = [etl._normalize_text(c) for c in df.columns]
-        etl._validate_excel_structure(normalized_cols)
+        # Usar métodos estáticos directamente, sin crear conexión BD
+        normalized_cols = [ETLCuentaBancaria._normalize_text(c) for c in df.columns]
+        ETLCuentaBancaria._validate_structure_static(normalized_cols)
         return True, []
     except Exception as exc:
         return False, [str(exc)]

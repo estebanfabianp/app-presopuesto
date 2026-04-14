@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+
+{% block title %}Optimización de Categorías - App Presupuesto{% endblock %}
+
+{% block extra_css %}
+<style>
+.oc-card-kpi .card-body { min-height: 96px; }
+.oc-chip {
+    display:inline-flex;
+    align-items:center;
+    gap:.35rem;
+    padding:.25rem .6rem;
+    border-radius:999px;
+    font-size:.78rem;
+    border:1px solid transparent;
+}
+.oc-chip-auto { background:#e7f1ff; color:#0d6efd; border-color:#cfe2ff; }
+.oc-chip-confirmada { background:#e9f7ef; color:#198754; border-color:#c7efd7; }
+.oc-chip-conflicto { background:#fff3cd; color:#8a6d3b; border-color:#ffe69c; }
+.oc-empty { padding:3rem 1rem; text-align:center; color:#6c757d; }
+.oc-empty i { font-size:2.5rem; display:block; margin-bottom:.75rem; }
+.oc-conflicto-card { border-left:4px solid #ffc107; }
+.oc-sticky-actions { position: sticky; top: 0; z-index: 5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header mb-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <h1 class="page-title"><i class="fas fa-wand-magic-sparkles"></i> Optimización de Categorías</h1>
+            <p class="text-muted mb-0">Automatiza la clasificación de gastos a partir del historial de descripciones.</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-outline-secondary" onclick="cargarTodo()">
+                <i class="fas fa-rotate"></i> Actualizar
+            </button>
+            <button class="btn btn-primary" onclick="aplicarReglas()">
+                <i class="fas fa-bolt"></i> Aplicar reglas
+            </button>
+        </div>
+    </div>
+
+    <div id="alertaGlobal" class="alert" style="display:none;" role="alert"></div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card oc-card-kpi h-100">
+                <div class="card-body">
+                    <small class="text-muted d-block">Reglas disponibles</small>
+                    <h3 id="kpiReglas" class="mb-1 text-primary">0</h3>
+                    <div class="small text-muted">Reglas automáticas y confirmadas listas para aplicar</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card oc-card-kpi h-100 border-warning">
+                <div class="card-body">
+                    <small class="text-muted d-block">Conflictos</small>
+                    <h3 id="kpiConflictos" class="mb-1 text-warning">0</h3>
+                    <div class="small text-muted">Descripciones con múltiples categorías históricas</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card oc-card-kpi h-100 border-danger">
+                <div class="card-body">
+                    <small class="text-muted d-block">Movimientos sin categoría</small>
+                    <h3 id="kpiPendientes" class="mb-1 text-danger">0</h3>
+                    <div class="small text-muted">Pendientes de clasificar manualmente o por regla</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-white pb-0">
+            <ul class="nav nav-tabs card-header-tabs" id="optTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="reglas-tab" data-bs-toggle="tab" data-bs-target="#tabReglas" type="button" role="tab">Reglas</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="conflictos-tab" data-bs-toggle="tab" data-bs-target="#tabConflictos" type="button" role="tab">Conflictos</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="pendientes-tab" data-bs-toggle="tab" data-bs-target="#tabPendientes" type="button" role="tab">Sin categoría</button>
+                </li>
+            </ul>
+        </div>
+        <div class="card-body tab-content pt-4">
+            <div class="tab-pane fade show active" id="tabReglas" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <div>
+                        <h5 class="mb-1">Reglas de categorización</h5>
+                        <p class="text-muted mb-0">Si una descripción siempre termina en la misma categoría, puede automatizarse.</p>
+                    </div>
+                    <small class="text-muted" id="reglasContador">0 reglas</small>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" id="tablaReglas">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Descripción</th>
+                                <th>Categoría</th>
+                                <th class="text-center">Movimientos</th>
+                                <th>Origen</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyReglas"></tbody>
+                    </table>
+                </div>
+                <div id="emptyReglas" class="oc-empty" style="display:none;">
+                    <i class="fas fa-tags"></i>
+                    No hay reglas disponibles todavía.
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="tabConflictos" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <div>
+                        <h5 class="mb-1">Conflictos de categorización</h5>
+                        <p class="text-muted mb-0">Descripciones ambiguas que no deben automatizarse sin confirmación manual.</p>
+                    </div>
+                    <small class="text-muted" id="conflictosContador">0 conflictos</small>
+                </div>
+                <div id="listaConflictos" class="d-grid gap-3"></div>
+                <div id="emptyConflictos" class="oc-empty" style="display:none;">
+                    <i class="fas fa-circle-check"></i>
+                    No hay conflictos de categorización.
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="tabPendientes" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <div>
+                        <h5 class="mb-1">Movimientos sin categoría</h5>
+                        <p class="text-muted mb-0">Clasifica manualmente los movimientos que aún no tienen categoría.</p>
+                    </div>
+                    <small class="text-muted" id="pendientesContador">0 movimientos</small>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" id="tablaPendientes">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Descripción</th>
+                                <th class="text-end">Valor</th>
+                                <th>Categoría</th>
+                                <th class="text-center">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyPendientes"></tbody>
+                    </table>
+                </div>
+                <div id="emptyPendientes" class="oc-empty" style="display:none;">
+                    <i class="fas fa-inbox"></i>
+                    No hay movimientos pendientes de clasificación.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let categorias = [];
+
+function mostrarAlerta(msg, tipo = 'danger') {
+    const el = document.getElementById('alertaGlobal');
+    el.className = `alert alert-${tipo}`;
+    el.innerHTML = msg;
+    el.style.display = 'block';
+    if (tipo === 'success') setTimeout(() => { el.style.display = 'none'; }, 3500);
+}
+
+function ocultarAlerta() {
+    document.getElementById('alertaGlobal').style.display = 'none';
+}
+
+function escHtml(s) {
+    return String(s || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function moneda(v) {
+    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(v || 0));
+}
+
+function opcionesCategorias(selected = '') {
+    return `
+        <option value="">Selecciona una categoría...</option>
+        ${categorias.map(c => `<option value="${c.id_categoria}" ${String(c.id_categoria) === String(selected) ? 'selected' : ''}>${escHtml(c.nombre)}</option>`).join('')}
+    `;
+}
+
+async function cargarResumen() {
+    const data = await api.request('GET', '/optimizacion-categorias/resumen');
+    document.getElementById('kpiReglas').textContent = data.reglas || 0;
+    document.getElementById('kpiConflictos').textContent = data.conflictos || 0;
+    document.getElementById('kpiPendientes').textContent = data.sin_categoria || 0;
+}
+
+async function cargarCatalogos() {
+    const data = await api.request('GET', '/optimizacion-categorias/catalogos');
+    categorias = data.categorias || [];
+}
+
+async function cargarReglas() {
+    const data = await api.request('GET', '/optimizacion-categorias/reglas');
+    const reglas = data.reglas || [];
+    const tbody = document.getElementById('tbodyReglas');
+    document.getElementById('reglasContador').textContent = `${reglas.length} regla${reglas.length !== 1 ? 's' : ''}`;
+
+    if (!reglas.length) {
+        tbody.innerHTML = '';
+        document.getElementById('tablaReglas').style.display = 'none';
+        document.getElementById('emptyReglas').style.display = 'block';
+        return;
+    }
+
+    document.getElementById('tablaReglas').style.display = 'table';
+    document.getElementById('emptyReglas').style.display = 'none';
+
+    tbody.innerHTML = reglas.map(r => `
+        <tr>
+            <td><strong>${escHtml(r.concepto)}</strong></td>
+            <td>${escHtml(r.nombre_categoria || '—')}</td>
+            <td class="text-center">${r.total_movimientos || 0}</td>
+            <td>
+                <span class="oc-chip ${r.fuente === 'confirmada' ? 'oc-chip-confirmada' : 'oc-chip-auto'}">
+                    <i class="fas ${r.fuente === 'confirmada' ? 'fa-check' : 'fa-bolt'}"></i>
+                    ${r.fuente === 'confirmada' ? 'Confirmada' : 'Automática'}
+                </span>
+            </td>
+            <td class="text-center">
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-success" onclick="confirmarRegla('${encodeURIComponent(r.concepto)}', ${r.id_categoria})">
+                        <i class="fas fa-check"></i> Confirmar
+                    </button>
+                    <button class="btn btn-outline-danger" ${r.fuente !== 'confirmada' ? 'disabled' : ''} onclick="limpiarRegla('${encodeURIComponent(r.concepto)}')">
+                        <i class="fas fa-trash"></i> Limpiar
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function cargarConflictos() {
+    const data = await api.request('GET', '/optimizacion-categorias/conflictos');
+    const conflictos = data.conflictos || [];
+    const cont = document.getElementById('listaConflictos');
+    document.getElementById('conflictosContador').textContent = `${conflictos.length} conflicto${conflictos.length !== 1 ? 's' : ''}`;
+
+    if (!conflictos.length) {
+        cont.innerHTML = '';
+        document.getElementById('emptyConflictos').style.display = 'block';
+        return;
+    }
+
+    document.getElementById('emptyConflictos').style.display = 'none';
+    cont.innerHTML = conflictos.map((c, idx) => `
+        <div class="card oc-conflicto-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                    <div>
+                        <h6 class="mb-1">${escHtml(c.concepto)}</h6>
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            ${(c.categorias || []).map(cat => `
+                                <span class="oc-chip oc-chip-conflicto">
+                                    ${escHtml(cat.nombre)} (${cat.total})
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <select class="form-select form-select-sm" id="conflictoCategoria${idx}" style="min-width: 220px;">
+                            ${opcionesCategorias()}
+                        </select>
+                        <button class="btn btn-sm btn-primary" onclick="resolverConflicto(${idx}, '${encodeURIComponent(c.concepto)}')">
+                            <i class="fas fa-check"></i> Confirmar
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="ignorarConcepto('${encodeURIComponent(c.concepto)}')">
+                            <i class="fas fa-ban"></i> Ignorar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function cargarPendientes() {
+    const data = await api.request('GET', '/optimizacion-categorias/pendientes');
+    const movimientos = data.movimientos || [];
+    const tbody = document.getElementById('tbodyPendientes');
+    document.getElementById('pendientesContador').textContent = `${movimientos.length} movimiento${movimientos.length !== 1 ? 's' : ''}`;
+
+    if (!movimientos.length) {
+        tbody.innerHTML = '';
+        document.getElementById('tablaPendientes').style.display = 'none';
+        document.getElementById('emptyPendientes').style.display = 'block';
+        return;
+    }
+
+    document.getElementById('tablaPendientes').style.display = 'table';
+    document.getElementById('emptyPendientes').style.display = 'none';
+
+    tbody.innerHTML = movimientos.map((m, idx) => `
+        <tr>
+            <td>${escHtml(m.fecha || '—')}</td>
+            <td><strong>${escHtml(m.concepto || '—')}</strong></td>
+            <td class="text-end text-danger">${moneda(m.valor)}</td>
+            <td>
+                <select class="form-select form-select-sm" id="pendienteCategoria${idx}">
+                    ${opcionesCategorias()}
+                </select>
+            </td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-success" onclick="asignarMovimiento(${idx}, ${m.id_movimiento_tarjeta})">
+                    <i class="fas fa-check"></i> Asignar
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function confirmarRegla(conceptoEncoded, idCategoria) {
+    const concepto = decodeURIComponent(conceptoEncoded);
+    try {
+        await api.request('POST', '/optimizacion-categorias/reglas/confirmar', {
+            concepto,
+            id_categoria: idCategoria,
+        });
+        mostrarAlerta('Regla confirmada correctamente.', 'success');
+        await cargarTodo();
+    } catch (err) {
+        mostrarAlerta(err.message || 'No se pudo confirmar la regla.');
+    }
+}
+
+async function limpiarRegla(conceptoEncoded) {
+    const concepto = decodeURIComponent(conceptoEncoded);
+    try {
+        await api.request('DELETE', `/optimizacion-categorias/reglas?concepto=${encodeURIComponent(concepto)}`);
+        mostrarAlerta('Regla eliminada correctamente.', 'success');
+        await cargarTodo();
+    } catch (err) {
+        mostrarAlerta(err.message || 'No se pudo limpiar la regla.');
+    }
+}
+
+async function ignorarConcepto(conceptoEncoded) {
+    const concepto = decodeURIComponent(conceptoEncoded);
+    try {
+        await api.request('POST', '/optimizacion-categorias/reglas/ignorar', { concepto });
+        mostrarAlerta('Concepto marcado para no automatizar.', 'success');
+        await cargarTodo();
+    } catch (err) {
+        mostrarAlerta(err.message || 'No se pudo ignorar el concepto.');
+    }
+}
+
+async function resolverConflicto(idx, conceptoEncoded) {
+    const concepto = decodeURIComponent(conceptoEncoded);
+    const idCategoria = document.getElementById(`conflictoCategoria${idx}`).value;
+    if (!idCategoria) {
+        mostrarAlerta('Selecciona una categoría para resolver el conflicto.', 'warning');
+        return;
+    }
+    try {
+        await api.request('POST', '/optimizacion-categorias/reglas/confirmar', {
+            concepto,
+            id_categoria: Number(idCategoria),
+        });
+        mostrarAlerta('Conflicto resuelto y regla guardada.', 'success');
+        await cargarTodo();
+    } catch (err) {
+        mostrarAlerta(err.message || 'No se pudo resolver el conflicto.');
+    }
+}
+
+async function asignarMovimiento(idx, idMovimiento) {
+    const idCategoria = document.getElementById(`pendienteCategoria${idx}`).value;
+    if (!idCategoria) {
+        mostrarAlerta('Selecciona una categoría para asignar.', 'warning');
+        return;
+    }
+    try {
+        await api.request('POST', '/optimizacion-categorias/movimientos/asignar', {
+            id_movimiento_tarjeta: idMovimiento,
+            id_categoria: Number(idCategoria),
+        });
+        mostrarAlerta('Categoría asignada correctamente.', 'success');
+        await cargarTodo();
+    } catch (err) {
+        mostrarAlerta(err.message || 'No se pudo asignar la categoría.');
+    }
+}
+
+async function aplicarReglas() {
+    try {
+        const resp = await api.request('POST', '/optimizacion-categorias/aplicar', {});
+        mostrarAlerta(`Se actualizaron ${resp.actualizados || 0} movimiento(s).`, 'success');
+        await cargarTodo();
+    } catch (err) {
+        mostrarAlerta(err.message || 'No se pudieron aplicar las reglas.');
+    }
+}
+
+async function cargarTodo() {
+    ocultarAlerta();
+    try {
+        await cargarCatalogos();
+        await Promise.all([
+            cargarResumen(),
+            cargarReglas(),
+            cargarConflictos(),
+            cargarPendientes(),
+        ]);
+    } catch (err) {
+        mostrarAlerta(err.message || 'Error cargando el módulo.');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    cargarTodo();
+});
+</script>
+{% endblock %}

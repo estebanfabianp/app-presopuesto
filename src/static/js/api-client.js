@@ -105,6 +105,21 @@ class APIClient {
     }
 
     /**
+     * Registrar usuario nuevo
+     */
+    async register(nombre, email, password, telefono = null) {
+        const payload = { nombre, email, password };
+        if (telefono) {
+            payload.telefono = telefono;
+        }
+        const response = await this.request('POST', '/auth/register', payload);
+        if (response?.token) {
+            this.setToken(response.token);
+        }
+        return response;
+    }
+
+    /**
      * Cerrar sesión
      */
     async logout() {

@@ -547,10 +547,12 @@ async function cargarCatalogosImportacion() {
         selCuenta.innerHTML = cuentas.map(c => `<option value="${c.id_cuenta}">#${c.id_cuenta} - ${c.nombre}</option>`).join('');
 
         const selTarjeta = document.getElementById('etlTarjeta');
-        selTarjeta.innerHTML = tarjetas.map(t => {
-            const tail = t.numero_tarjeta ? String(t.numero_tarjeta).slice(-4) : '----';
-            return `<option value="${t.id_tarjeta}">#${t.id_tarjeta} - ****${tail}</option>`;
-        }).join('');
+        selTarjeta.innerHTML = tarjetas.length
+            ? tarjetas.map(t => {
+                const label = t.nombre || (t.numero_tarjeta ? `****${String(t.numero_tarjeta).slice(-4)}` : `Tarjeta #${t.id_tarjeta}`);
+                return `<option value="${t.id_tarjeta}">${label}</option>`;
+            }).join('')
+            : '<option value="" disabled>Sin tarjetas registradas</option>';
 
         toggleImportSource();
     } catch (err) {
@@ -622,18 +624,29 @@ async function subirArchivoEtl() {
         const errCount = (data.errors || []).length;
         lastEtlErrors = data.errors || [];
 
+        // Detectar si hay error general (sin filas procesadas)
+        const hasGlobalError = errCount > 0 && (data.processed || 0) === 0 && lastEtlErrors[0]?.error;
         resultEl.className = `alert ${errCount ? 'alert-warning' : 'alert-success'} mt-3 mb-0`;
         resultEl.style.display = 'block';
-        resultEl.innerHTML = `
-            <strong>Resultado ETL:</strong><br>
-            Filas procesadas: ${data.processed || 0}<br>
-            Filas con error: ${errCount}
-        `;
+        if (hasGlobalError) {
+            resultEl.className = 'alert alert-danger mt-3 mb-0';
+            resultEl.innerHTML = `<strong>Error al procesar archivo:</strong><br>${lastEtlErrors[0].error}`;
+        } else {
+            resultEl.innerHTML = `
+                <strong>Resultado ETL:</strong><br>
+                Filas procesadas: ${data.processed || 0}<br>
+                Filas con error: ${errCount}
+            `;
+        }
 
         const btnErrors = document.getElementById('btnVerErroresEtl');
         const list = document.getElementById('etlErrorsList');
-        list.innerHTML = lastEtlErrors.map((e) => `<li>Fila ${e.row || '?'}: ${(e.errors || []).join('; ')}</li>`).join('');
-        btnErrors.style.display = errCount ? '' : 'none';
+        list.innerHTML = lastEtlErrors.map((e) => {
+            const label = e.row != null ? `Fila ${e.row}` : 'Error general';
+            const msg = e.error || (Array.isArray(e.errors) ? e.errors.join('; ') : '') || 'Error desconocido';
+            return `<li><strong>${label}:</strong> ${msg}</li>`;
+        }).join('');
+        btnErrors.style.display = (errCount && !hasGlobalError) ? '' : 'none';
         document.getElementById('etlErrorsWrap').style.display = 'none';
 
         await cargarTransacciones();

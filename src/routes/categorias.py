@@ -3,12 +3,21 @@
 import logging
 
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import verify_jwt_in_request
+from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 
 from src.database.db_connector import DatabaseConnector
 
 bp = Blueprint('categorias', __name__, url_prefix='/api/categorias')
 logger = logging.getLogger(__name__)
+
+
+def _get_user_id() -> int:
+    identity = get_jwt_identity() or {}
+    if isinstance(identity, dict):
+        return int(identity.get('user_id', 1))
+    if str(identity).isdigit():
+        return int(identity)
+    return 1
 
 
 def _build_tree(rows):
@@ -37,6 +46,7 @@ def list_categorias():
     verify_jwt_in_request()
     db = DatabaseConnector()
     try:
+        user_id = _get_user_id()
         busqueda = request.args.get('q', '').strip()
         plana = request.args.get('plana', 'false').lower() == 'true'
         solo_activas = request.args.get('solo_activas', 'false').lower() == 'true'
@@ -44,13 +54,19 @@ def list_categorias():
         base_select = """
             SELECT c.id_categoria, c.nombre, c.parent_id, c.estado, c.icono, c.color,
                    p.nombre AS nombre_padre,
-                   (SELECT COUNT(*) FROM movimiento m WHERE m.id_categoria = c.id_categoria) AS uso
+                   (
+                       SELECT COUNT(*)
+                       FROM movimiento m
+                       INNER JOIN cuenta cu ON cu.id_cuenta = m.id_cuenta
+                       WHERE m.id_categoria = c.id_categoria
+                         AND cu.id_persona = %s
+                   ) AS uso
             FROM categoria c
             LEFT JOIN categoria p ON c.parent_id = p.id_categoria
         """
 
-        conditions = []
-        params = []
+        conditions = ['c.id_persona = %s']
+        params = [user_id]
         if busqueda:
             conditions.append('c.nombre LIKE %s')
             params.append(f'%{busqueda}%')
@@ -97,6 +113,7 @@ def create_categoria():
     verify_jwt_in_request()
     db = DatabaseConnector()
     try:
+        user_id = _get_user_id()
         data = request.get_json() or {}
         nombre = (data.get('nombre') or '').strip()
         parent_id = data.get('parent_id') or None
@@ -109,8 +126,8 @@ def create_categoria():
         # Validar que el padre exista y no sea él mismo una subcategoría
         if parent_id:
             padre = db.execute_query(
-                "SELECT id_categoria, parent_id FROM categoria WHERE id_categoria = %s LIMIT 1",
-                (parent_id,),
+                "SELECT id_categoria, parent_id FROM categoria WHERE id_categoria = %s AND id_persona = %s LIMIT 1",
+                (parent_id, user_id),
             )
             if not padre:
                 return jsonify({'message': 'La categoría padre no existe'}), 400
@@ -118,19 +135,19 @@ def create_categoria():
                 return jsonify({'message': 'No se pueden crear subcategorías de subcategorías'}), 400
 
         existe = db.execute_query(
-            "SELECT id_categoria FROM categoria WHERE LOWER(nombre) = LOWER(%s) AND (parent_id <=> %s) LIMIT 1",
-            (nombre, parent_id),
+            "SELECT id_categoria FROM categoria WHERE id_persona = %s AND LOWER(nombre) = LOWER(%s) AND (parent_id <=> %s) LIMIT 1",
+            (user_id, nombre, parent_id),
         )
         if existe:
             return jsonify({'message': f'Ya existe una categoría con el nombre "{nombre}" en ese nivel'}), 409
 
         db.execute_non_query(
-            "INSERT INTO categoria (nombre, parent_id, icono, color, estado) VALUES (%s, %s, %s, %s, 1)",
-            (nombre, parent_id, icono, color),
+            "INSERT INTO categoria (id_persona, nombre, parent_id, icono, color, estado) VALUES (%s, %s, %s, %s, %s, 1)",
+            (user_id, nombre, parent_id, icono, color),
         )
         rows = db.execute_query(
-            "SELECT id_categoria FROM categoria WHERE nombre = %s AND (parent_id <=> %s) ORDER BY id_categoria DESC LIMIT 1",
-            (nombre, parent_id),
+            "SELECT id_categoria FROM categoria WHERE id_persona = %s AND nombre = %s AND (parent_id <=> %s) ORDER BY id_categoria DESC LIMIT 1",
+            (user_id, nombre, parent_id),
         )
         new_id = rows[0]['id_categoria'] if rows else None
         return jsonify({'message': 'Categoría creada', 'id': new_id, 'nombre': nombre, 'estado': True}), 201
@@ -146,9 +163,10 @@ def update_categoria(categoria_id):
     verify_jwt_in_request()
     db = DatabaseConnector()
     try:
+        user_id = _get_user_id()
         actual = db.execute_query(
-            "SELECT id_categoria, parent_id, icono, color FROM categoria WHERE id_categoria = %s LIMIT 1",
-            (categoria_id,),
+            "SELECT id_categoria, parent_id, icono, color FROM categoria WHERE id_categoria = %s AND id_persona = %s LIMIT 1",
+            (categoria_id, user_id),
         )
         if not actual:
             return jsonify({'message': 'Categoría no encontrada'}), 404
@@ -170,8 +188,8 @@ def update_categoria(categoria_id):
         # Validar que el nuevo padre no sea una subcategoría de éste
         if parent_id:
             padre = db.execute_query(
-                "SELECT id_categoria, parent_id FROM categoria WHERE id_categoria = %s LIMIT 1",
-                (parent_id,),
+                "SELECT id_categoria, parent_id FROM categoria WHERE id_categoria = %s AND id_persona = %s LIMIT 1",
+                (parent_id, user_id),
             )
             if not padre:
                 return jsonify({'message': 'La categoría padre no existe'}), 400
@@ -180,15 +198,15 @@ def update_categoria(categoria_id):
 
         # Evitar duplicado de nombre al mismo nivel
         existe = db.execute_query(
-            "SELECT id_categoria FROM categoria WHERE LOWER(nombre) = LOWER(%s) AND (parent_id <=> %s) AND id_categoria != %s LIMIT 1",
-            (nombre, parent_id, categoria_id),
+            "SELECT id_categoria FROM categoria WHERE id_persona = %s AND LOWER(nombre) = LOWER(%s) AND (parent_id <=> %s) AND id_categoria != %s LIMIT 1",
+            (user_id, nombre, parent_id, categoria_id),
         )
         if existe:
             return jsonify({'message': f'Ya existe otra categoría con el nombre "{nombre}" en ese nivel'}), 409
 
         db.execute_non_query(
-            "UPDATE categoria SET nombre = %s, parent_id = %s, icono = %s, color = %s WHERE id_categoria = %s",
-            (nombre, parent_id, icono, color, categoria_id),
+            "UPDATE categoria SET nombre = %s, parent_id = %s, icono = %s, color = %s WHERE id_categoria = %s AND id_persona = %s",
+            (nombre, parent_id, icono, color, categoria_id, user_id),
         )
         return jsonify({'message': 'Categoría actualizada'}), 200
     except Exception as e:
@@ -204,17 +222,18 @@ def toggle_estado_categoria(categoria_id):
     verify_jwt_in_request()
     db = DatabaseConnector()
     try:
+        user_id = _get_user_id()
         rows = db.execute_query(
-            "SELECT id_categoria, estado FROM categoria WHERE id_categoria = %s LIMIT 1",
-            (categoria_id,),
+            "SELECT id_categoria, estado FROM categoria WHERE id_categoria = %s AND id_persona = %s LIMIT 1",
+            (categoria_id, user_id),
         )
         if not rows:
             return jsonify({'message': 'Categoría no encontrada'}), 404
 
         nuevo_estado = 0 if rows[0]['estado'] else 1
         db.execute_non_query(
-            "UPDATE categoria SET estado = %s WHERE id_categoria = %s",
-            (nuevo_estado, categoria_id),
+            "UPDATE categoria SET estado = %s WHERE id_categoria = %s AND id_persona = %s",
+            (nuevo_estado, categoria_id, user_id),
         )
         return jsonify({'message': 'Estado actualizado', 'estado': bool(nuevo_estado)}), 200
     except Exception as e:
@@ -229,17 +248,18 @@ def delete_categoria(categoria_id):
     verify_jwt_in_request()
     db = DatabaseConnector()
     try:
+        user_id = _get_user_id()
         rows = db.execute_query(
-            "SELECT id_categoria FROM categoria WHERE id_categoria = %s LIMIT 1",
-            (categoria_id,),
+            "SELECT id_categoria FROM categoria WHERE id_categoria = %s AND id_persona = %s LIMIT 1",
+            (categoria_id, user_id),
         )
         if not rows:
             return jsonify({'message': 'Categoría no encontrada'}), 404
 
         # Verificar que no tenga subcategorías
         hijos = db.execute_query(
-            "SELECT COUNT(*) AS total FROM categoria WHERE parent_id = %s",
-            (categoria_id,),
+            "SELECT COUNT(*) AS total FROM categoria WHERE parent_id = %s AND id_persona = %s",
+            (categoria_id, user_id),
         )
         if hijos and hijos[0]['total'] > 0:
             return jsonify({
@@ -247,7 +267,7 @@ def delete_categoria(categoria_id):
             }), 409
 
         db.execute_non_query(
-            "DELETE FROM categoria WHERE id_categoria = %s", (categoria_id,)
+            "DELETE FROM categoria WHERE id_categoria = %s AND id_persona = %s", (categoria_id, user_id)
         )
         return jsonify({'message': 'Categoría eliminada'}), 200
     except Exception as e:

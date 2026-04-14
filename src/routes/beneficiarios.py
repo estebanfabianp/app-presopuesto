@@ -3,7 +3,7 @@
 import logging
 
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import verify_jwt_in_request
+from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 
 from src.database.db_connector import DatabaseConnector
 
@@ -11,16 +11,26 @@ bp = Blueprint('beneficiarios', __name__, url_prefix='/api/beneficiarios')
 logger = logging.getLogger(__name__)
 
 
+def _get_user_id() -> int:
+    identity = get_jwt_identity() or {}
+    if isinstance(identity, dict):
+        return int(identity.get('user_id', 1))
+    if str(identity).isdigit():
+        return int(identity)
+    return 1
+
+
 @bp.route('', methods=['GET'])
 def list_beneficiarios():
     verify_jwt_in_request()
     db = DatabaseConnector()
     try:
+        user_id = _get_user_id()
         busqueda = request.args.get('q', '').strip()
         solo_activos = request.args.get('solo_activos', 'false').lower() == 'true'
 
-        conditions = []
-        params = []
+        conditions = ['b.id_persona = %s']
+        params = [user_id]
         if busqueda:
             conditions.append('b.nombre LIKE %s')
             params.append(f'%{busqueda}%')
@@ -28,10 +38,13 @@ def list_beneficiarios():
             conditions.append('b.estado = 1')
 
         where = ('WHERE ' + ' AND '.join(conditions)) if conditions else ''
+        query = (
+            "SELECT b.id_beneficiario, b.nombre, b.estado, b.tipo, "
+            "(SELECT COUNT(*) FROM movimiento m WHERE m.id_beneficiario = b.id_beneficiario) AS uso "
+            "FROM beneficiario b " + where + " ORDER BY b.nombre"
+        )
         rows = db.execute_query(
-            f"""SELECT b.id_beneficiario, b.nombre, b.estado, b.tipo,
-                       (SELECT COUNT(*) FROM movimiento m WHERE m.id_beneficiario = b.id_beneficiario) AS uso
-                FROM beneficiario b {where} ORDER BY b.nombre""",
+            query,
             tuple(params) if params else None,
         )
 
@@ -58,6 +71,7 @@ def create_beneficiario():
     verify_jwt_in_request()
     db = DatabaseConnector()
     try:
+        user_id = _get_user_id()
         data = request.get_json() or {}
         nombre = (data.get('nombre') or '').strip()
         tipo = (data.get('tipo') or 'Otro').strip()
@@ -65,18 +79,18 @@ def create_beneficiario():
             return jsonify({'message': 'El nombre es obligatorio'}), 400
 
         existe = db.execute_query(
-            "SELECT id_beneficiario FROM beneficiario WHERE LOWER(nombre) = LOWER(%s) LIMIT 1",
-            (nombre,),
+            "SELECT id_beneficiario FROM beneficiario WHERE id_persona = %s AND LOWER(nombre) = LOWER(%s) LIMIT 1",
+            (user_id, nombre),
         )
         if existe:
             return jsonify({'message': f'Ya existe un beneficiario con el nombre "{nombre}"'}), 409
 
         db.execute_non_query(
-            "INSERT INTO beneficiario (nombre, tipo, estado) VALUES (%s, %s, 1)", (nombre, tipo)
+            "INSERT INTO beneficiario (id_persona, nombre, tipo, estado) VALUES (%s, %s, %s, 1)", (user_id, nombre, tipo)
         )
         rows = db.execute_query(
-            "SELECT id_beneficiario FROM beneficiario WHERE nombre = %s ORDER BY id_beneficiario DESC LIMIT 1",
-            (nombre,),
+            "SELECT id_beneficiario FROM beneficiario WHERE id_persona = %s AND nombre = %s ORDER BY id_beneficiario DESC LIMIT 1",
+            (user_id, nombre),
         )
         new_id = rows[0]['id_beneficiario'] if rows else None
         return jsonify({'message': 'Beneficiario creado', 'id': new_id, 'nombre': nombre, 'tipo': tipo, 'estado': True}), 201
@@ -92,9 +106,10 @@ def update_beneficiario(beneficiario_id):
     verify_jwt_in_request()
     db = DatabaseConnector()
     try:
+        user_id = _get_user_id()
         rows = db.execute_query(
-            "SELECT id_beneficiario, nombre, estado, tipo FROM beneficiario WHERE id_beneficiario = %s LIMIT 1",
-            (beneficiario_id,),
+            "SELECT id_beneficiario, nombre, estado, tipo FROM beneficiario WHERE id_beneficiario = %s AND id_persona = %s LIMIT 1",
+            (beneficiario_id, user_id),
         )
         if not rows:
             return jsonify({'message': 'Beneficiario no encontrado'}), 404
@@ -106,15 +121,15 @@ def update_beneficiario(beneficiario_id):
             return jsonify({'message': 'El nombre es obligatorio'}), 400
 
         existe = db.execute_query(
-            "SELECT id_beneficiario FROM beneficiario WHERE LOWER(nombre) = LOWER(%s) AND id_beneficiario != %s LIMIT 1",
-            (nombre, beneficiario_id),
+            "SELECT id_beneficiario FROM beneficiario WHERE id_persona = %s AND LOWER(nombre) = LOWER(%s) AND id_beneficiario != %s LIMIT 1",
+            (user_id, nombre, beneficiario_id),
         )
         if existe:
             return jsonify({'message': f'Ya existe otro beneficiario con el nombre "{nombre}"'}), 409
 
         db.execute_non_query(
-            "UPDATE beneficiario SET nombre = %s, tipo = %s WHERE id_beneficiario = %s",
-            (nombre, tipo, beneficiario_id),
+            "UPDATE beneficiario SET nombre = %s, tipo = %s WHERE id_beneficiario = %s AND id_persona = %s",
+            (nombre, tipo, beneficiario_id, user_id),
         )
         return jsonify({'message': 'Beneficiario actualizado'}), 200
     except Exception as e:
@@ -130,17 +145,18 @@ def toggle_estado_beneficiario(beneficiario_id):
     verify_jwt_in_request()
     db = DatabaseConnector()
     try:
+        user_id = _get_user_id()
         rows = db.execute_query(
-            "SELECT id_beneficiario, estado FROM beneficiario WHERE id_beneficiario = %s LIMIT 1",
-            (beneficiario_id,),
+            "SELECT id_beneficiario, estado FROM beneficiario WHERE id_beneficiario = %s AND id_persona = %s LIMIT 1",
+            (beneficiario_id, user_id),
         )
         if not rows:
             return jsonify({'message': 'Beneficiario no encontrado'}), 404
 
         nuevo_estado = 0 if rows[0]['estado'] else 1
         db.execute_non_query(
-            "UPDATE beneficiario SET estado = %s WHERE id_beneficiario = %s",
-            (nuevo_estado, beneficiario_id),
+            "UPDATE beneficiario SET estado = %s WHERE id_beneficiario = %s AND id_persona = %s",
+            (nuevo_estado, beneficiario_id, user_id),
         )
         return jsonify({'message': 'Estado actualizado', 'estado': bool(nuevo_estado)}), 200
     except Exception as e:
@@ -155,15 +171,16 @@ def delete_beneficiario(beneficiario_id):
     verify_jwt_in_request()
     db = DatabaseConnector()
     try:
+        user_id = _get_user_id()
         rows = db.execute_query(
-            "SELECT id_beneficiario FROM beneficiario WHERE id_beneficiario = %s LIMIT 1",
-            (beneficiario_id,),
+            "SELECT id_beneficiario FROM beneficiario WHERE id_beneficiario = %s AND id_persona = %s LIMIT 1",
+            (beneficiario_id, user_id),
         )
         if not rows:
             return jsonify({'message': 'Beneficiario no encontrado'}), 404
 
         db.execute_non_query(
-            "DELETE FROM beneficiario WHERE id_beneficiario = %s", (beneficiario_id,)
+            "DELETE FROM beneficiario WHERE id_beneficiario = %s AND id_persona = %s", (beneficiario_id, user_id)
         )
         return jsonify({'message': 'Beneficiario eliminado'}), 200
     except Exception as e:

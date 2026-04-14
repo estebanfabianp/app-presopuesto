@@ -60,6 +60,7 @@ def create_app(env='development'):
         tarjetas,
         inversiones,
         metas,
+        optimizacion_categorias,
         programadas,
         analisis,
     )
@@ -76,6 +77,7 @@ def create_app(env='development'):
     app.register_blueprint(tarjetas.bp)
     app.register_blueprint(inversiones.bp)
     app.register_blueprint(metas.bp)
+    app.register_blueprint(optimizacion_categorias.bp)
     app.register_blueprint(productos.bp)
     app.register_blueprint(programadas.bp)
     app.register_blueprint(analisis.bp)
@@ -90,6 +92,11 @@ def create_app(env='development'):
     def login_page():
         """Página de login"""
         return render_template('auth/login.html')
+
+    @app.route('/recuperar-password')
+    def recover_password_page():
+        """Página de recuperación de contraseña"""
+        return render_template('auth/recover_password.html')
     
     @app.route('/dashboard')
     def dashboard_page():
@@ -140,6 +147,10 @@ def create_app(env='development'):
     @app.route('/categorias')
     def categorias_page():
         return render_template('categorias/index.html')
+
+    @app.route('/optimizacion-categorias')
+    def optimizacion_categorias_page():
+        return render_template('optimizacion_categorias/index.html')
 
     @app.route('/constantes')
     def constantes_page():

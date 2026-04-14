@@ -1,6 +1,12 @@
 """
 Script de prueba para validar el ETL de tarjeta de crédito.
 
+Cubre:
+  - Validación de columnas
+  - Procesamiento de movimientos normales (cuotas=1)
+  - Procesamiento de diferidos con formato N/X (cuotas=1/3, 2/3, 3/3)
+  - Upsert en tarjeta_diferido (segunda importación del mismo código)
+
 Nota: Ejecutar desde la raíz del proyecto.
 """
 
@@ -13,19 +19,17 @@ def test_validate_excel():
     print("TEST: Validación de archivo Excel")
     print("=" * 60)
     
-    # Crear un archivo Excel de prueba
     import pandas as pd
     import tempfile
     from pathlib import Path
     
-    # Archivo válido
+    # Archivo válido con columnas mínimas
     df = pd.DataFrame({
-        'Fecha': ['2026-04-07', '2026-04-08'],
+        'Fecha': ['07/04/2026', '08/04/2026'],
         'Concepto': ['Supermercado', 'Gasolina'],
         'Monto': [150000, 80000],
-        'Categoría': ['Compras', 'Transporte'],
-        'Cuotas': [1, 1],
-        'Referencia': ['Ref-001', 'Ref-002']
+        'Cuotas': ['1/1', '1/1'],
+        'Referencia': ['REF-T01', 'REF-T02']
     })
     
     with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
@@ -52,45 +56,55 @@ def test_process_file():
     import tempfile
     from pathlib import Path
     
-    # Obtener datos del usuario y tarjeta desde BD
     db = DatabaseConnector()
     
-    # Usuario
+    # Usuario de prueba (esteban)
     user_rows = db.execute_query(
-        "SELECT id_persona FROM persona WHERE estado = 1 ORDER BY id_persona DESC LIMIT 1"
+        "SELECT id_persona FROM persona WHERE id_persona = 1031150232"
     )
+    if not user_rows:
+        user_rows = db.execute_query(
+            "SELECT id_persona FROM persona WHERE estado = 1 ORDER BY id_persona DESC LIMIT 1"
+        )
     if not user_rows:
         print("✗ No hay usuario activo en la BD")
         db.close()
         return
     
     id_persona = int(user_rows[0]['id_persona'])
-    print(f"✓ Usuario encontrado: ID {id_persona}")
+    print(f"✓ Usuario: ID {id_persona}")
     
-    # Tarjeta
+    # Tarjeta de ese usuario
     tarjeta_rows = db.execute_query(
-        """
-        SELECT tc.id_tarjeta 
-        FROM tarjeta_credito tc
-        LIMIT 1
-        """
+        "SELECT id_tarjeta FROM tarjeta_credito WHERE id_persona = %s LIMIT 1",
+        (id_persona,)
     )
+    if not tarjeta_rows:
+        tarjeta_rows = db.execute_query(
+            "SELECT id_tarjeta FROM tarjeta_credito LIMIT 1"
+        )
     if not tarjeta_rows:
         print("✗ No hay tarjeta de crédito en la BD")
         db.close()
         return
     
     id_tarjeta = int(tarjeta_rows[0]['id_tarjeta'])
-    print(f"✓ Tarjeta encontrada: ID {id_tarjeta}")
+    print(f"✓ Tarjeta: ID {id_tarjeta}")
     
-    # Crear archivo de prueba
+    # --- Archivo de prueba: simula extracto bancario ---
+    # Fila 1-2: movimientos normales (cuota 1/1)
+    # Fila 3:   primera cuota de un diferido (1/6)
+    # Fila 4:   diferido de 1 sola cuota (no debe ir a tarjeta_diferido)
+    TRACKING_CODE = 'TEST-ETL-DIFE-0001'
     df = pd.DataFrame({
-        'Fecha': ['2026-04-07', '2026-04-08', '2026-04-09'],
-        'Concepto': ['Supermercado', 'Gasolina', 'Restaurante'],
-        'Monto': [150000, 80000, 45000],
-        'Categoría': ['Compras', 'Transporte', 'Alimentos'],
-        'Cuotas': [1, 1, 3],
-        'Referencia': ['Ref-001', 'Ref-002', 'Ref-003']
+        'Fecha':           ['07/04/2026', '08/04/2026', '09/04/2026', '10/04/2026'],
+        'Concepto':        ['Supermercado', 'Gasolina', 'Televisor Samsung', 'Servicio internet'],
+        'Monto':           [150000, 80000, 200000, 60000],
+        'Cuotas':          ['1/1', '1/1', '1/6', '1/1'],
+        'Valor Cuota':     [None, None, 35500, None],
+        'Interes Mensual': [None, None, 2.1, None],
+        'Saldo Pendiente': [None, None, 1170000, None],
+        'Referencia':      ['REF-T01', 'REF-T02', TRACKING_CODE, 'REF-T04'],
     })
     
     with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
@@ -98,33 +112,97 @@ def test_process_file():
         temp_file = tmp.name
     
     try:
-        print(f"\n✓ Archivo de prueba creado: {temp_file}")
+        print(f"\nArchivo de prueba: {temp_file}")
         
-        # Ejecutar ETL
+        # Contar registros previos para comparar
+        pre_mov = db.execute_query(
+            "SELECT COUNT(*) as c FROM movimiento_tarjeta WHERE id_tarjeta = %s AND id_persona = %s",
+            (id_tarjeta, id_persona)
+        )
+        pre_dif = db.execute_query(
+            "SELECT COUNT(*) as c FROM tarjeta_diferido WHERE id_tarjeta = %s AND id_persona = %s",
+            (id_tarjeta, id_persona)
+        )
+        pre_cnt_mov = int(pre_mov[0]['c']) if pre_mov else 0
+        pre_cnt_dif = int(pre_dif[0]['c']) if pre_dif else 0
+
+        # --- PRIMERA IMPORTACIÓN ---
+        print("\n[1/2] Primera importación...")
         etl = ETLTarjetaCredito(db)
         processed, errors = etl.process_file(temp_file, id_persona, id_tarjeta)
         
-        print(f"\n✓ Procesadas: {processed} transacción(es)")
+        print(f"  Procesadas: {processed} | Errores: {len(errors)}")
         if errors:
-            print(f"\n⚠ Errores encontrados: {len(errors)}")
-            for err in errors[:3]:
-                print(f"  - Fila {err.get('row', '?')}: {err.get('errors', [])}")
+            for err in errors:
+                print(f"    Fila {err.get('row','?')}: {err.get('errors', err)}")
         
-        # Verificar en BD
-        mov_rows = db.execute_query(
-            "SELECT COUNT(*) as cnt FROM movimiento WHERE id_producto = %s",
-            (id_tarjeta,)
+        # Verificar
+        post1_mov = db.execute_query(
+            "SELECT COUNT(*) as c FROM movimiento_tarjeta WHERE id_tarjeta = %s AND id_persona = %s",
+            (id_tarjeta, id_persona)
         )
-        mov_count = int(mov_rows[0]['cnt']) if mov_rows else 0
-        print(f"\n✓ Movimientos en BD: {mov_count}")
-        
-        mov_tarjeta_rows = db.execute_query(
-            "SELECT COUNT(*) as cnt FROM movimiento_tarjeta WHERE id_tarjeta = %s",
-            (id_tarjeta,)
+        post1_dif = db.execute_query(
+            "SELECT COUNT(*) as c FROM tarjeta_diferido WHERE id_tarjeta = %s AND id_persona = %s",
+            (id_tarjeta, id_persona)
         )
-        tarjeta_count = int(mov_tarjeta_rows[0]['cnt']) if mov_tarjeta_rows else 0
-        print(f"✓ Movimientos de tarjeta en BD: {tarjeta_count}")
-        
+        nuevos_mov1 = int(post1_mov[0]['c']) - pre_cnt_mov
+        nuevos_dif1 = int(post1_dif[0]['c']) - pre_cnt_dif
+        print(f"  movimiento_tarjeta nuevos: {nuevos_mov1} (esperado 4)")
+        print(f"  tarjeta_diferido nuevos:   {nuevos_dif1} (esperado 1)")
+        assert nuevos_mov1 == 4, f"ERROR: esperaba 4 movimientos, got {nuevos_mov1}"
+        assert nuevos_dif1 == 1, f"ERROR: esperaba 1 diferido, got {nuevos_dif1}"
+        print("  [OK] Primera importación correcta")
+
+        # --- SEGUNDA IMPORTACIÓN del mismo archivo (upsert) ---
+        # Simula cuota 2/6 del mismo diferido
+        df2 = pd.DataFrame({
+            'Fecha':           ['10/05/2026'],
+            'Concepto':        ['Televisor Samsung'],
+            'Monto':           [35500],
+            'Cuotas':          ['2/6'],
+            'Valor Cuota':     [35500],
+            'Interes Mensual': [2.1],
+            'Saldo Pendiente': [1134500],
+            'Referencia':      [TRACKING_CODE],
+        })
+        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp2:
+            df2.to_excel(tmp2.name, index=False)
+            temp_file2 = tmp2.name
+
+        print("\n[2/2] Segunda importación (upsert de diferido)...")
+        etl2 = ETLTarjetaCredito(db)
+        processed2, errors2 = etl2.process_file(temp_file2, id_persona, id_tarjeta)
+        Path(temp_file2).unlink()
+
+        print(f"  Procesadas: {processed2} | Errores: {len(errors2)}")
+        if errors2:
+            for err in errors2:
+                print(f"    Fila {err.get('row','?')}: {err.get('errors', err)}")
+
+        post2_mov = db.execute_query(
+            "SELECT COUNT(*) as c FROM movimiento_tarjeta WHERE id_tarjeta = %s AND id_persona = %s",
+            (id_tarjeta, id_persona)
+        )
+        post2_dif = db.execute_query(
+            "SELECT COUNT(*) as c FROM tarjeta_diferido WHERE id_tarjeta = %s AND id_persona = %s",
+            (id_tarjeta, id_persona)
+        )
+        dif_row = db.execute_query(
+            "SELECT cuotas_pagadas, saldo_pendiente, estado FROM tarjeta_diferido "
+            "WHERE id_tarjeta = %s AND id_persona = %s AND numero_transaccion = %s",
+            (id_tarjeta, id_persona, TRACKING_CODE)
+        )
+        nuevos_mov2 = int(post2_mov[0]['c']) - int(post1_mov[0]['c'])
+        total_dif2  = int(post2_dif[0]['c']) - pre_cnt_dif
+        print(f"  movimiento_tarjeta nuevos: {nuevos_mov2} (esperado 1)")
+        print(f"  tarjeta_diferido total:    {total_dif2} (esperado 1, upsert no duplica)")
+        if dif_row:
+            d = dif_row[0]
+            print(f"  cuotas_pagadas={d['cuotas_pagadas']}, saldo={d['saldo_pendiente']}, estado={d['estado']}")
+        assert nuevos_mov2 == 1, f"ERROR: esperaba 1 movimiento nuevo, got {nuevos_mov2}"
+        assert total_dif2  == 1, f"ERROR: upsert duplicó el diferido, got {total_dif2}"
+        print("  [OK] Segunda importación (upsert) correcta")
+
     finally:
         Path(temp_file).unlink()
         db.close()
