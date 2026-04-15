@@ -4,6 +4,7 @@ import logging
 import os
 import tempfile
 import io
+import datetime
 from pathlib import Path
 
 from flask import Blueprint, jsonify, request, send_file
@@ -81,6 +82,63 @@ def _user_cards(db: DatabaseConnector, user_id: int):
     return rows or []
 
 
+@bp.route('/debug/status', methods=['GET'])
+def debug_status():
+    """Endpoint simple que NO requiere JWT para verificar el estado de la sesión."""
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    
+    return jsonify({
+        'timestamp': str(datetime.datetime.now()),
+        'server_status': 'ok',
+        'has_token': bool(token),
+        'token_length': len(token) if token else 0,
+        'instructions': {
+            'paso_1': 'Abre F12 → Console',
+            'paso_2': 'Verifica que localStorage tenga token:',
+            'comando_check': "console.log(localStorage.getItem('token'))",
+            'paso_3': 'Si NO ves un token long (tipo: eyJ...), debes hacer LOGIN de nuevo',
+            'paso_4': 'Si ves un token, prueba:',
+            'comando_whoami': "fetch('/api/transacciones/debug/whoami', {headers:{'Authorization':'Bearer ' + localStorage.getItem('token')}}).then(r=>r.json()).then(d => console.log(JSON.stringify(d, null, 2)))"
+        }
+    }), 200
+
+
+@bp.route('/debug/whoami', methods=['GET'])
+def debug_whoami():
+    """Para debugging: retorna el ID del usuario actual y sus tarjetas/cuentas.
+    
+    Llama desde la consola del navegador así:
+    fetch('/api/transacciones/debug/whoami', {
+        headers: {'Authorization': 'Bearer ' + localStorage.getItem('token')}
+    }).then(r => r.json()).then(console.log)
+    """
+    db = DatabaseConnector()
+    try:
+        verify_jwt_in_request()
+        user_id = _get_user_id()
+        tarjetas = db.execute_query(
+            "SELECT id_tarjeta, banco, numero_tarjeta FROM tarjeta_credito WHERE id_persona = %s",
+            (user_id,)
+        )
+        cuentas = db.execute_query(
+            "SELECT id_cuenta, nombre FROM cuenta WHERE id_persona = %s",
+            (user_id,)
+        )
+        return jsonify({
+            'id_persona': user_id,
+            'tarjetas': tarjetas or [],
+            'cuentas': cuentas or [],
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'msg': 'Llama desde la CONSOLA del navegador (F12 → Console) con este comando:',
+            'comando': "fetch('/api/transacciones/debug/whoami', {headers:{'Authorization':'Bearer ' + localStorage.getItem('token')}}).then(r=>r.json()).then(console.log)"
+        }), 401
+    finally:
+        db.close()
+
+
 @bp.route('/import/catalogos', methods=['GET'])
 def import_catalogos():
     verify_jwt_in_request()
@@ -110,13 +168,18 @@ def import_upload():
         source = (request.form.get('source') or '').strip().lower()
         file = request.files.get('file')
 
+        logger.warning("UPLOAD DEBUG - source='%s' file='%s' form=%s", source, file and file.filename, dict(request.form))
+
         if source not in ('cuenta_bancaria', 'tarjeta_credito'):
+            logger.warning("UPLOAD 400 - source invalido: '%s'", source)
             return jsonify({'message': 'Origen de importacion invalido'}), 400
         if not file or not file.filename:
+            logger.warning("UPLOAD 400 - sin archivo")
             return jsonify({'message': 'Debes seleccionar un archivo Excel'}), 400
 
         suffix = Path(file.filename).suffix.lower()
         if suffix not in ('.xlsx', '.xls'):
+            logger.warning("UPLOAD 400 - extension invalida: '%s'", suffix)
             return jsonify({'message': 'Formato no soportado. Usa .xlsx o .xls'}), 400
 
         # mkstemp cierra el fd antes de guardar para evitar conflicto en Windows
@@ -127,7 +190,15 @@ def import_upload():
         if source == 'cuenta_bancaria':
             id_cuenta = request.form.get('id_cuenta', type=int)
             if not id_cuenta:
-                return jsonify({'message': 'Debes seleccionar una cuenta bancaria'}), 400
+                available_cuentas = db.execute_query(
+                    "SELECT COUNT(*) as total FROM cuenta WHERE id_persona = %s",
+                    (user_id,)
+                )
+                total_cuentas = available_cuentas[0]['total'] if available_cuentas else 0
+                error_msg = f'No hay cuentas bancarias registradas para tu usuario (ID: {user_id}). Crea una cuenta primero.'
+                if total_cuentas > 0:
+                    error_msg = 'Debes seleccionar una cuenta bancaria'
+                return jsonify({'message': error_msg}), 400
 
             valid, errors = validate_bank_excel_file(tmp_path)
             if not valid:
@@ -137,11 +208,22 @@ def import_upload():
             processed, row_errors = etl.process_file(tmp_path, user_id, id_cuenta)
         else:
             id_tarjeta = request.form.get('id_tarjeta', type=int)
+            logger.warning("UPLOAD DEBUG - id_tarjeta raw='%s' parsed=%s", request.form.get('id_tarjeta'), id_tarjeta)
             if not id_tarjeta:
-                return jsonify({'message': 'Debes seleccionar una tarjeta de credito'}), 400
+                available_cards = db.execute_query(
+                    "SELECT COUNT(*) as total FROM tarjeta_credito WHERE id_persona = %s",
+                    (user_id,)
+                )
+                total_cards = available_cards[0]['total'] if available_cards else 0
+                error_msg = f'No hay tarjetas registradas para tu usuario (ID: {user_id}). Crea una tarjeta primero.'
+                if total_cards > 0:
+                    error_msg = 'Debes seleccionar una tarjeta de credito'
+                logger.warning("UPLOAD 400 - id_tarjeta vacio o invalido")
+                return jsonify({'message': error_msg}), 400
 
             valid, errors = validate_excel_file(tmp_path)
             if not valid:
+                logger.warning("UPLOAD 400 - archivo invalido: %s", errors)
                 return jsonify({'message': 'Archivo invalido', 'errors': errors}), 400
 
             etl = ETLTarjetaCredito(db)
@@ -155,7 +237,7 @@ def import_upload():
             }
         ), 200
     except Exception as e:
-        logger.error("Error en importacion ETL de transacciones: %s", e)
+        logger.exception("Error en importacion ETL de transacciones: %s", e)
         return jsonify({'message': 'Error al procesar importacion ETL'}), 500
     finally:
         if tmp_path and os.path.exists(tmp_path):

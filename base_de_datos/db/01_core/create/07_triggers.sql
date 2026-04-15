@@ -18,20 +18,9 @@ CREATE TRIGGER `tr_update_saldo_cuenta_after_delete`
 AFTER DELETE ON `movimiento` 
 FOR EACH ROW 
 BEGIN
-  -- Recalcula el saldo de la cuenta después de eliminar un movimiento
-  UPDATE cuenta
-  SET saldo_inicial = (
-    SELECT IFNULL(SUM(
-      CASE
-        WHEN id_tipo = 1 THEN monto   -- Ingresos suman
-        WHEN id_tipo = 2 THEN -monto  -- Gastos restan
-        ELSE 0
-      END
-    ), 0)
-    FROM movimiento
-    WHERE id_cuenta = OLD.id_cuenta
-  )
-  WHERE id_cuenta = OLD.id_cuenta;
+  -- saldo_inicial conserva el saldo de apertura de la cuenta.
+  -- El saldo actual se calcula en vistas y consultas a partir de los movimientos.
+  SET @noop_cuenta_delete = 1;
 END$$
 
 -- Trigger: Insertar movimiento - Actualiza saldo de cuenta
@@ -40,20 +29,9 @@ CREATE TRIGGER `tr_update_saldo_cuenta_after_insert`
 AFTER INSERT ON `movimiento` 
 FOR EACH ROW 
 BEGIN
-  -- Actualiza el saldo de la cuenta después de insertar un movimiento
-  UPDATE cuenta
-  SET saldo_inicial = (
-    SELECT IFNULL(SUM(
-      CASE
-        WHEN id_tipo = 1 THEN monto   -- id_tipo=1: ingreso (suma)
-        WHEN id_tipo = 2 THEN -monto  -- id_tipo=2: gasto (resta)
-        ELSE 0
-      END
-    ), 0)
-    FROM movimiento
-    WHERE id_cuenta = NEW.id_cuenta
-  )
-  WHERE id_cuenta = NEW.id_cuenta;
+  -- saldo_inicial conserva el saldo de apertura de la cuenta.
+  -- El saldo actual se calcula en vistas y consultas a partir de los movimientos.
+  SET @noop_cuenta_insert = 1;
 END$$
 
 -- Trigger: Actualizar movimiento - Recalcula saldos afectados
@@ -62,37 +40,9 @@ CREATE TRIGGER `tr_update_saldo_cuenta_after_update`
 AFTER UPDATE ON `movimiento` 
 FOR EACH ROW 
 BEGIN
-  -- Si el movimiento cambió de cuenta, actualizar la cuenta anterior
-  IF OLD.id_cuenta <> NEW.id_cuenta THEN
-    UPDATE cuenta
-    SET saldo_inicial = (
-      SELECT IFNULL(SUM(
-        CASE
-          WHEN id_tipo = 1 THEN monto
-          WHEN id_tipo = 2 THEN -monto
-          ELSE 0
-        END
-      ), 0)
-      FROM movimiento
-      WHERE id_cuenta = OLD.id_cuenta
-    )
-    WHERE id_cuenta = OLD.id_cuenta;
-  END IF;
-
-  -- Actualizar el saldo de la cuenta nueva/actual
-  UPDATE cuenta
-  SET saldo_inicial = (
-    SELECT IFNULL(SUM(
-      CASE
-        WHEN id_tipo = 1 THEN monto
-        WHEN id_tipo = 2 THEN -monto
-        ELSE 0
-      END
-    ), 0)
-    FROM movimiento
-    WHERE id_cuenta = NEW.id_cuenta
-  )
-  WHERE id_cuenta = NEW.id_cuenta;
+  -- saldo_inicial conserva el saldo de apertura de la cuenta.
+  -- El saldo actual se calcula en vistas y consultas a partir de los movimientos.
+  SET @noop_cuenta_update = 1;
 END$$
 
 -- =================================================================

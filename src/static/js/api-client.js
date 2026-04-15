@@ -272,15 +272,25 @@ class APIClient {
      */
     async uploadTransaccionesImport(formData) {
         const headers = {};
-        if (this.token) {
-            headers['Authorization'] = `Bearer ${this.token}`;
+        const token = this.getToken();
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
         }
 
-        const response = await fetch(`${this.baseURL}/transacciones/import/upload`, {
-            method: 'POST',
-            headers,
-            body: formData,
-        });
+        let response;
+        try {
+            response = await fetch(`${this.baseURL}/transacciones/import/upload`, {
+                method: 'POST',
+                headers,
+                body: formData,
+            });
+        } catch (networkError) {
+            const error = new Error(
+                'No se pudo conectar con el servidor durante la importación (verifica que la app siga activa en /health).'
+            );
+            error.cause = networkError;
+            throw error;
+        }
 
         const contentType = response.headers.get('content-type') || '';
         const payload = contentType.includes('application/json')

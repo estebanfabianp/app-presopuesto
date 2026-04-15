@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Optimización de Categorías - App Presupuesto{% endblock %}
+{% block title %}Optimización de Clasificación - App Presupuesto{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -28,12 +28,15 @@
 <div class="container-fluid">
     <div class="page-header mb-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
         <div>
-            <h1 class="page-title"><i class="fas fa-wand-magic-sparkles"></i> Optimización de Categorías</h1>
-            <p class="text-muted mb-0">Automatiza la clasificación de gastos a partir del historial de descripciones.</p>
+            <h1 class="page-title"><i class="fas fa-wand-magic-sparkles"></i> Optimización de Clasificación</h1>
+            <p class="text-muted mb-0">Automatiza categorías y beneficiarios a partir del historial de descripciones.</p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
             <button class="btn btn-outline-secondary" onclick="cargarTodo()">
                 <i class="fas fa-rotate"></i> Actualizar
+            </button>
+            <button class="btn btn-success" onclick="aplicarTodoSeguro()">
+                <i class="fas fa-wand-magic"></i> Aplicar todo lo seguro
             </button>
             <button class="btn btn-primary" onclick="aplicarReglas()">
                 <i class="fas fa-bolt"></i> Aplicar reglas
@@ -73,6 +76,36 @@
         </div>
     </div>
 
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card oc-card-kpi h-100">
+                <div class="card-body">
+                    <small class="text-muted d-block">Reglas de beneficiario</small>
+                    <h3 id="kpiReglasBenef" class="mb-1 text-primary">0</h3>
+                    <div class="small text-muted">Reglas para identificar a quién se paga</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card oc-card-kpi h-100 border-warning">
+                <div class="card-body">
+                    <small class="text-muted d-block">Conflictos beneficiario</small>
+                    <h3 id="kpiConflictosBenef" class="mb-1 text-warning">0</h3>
+                    <div class="small text-muted">Descripciones con múltiples beneficiarios</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card oc-card-kpi h-100 border-danger">
+                <div class="card-body">
+                    <small class="text-muted d-block">Sin beneficiario</small>
+                    <h3 id="kpiPendientesBenef" class="mb-1 text-danger">0</h3>
+                    <div class="small text-muted">Movimientos sin beneficiario asignado</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="card mb-4">
         <div class="card-header bg-white pb-0">
             <ul class="nav nav-tabs card-header-tabs" id="optTabs" role="tablist">
@@ -84,6 +117,9 @@
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="pendientes-tab" data-bs-toggle="tab" data-bs-target="#tabPendientes" type="button" role="tab">Sin categoría</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="beneficiarios-tab" data-bs-toggle="tab" data-bs-target="#tabBeneficiarios" type="button" role="tab">Beneficiarios</button>
                 </li>
             </ul>
         </div>
@@ -139,11 +175,43 @@
                     </div>
                     <small class="text-muted" id="pendientesContador">0 movimientos</small>
                 </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-2">
+                        <select class="form-select form-select-sm" id="filtroOrigenCat" onchange="renderPendientesCategoria()">
+                            <option value="">Origen: Todos</option>
+                            <option value="tarjeta">Tarjeta</option>
+                            <option value="cuenta">Cuenta bancaria</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select form-select-sm" id="filtroPeriodoCat" onchange="renderPendientesCategoria()">
+                            <option value="">Periodo: Todo</option>
+                            <option value="30">Últimos 30 días</option>
+                            <option value="90">Últimos 90 días</option>
+                            <option value="365">Últimos 12 meses</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <input class="form-control form-control-sm" id="filtroTextoCat" placeholder="Buscar descripción..." oninput="renderPendientesCategoria()">
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm" id="batchCategoriaId">
+                            <option value="">Asignar categoría masiva...</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-grid">
+                        <button class="btn btn-sm btn-outline-primary" onclick="asignarCategoriaMasiva()">
+                            <i class="fas fa-layer-group"></i> Asignar seleccionados
+                        </button>
+                    </div>
+                </div>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0" id="tablaPendientes">
                         <thead class="table-light">
                             <tr>
+                                <th style="width:36px;"><input type="checkbox" id="selAllCat" onchange="toggleAllPendientesCategoria(this.checked)"></th>
                                 <th>Fecha</th>
+                                <th>Origen</th>
                                 <th>Descripción</th>
                                 <th class="text-end">Valor</th>
                                 <th>Categoría</th>
@@ -158,6 +226,118 @@
                     No hay movimientos pendientes de clasificación.
                 </div>
             </div>
+
+            <div class="tab-pane fade" id="tabBeneficiarios" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <div>
+                        <h5 class="mb-1">Optimización de beneficiarios</h5>
+                        <p class="text-muted mb-0">Asigna automáticamente a quién se paga usando historial por descripción.</p>
+                    </div>
+                    <button class="btn btn-sm btn-primary" onclick="aplicarReglasBeneficiario()">
+                        <i class="fas fa-bolt"></i> Aplicar reglas de beneficiario
+                    </button>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <strong>Reglas de beneficiario</strong>
+                        <small class="text-muted" id="reglasBenefContador">0 reglas</small>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0" id="tablaReglasBenef">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Descripción</th>
+                                        <th>Beneficiario</th>
+                                        <th class="text-center">Movimientos</th>
+                                        <th>Origen</th>
+                                        <th class="text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyReglasBenef"></tbody>
+                            </table>
+                        </div>
+                        <div id="emptyReglasBenef" class="oc-empty" style="display:none;">
+                            <i class="fas fa-user-check"></i>
+                            No hay reglas de beneficiario disponibles.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <strong>Conflictos de beneficiario</strong>
+                        <small class="text-muted" id="conflictosBenefContador">0 conflictos</small>
+                    </div>
+                    <div class="card-body">
+                        <div id="listaConflictosBenef" class="d-grid gap-3"></div>
+                        <div id="emptyConflictosBenef" class="oc-empty" style="display:none;">
+                            <i class="fas fa-circle-check"></i>
+                            No hay conflictos de beneficiario.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <strong>Movimientos sin beneficiario</strong>
+                        <small class="text-muted" id="pendientesBenefContador">0 movimientos</small>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="row g-2 p-3 border-bottom">
+                            <div class="col-md-2">
+                                <select class="form-select form-select-sm" id="filtroOrigenBenef" onchange="renderPendientesBeneficiario()">
+                                    <option value="">Origen: Todos</option>
+                                    <option value="tarjeta">Tarjeta</option>
+                                    <option value="cuenta">Cuenta bancaria</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select form-select-sm" id="filtroPeriodoBenef" onchange="renderPendientesBeneficiario()">
+                                    <option value="">Periodo: Todo</option>
+                                    <option value="30">Últimos 30 días</option>
+                                    <option value="90">Últimos 90 días</option>
+                                    <option value="365">Últimos 12 meses</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <input class="form-control form-control-sm" id="filtroTextoBenef" placeholder="Buscar descripción..." oninput="renderPendientesBeneficiario()">
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-select form-select-sm" id="batchBenefId">
+                                    <option value="">Asignar beneficiario masivo...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2 d-grid">
+                                <button class="btn btn-sm btn-outline-primary" onclick="asignarBeneficiarioMasivo()">
+                                    <i class="fas fa-layer-group"></i> Asignar seleccionados
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0" id="tablaPendientesBenef">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width:36px;"><input type="checkbox" id="selAllBenef" onchange="toggleAllPendientesBenef(this.checked)"></th>
+                                        <th>Fecha</th>
+                                        <th>Origen</th>
+                                        <th>Descripción</th>
+                                        <th class="text-end">Valor</th>
+                                        <th>Beneficiario</th>
+                                        <th class="text-center">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyPendientesBenef"></tbody>
+                            </table>
+                        </div>
+                        <div id="emptyPendientesBenef" class="oc-empty" style="display:none;">
+                            <i class="fas fa-inbox"></i>
+                            No hay movimientos pendientes de beneficiario.
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -166,6 +346,9 @@
 {% block extra_js %}
 <script>
 let categorias = [];
+let beneficiarios = [];
+let pendientesCategoriaRaw = [];
+let pendientesBenefRaw = [];
 
 function mostrarAlerta(msg, tipo = 'danger') {
     const el = document.getElementById('alertaGlobal');
@@ -198,22 +381,205 @@ function opcionesCategorias(selected = '') {
     `;
 }
 
+function opcionesBeneficiarios(selected = '') {
+    return `
+        <option value="">Selecciona un beneficiario...</option>
+        ${beneficiarios.map(b => `<option value="${b.id_beneficiario}" ${String(b.id_beneficiario) === String(selected) ? 'selected' : ''}>${escHtml(b.nombre)}</option>`).join('')}
+    `;
+}
+
 async function cargarResumen() {
     const data = await api.request('GET', '/optimizacion-categorias/resumen');
     document.getElementById('kpiReglas').textContent = data.reglas || 0;
     document.getElementById('kpiConflictos').textContent = data.conflictos || 0;
     document.getElementById('kpiPendientes').textContent = data.sin_categoria || 0;
+    document.getElementById('kpiReglasBenef').textContent = data.reglas_beneficiario || 0;
+    document.getElementById('kpiConflictosBenef').textContent = data.conflictos_beneficiario || 0;
+    document.getElementById('kpiPendientesBenef').textContent = data.sin_beneficiario || 0;
 }
 
 async function cargarCatalogos() {
     const data = await api.request('GET', '/optimizacion-categorias/catalogos');
     categorias = data.categorias || [];
+    beneficiarios = data.beneficiarios || [];
+
+    const batchCat = document.getElementById('batchCategoriaId');
+    if (batchCat) batchCat.innerHTML = `<option value="">Asignar categoría masiva...</option>${categorias.map(c => `<option value="${c.id_categoria}">${escHtml(c.nombre)}</option>`).join('')}`;
+
+    const batchBen = document.getElementById('batchBenefId');
+    if (batchBen) batchBen.innerHTML = `<option value="">Asignar beneficiario masivo...</option>${beneficiarios.map(b => `<option value="${b.id_beneficiario}">${escHtml(b.nombre)}</option>`).join('')}`;
+}
+
+function _toDateSafe(value) {
+    if (!value) return null;
+    const d = new Date(`${value}T12:00:00`);
+    return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function _passesPeriodo(fecha, dias) {
+    if (!dias) return true;
+    const f = _toDateSafe(fecha);
+    if (!f) return false;
+    const now = new Date();
+    const from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    from.setDate(from.getDate() - Number(dias));
+    return f >= from;
+}
+
+async function cargarReglasBeneficiario() {
+    const data = await api.request('GET', '/optimizacion-categorias/reglas-beneficiario');
+    const reglas = data.reglas || [];
+    const tbody = document.getElementById('tbodyReglasBenef');
+    document.getElementById('reglasBenefContador').textContent = `${reglas.length} regla${reglas.length !== 1 ? 's' : ''}`;
+
+    if (!reglas.length) {
+        tbody.innerHTML = '';
+        document.getElementById('tablaReglasBenef').style.display = 'none';
+        document.getElementById('emptyReglasBenef').style.display = 'block';
+        return;
+    }
+
+    document.getElementById('tablaReglasBenef').style.display = 'table';
+    document.getElementById('emptyReglasBenef').style.display = 'none';
+
+    tbody.innerHTML = reglas.map(r => `
+        <tr>
+            <td><strong>${escHtml(r.concepto)}</strong></td>
+            <td>${escHtml(r.nombre_beneficiario || '—')}</td>
+            <td class="text-center">${r.total_movimientos || 0}</td>
+            <td>
+                <span class="oc-chip ${r.fuente === 'confirmada' ? 'oc-chip-confirmada' : 'oc-chip-auto'}">
+                    <i class="fas ${r.fuente === 'confirmada' ? 'fa-check' : 'fa-bolt'}"></i>
+                    ${r.fuente === 'confirmada' ? 'Confirmada' : 'Automática'}
+                </span>
+            </td>
+            <td class="text-center">
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-success" onclick="confirmarReglaBeneficiario('${encodeURIComponent(r.concepto)}', ${r.id_beneficiario})">
+                        <i class="fas fa-check"></i> Confirmar
+                    </button>
+                    <button class="btn btn-outline-danger" ${r.fuente !== 'confirmada' ? 'disabled' : ''} onclick="limpiarReglaBeneficiario('${encodeURIComponent(r.concepto)}')">
+                        <i class="fas fa-trash"></i> Limpiar
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function cargarConflictosBeneficiario() {
+    const data = await api.request('GET', '/optimizacion-categorias/conflictos-beneficiario');
+    const conflictos = data.conflictos || [];
+    const cont = document.getElementById('listaConflictosBenef');
+    document.getElementById('conflictosBenefContador').textContent = `${conflictos.length} conflicto${conflictos.length !== 1 ? 's' : ''}`;
+
+    if (!conflictos.length) {
+        cont.innerHTML = '';
+        document.getElementById('emptyConflictosBenef').style.display = 'block';
+        return;
+    }
+
+    document.getElementById('emptyConflictosBenef').style.display = 'none';
+    cont.innerHTML = conflictos.map((c, idx) => `
+        <div class="card oc-conflicto-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                    <div>
+                        <h6 class="mb-1">${escHtml(c.concepto)}</h6>
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            ${(c.beneficiarios || []).map(b => `
+                                <span class="oc-chip oc-chip-conflicto">
+                                    ${escHtml(b.nombre)} (${b.total})
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <select class="form-select form-select-sm" id="conflictoBenef${idx}" style="min-width: 220px;">
+                            ${opcionesBeneficiarios()}
+                        </select>
+                        <button class="btn btn-sm btn-primary" onclick="resolverConflictoBeneficiario(${idx}, '${encodeURIComponent(c.concepto)}')">
+                            <i class="fas fa-check"></i> Confirmar
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="ignorarConceptoBeneficiario('${encodeURIComponent(c.concepto)}')">
+                            <i class="fas fa-ban"></i> Ignorar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function cargarPendientesBeneficiario() {
+    const data = await api.request('GET', '/optimizacion-categorias/pendientes-beneficiario');
+    pendientesBenefRaw = data.movimientos || [];
+    renderPendientesBeneficiario();
+}
+
+function renderPendientesBeneficiario() {
+    const movimientos = [...pendientesBenefRaw]
+        .sort((a, b) => Number(b.valor || 0) - Number(a.valor || 0));
+
+    const filtroOrigen = (document.getElementById('filtroOrigenBenef')?.value || '').trim();
+    const filtroPeriodo = (document.getElementById('filtroPeriodoBenef')?.value || '').trim();
+    const filtroTexto = (document.getElementById('filtroTextoBenef')?.value || '').toLowerCase().trim();
+
+    const filtrados = movimientos.filter(m => {
+        const okOrigen = !filtroOrigen || (m.origen || '') === filtroOrigen;
+        const okPeriodo = _passesPeriodo(m.fecha, filtroPeriodo);
+        const okTexto = !filtroTexto || String(m.concepto || '').toLowerCase().includes(filtroTexto);
+        return okOrigen && okPeriodo && okTexto;
+    });
+
+    const tbody = document.getElementById('tbodyPendientesBenef');
+    document.getElementById('pendientesBenefContador').textContent = `${filtrados.length} movimiento${filtrados.length !== 1 ? 's' : ''}`;
+    document.getElementById('selAllBenef').checked = false;
+
+    if (!filtrados.length) {
+        tbody.innerHTML = '';
+        document.getElementById('tablaPendientesBenef').style.display = 'none';
+        document.getElementById('emptyPendientesBenef').style.display = 'block';
+        return;
+    }
+
+    document.getElementById('tablaPendientesBenef').style.display = 'table';
+    document.getElementById('emptyPendientesBenef').style.display = 'none';
+
+    tbody.innerHTML = filtrados.map((m, idx) => `
+        <tr>
+            <td><input type="checkbox" class="chk-pend-benef" data-origen="${escHtml(m.origen)}" data-id="${m.id_movimiento}"></td>
+            <td>${escHtml(m.fecha || '—')}</td>
+            <td>
+                <span class="oc-chip ${m.origen === 'cuenta' ? 'oc-chip-confirmada' : 'oc-chip-auto'}">
+                    ${m.origen === 'cuenta' ? 'Cuenta bancaria' : 'Tarjeta'}
+                </span>
+            </td>
+            <td><strong>${escHtml(m.concepto || '—')}</strong></td>
+            <td class="text-end text-danger">${moneda(m.valor)}</td>
+            <td>
+                <select class="form-select form-select-sm" id="pendienteBenef${idx}">
+                    ${opcionesBeneficiarios()}
+                </select>
+            </td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-success" onclick="asignarBeneficiarioMovimiento(${idx}, '${m.origen}', ${m.id_movimiento})">
+                    <i class="fas fa-check"></i> Asignar
+                </button>
+            </td>
+        </tr>
+    `).join('');
 }
 
 async function cargarReglas() {
+    const tbody = document.getElementById('tbodyReglas');
+    // Limpiar estado previo para no dejar filas stale si hay error de red/API.
+    tbody.innerHTML = '';
+    document.getElementById('tablaReglas').style.display = 'none';
+    document.getElementById('emptyReglas').style.display = 'block';
+
     const data = await api.request('GET', '/optimizacion-categorias/reglas');
     const reglas = data.reglas || [];
-    const tbody = document.getElementById('tbodyReglas');
     document.getElementById('reglasContador').textContent = `${reglas.length} regla${reglas.length !== 1 ? 's' : ''}`;
 
     if (!reglas.length) {
@@ -297,11 +663,30 @@ async function cargarConflictos() {
 
 async function cargarPendientes() {
     const data = await api.request('GET', '/optimizacion-categorias/pendientes');
-    const movimientos = data.movimientos || [];
-    const tbody = document.getElementById('tbodyPendientes');
-    document.getElementById('pendientesContador').textContent = `${movimientos.length} movimiento${movimientos.length !== 1 ? 's' : ''}`;
+    pendientesCategoriaRaw = data.movimientos || [];
+    renderPendientesCategoria();
+}
 
-    if (!movimientos.length) {
+function renderPendientesCategoria() {
+    const movimientos = [...pendientesCategoriaRaw]
+        .sort((a, b) => Number(b.valor || 0) - Number(a.valor || 0));
+
+    const filtroOrigen = (document.getElementById('filtroOrigenCat')?.value || '').trim();
+    const filtroPeriodo = (document.getElementById('filtroPeriodoCat')?.value || '').trim();
+    const filtroTexto = (document.getElementById('filtroTextoCat')?.value || '').toLowerCase().trim();
+
+    const filtrados = movimientos.filter(m => {
+        const okOrigen = !filtroOrigen || (m.origen || '') === filtroOrigen;
+        const okPeriodo = _passesPeriodo(m.fecha, filtroPeriodo);
+        const okTexto = !filtroTexto || String(m.concepto || '').toLowerCase().includes(filtroTexto);
+        return okOrigen && okPeriodo && okTexto;
+    });
+
+    const tbody = document.getElementById('tbodyPendientes');
+    document.getElementById('pendientesContador').textContent = `${filtrados.length} movimiento${filtrados.length !== 1 ? 's' : ''}`;
+    document.getElementById('selAllCat').checked = false;
+
+    if (!filtrados.length) {
         tbody.innerHTML = '';
         document.getElementById('tablaPendientes').style.display = 'none';
         document.getElementById('emptyPendientes').style.display = 'block';
@@ -311,9 +696,15 @@ async function cargarPendientes() {
     document.getElementById('tablaPendientes').style.display = 'table';
     document.getElementById('emptyPendientes').style.display = 'none';
 
-    tbody.innerHTML = movimientos.map((m, idx) => `
+    tbody.innerHTML = filtrados.map((m, idx) => `
         <tr>
+            <td><input type="checkbox" class="chk-pend-cat" data-origen="${escHtml(m.origen)}" data-id="${m.id_movimiento}"></td>
             <td>${escHtml(m.fecha || '—')}</td>
+            <td>
+                <span class="oc-chip ${m.origen === 'cuenta' ? 'oc-chip-confirmada' : 'oc-chip-auto'}">
+                    ${m.origen === 'cuenta' ? 'Cuenta bancaria' : 'Tarjeta'}
+                </span>
+            </td>
             <td><strong>${escHtml(m.concepto || '—')}</strong></td>
             <td class="text-end text-danger">${moneda(m.valor)}</td>
             <td>
@@ -322,12 +713,86 @@ async function cargarPendientes() {
                 </select>
             </td>
             <td class="text-center">
-                <button class="btn btn-sm btn-success" onclick="asignarMovimiento(${idx}, ${m.id_movimiento_tarjeta})">
+                <button class="btn btn-sm btn-success" onclick="asignarMovimiento(${idx}, '${m.origen}', ${m.id_movimiento})">
                     <i class="fas fa-check"></i> Asignar
                 </button>
             </td>
         </tr>
     `).join('');
+}
+
+function toggleAllPendientesCategoria(checked) {
+    document.querySelectorAll('.chk-pend-cat').forEach(chk => { chk.checked = checked; });
+}
+
+function toggleAllPendientesBenef(checked) {
+    document.querySelectorAll('.chk-pend-benef').forEach(chk => { chk.checked = checked; });
+}
+
+async function asignarCategoriaMasiva() {
+    const idCategoria = Number(document.getElementById('batchCategoriaId').value || 0);
+    if (!idCategoria) {
+        mostrarAlerta('Selecciona una categoría para la asignación masiva.', 'warning');
+        return;
+    }
+    const seleccionados = Array.from(document.querySelectorAll('.chk-pend-cat:checked'));
+    if (!seleccionados.length) {
+        mostrarAlerta('Selecciona al menos un movimiento.', 'warning');
+        return;
+    }
+
+    let ok = 0;
+    for (const row of seleccionados) {
+        const origen = row.dataset.origen;
+        const idMovimiento = Number(row.dataset.id || 0);
+        if (!idMovimiento) continue;
+        try {
+            await api.request('POST', '/optimizacion-categorias/movimientos/asignar', {
+                origen,
+                id_movimiento: idMovimiento,
+                id_categoria: idCategoria,
+            });
+            ok += 1;
+        } catch (err) {
+            // Continúa con los demás
+        }
+    }
+
+    mostrarAlerta(`Asignación masiva completada: ${ok}/${seleccionados.length} movimiento(s).`, ok ? 'success' : 'warning');
+    await cargarTodo();
+}
+
+async function asignarBeneficiarioMasivo() {
+    const idBeneficiario = Number(document.getElementById('batchBenefId').value || 0);
+    if (!idBeneficiario) {
+        mostrarAlerta('Selecciona un beneficiario para la asignación masiva.', 'warning');
+        return;
+    }
+    const seleccionados = Array.from(document.querySelectorAll('.chk-pend-benef:checked'));
+    if (!seleccionados.length) {
+        mostrarAlerta('Selecciona al menos un movimiento.', 'warning');
+        return;
+    }
+
+    let ok = 0;
+    for (const row of seleccionados) {
+        const origen = row.dataset.origen;
+        const idMovimiento = Number(row.dataset.id || 0);
+        if (!idMovimiento) continue;
+        try {
+            await api.request('POST', '/optimizacion-categorias/movimientos/asignar-beneficiario', {
+                origen,
+                id_movimiento: idMovimiento,
+                id_beneficiario: idBeneficiario,
+            });
+            ok += 1;
+        } catch (err) {
+            // Continúa con los demás
+        }
+    }
+
+    mostrarAlerta(`Asignación masiva de beneficiario completada: ${ok}/${seleccionados.length} movimiento(s).`, ok ? 'success' : 'warning');
+    await cargarTodo();
 }
 
 async function confirmarRegla(conceptoEncoded, idCategoria) {
@@ -385,7 +850,7 @@ async function resolverConflicto(idx, conceptoEncoded) {
     }
 }
 
-async function asignarMovimiento(idx, idMovimiento) {
+async function asignarMovimiento(idx, origen, idMovimiento) {
     const idCategoria = document.getElementById(`pendienteCategoria${idx}`).value;
     if (!idCategoria) {
         mostrarAlerta('Selecciona una categoría para asignar.', 'warning');
@@ -393,13 +858,88 @@ async function asignarMovimiento(idx, idMovimiento) {
     }
     try {
         await api.request('POST', '/optimizacion-categorias/movimientos/asignar', {
-            id_movimiento_tarjeta: idMovimiento,
+            origen,
+            id_movimiento: idMovimiento,
             id_categoria: Number(idCategoria),
         });
         mostrarAlerta('Categoría asignada correctamente.', 'success');
         await cargarTodo();
     } catch (err) {
         mostrarAlerta(err.message || 'No se pudo asignar la categoría.');
+    }
+}
+
+async function confirmarReglaBeneficiario(conceptoEncoded, idBeneficiario) {
+    const concepto = decodeURIComponent(conceptoEncoded);
+    try {
+        await api.request('POST', '/optimizacion-categorias/reglas-beneficiario/confirmar', {
+            concepto,
+            id_beneficiario: Number(idBeneficiario),
+        });
+        mostrarAlerta('Regla de beneficiario confirmada correctamente.', 'success');
+        await cargarTodo();
+    } catch (err) {
+        mostrarAlerta(err.message || 'No se pudo confirmar la regla de beneficiario.');
+    }
+}
+
+async function limpiarReglaBeneficiario(conceptoEncoded) {
+    const concepto = decodeURIComponent(conceptoEncoded);
+    try {
+        await api.request('DELETE', `/optimizacion-categorias/reglas-beneficiario?concepto=${encodeURIComponent(concepto)}`);
+        mostrarAlerta('Regla de beneficiario eliminada correctamente.', 'success');
+        await cargarTodo();
+    } catch (err) {
+        mostrarAlerta(err.message || 'No se pudo limpiar la regla de beneficiario.');
+    }
+}
+
+async function ignorarConceptoBeneficiario(conceptoEncoded) {
+    const concepto = decodeURIComponent(conceptoEncoded);
+    try {
+        await api.request('POST', '/optimizacion-categorias/reglas-beneficiario/ignorar', { concepto });
+        mostrarAlerta('Concepto marcado para no automatizar beneficiario.', 'success');
+        await cargarTodo();
+    } catch (err) {
+        mostrarAlerta(err.message || 'No se pudo ignorar el concepto para beneficiario.');
+    }
+}
+
+async function resolverConflictoBeneficiario(idx, conceptoEncoded) {
+    const concepto = decodeURIComponent(conceptoEncoded);
+    const idBeneficiario = document.getElementById(`conflictoBenef${idx}`).value;
+    if (!idBeneficiario) {
+        mostrarAlerta('Selecciona un beneficiario para resolver el conflicto.', 'warning');
+        return;
+    }
+    try {
+        await api.request('POST', '/optimizacion-categorias/reglas-beneficiario/confirmar', {
+            concepto,
+            id_beneficiario: Number(idBeneficiario),
+        });
+        mostrarAlerta('Conflicto de beneficiario resuelto y regla guardada.', 'success');
+        await cargarTodo();
+    } catch (err) {
+        mostrarAlerta(err.message || 'No se pudo resolver el conflicto de beneficiario.');
+    }
+}
+
+async function asignarBeneficiarioMovimiento(idx, origen, idMovimiento) {
+    const idBeneficiario = document.getElementById(`pendienteBenef${idx}`).value;
+    if (!idBeneficiario) {
+        mostrarAlerta('Selecciona un beneficiario para asignar.', 'warning');
+        return;
+    }
+    try {
+        await api.request('POST', '/optimizacion-categorias/movimientos/asignar-beneficiario', {
+            origen,
+            id_movimiento: idMovimiento,
+            id_beneficiario: Number(idBeneficiario),
+        });
+        mostrarAlerta('Beneficiario asignado correctamente.', 'success');
+        await cargarTodo();
+    } catch (err) {
+        mostrarAlerta(err.message || 'No se pudo asignar el beneficiario.');
     }
 }
 
@@ -413,16 +953,49 @@ async function aplicarReglas() {
     }
 }
 
+async function aplicarReglasBeneficiario() {
+    try {
+        const resp = await api.request('POST', '/optimizacion-categorias/aplicar-beneficiario', {});
+        mostrarAlerta(`Se actualizaron ${resp.actualizados || 0} movimiento(s) con beneficiario.`, 'success');
+        await cargarTodo();
+    } catch (err) {
+        mostrarAlerta(err.message || 'No se pudieron aplicar las reglas de beneficiario.');
+    }
+}
+
+async function aplicarTodoSeguro() {
+    try {
+        const [r1, r2] = await Promise.all([
+            api.request('POST', '/optimizacion-categorias/aplicar', {}),
+            api.request('POST', '/optimizacion-categorias/aplicar-beneficiario', {}),
+        ]);
+        const c1 = r1.actualizados || 0;
+        const c2 = r2.actualizados || 0;
+        mostrarAlerta(`Aplicación completa: ${c1} categoría(s) y ${c2} beneficiario(s) actualizados.`, 'success');
+        await cargarTodo();
+    } catch (err) {
+        mostrarAlerta(err.message || 'No se pudo ejecutar la aplicación completa.');
+    }
+}
+
 async function cargarTodo() {
     ocultarAlerta();
     try {
         await cargarCatalogos();
-        await Promise.all([
+        const resultados = await Promise.allSettled([
             cargarResumen(),
             cargarReglas(),
             cargarConflictos(),
             cargarPendientes(),
+            cargarReglasBeneficiario(),
+            cargarConflictosBeneficiario(),
+            cargarPendientesBeneficiario(),
         ]);
+
+        const errores = resultados.filter(r => r.status === 'rejected');
+        if (errores.length > 0) {
+            mostrarAlerta(`Se cargó la vista con ${errores.length} sección(es) incompleta(s). Intenta actualizar.`, 'warning');
+        }
     } catch (err) {
         mostrarAlerta(err.message || 'Error cargando el módulo.');
     }

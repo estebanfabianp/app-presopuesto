@@ -38,6 +38,15 @@ def _safe_float(value) -> float:
         return 0.0
 
 
+def _get_meses(default: int, max_meses: int = 120) -> int:
+    """Obtiene y valida el rango en meses desde query params."""
+    try:
+        meses = int(request.args.get('meses', default))
+    except (TypeError, ValueError):
+        meses = default
+    return max(1, min(meses, max_meses))
+
+
 # ──────────────────────────────────────────────────────────────
 # GET /api/analisis/resumen?meses=6
 # KPIs principales: ingresos, gastos, ahorro, % ejecución presupuesto
@@ -46,7 +55,7 @@ def _safe_float(value) -> float:
 def get_resumen():
     verify_jwt_in_request()
     user_id = _get_user_id()
-    meses = min(int(request.args.get('meses', 6)), 24)
+    meses = _get_meses(6)
     db = DatabaseConnector()
     try:
         # Ingresos y gastos del periodo
@@ -122,7 +131,7 @@ def get_resumen():
 def get_por_categoria():
     verify_jwt_in_request()
     user_id = _get_user_id()
-    meses = min(int(request.args.get('meses', 3)), 24)
+    meses = _get_meses(3)
     db = DatabaseConnector()
     try:
         rows = db.execute_query(
@@ -167,7 +176,7 @@ def get_por_categoria():
 def get_tendencia():
     verify_jwt_in_request()
     user_id = _get_user_id()
-    meses = min(int(request.args.get('meses', 12)), 24)
+    meses = _get_meses(12)
     db = DatabaseConnector()
     try:
         rows = db.execute_query(
@@ -212,7 +221,7 @@ def get_tendencia():
 def get_top_gastos():
     verify_jwt_in_request()
     user_id = _get_user_id()
-    meses  = min(int(request.args.get('meses', 1)), 24)
+    meses  = _get_meses(1)
     limite = min(int(request.args.get('limite', 10)), 50)
     db = DatabaseConnector()
     try:
@@ -368,7 +377,7 @@ def get_comparativa():
 def get_score_salud():
     verify_jwt_in_request()
     user_id = _get_user_id()
-    meses = min(int(request.args.get('meses', 3)), 24)
+    meses = _get_meses(3)
     db = DatabaseConnector()
     try:
         flujo = db.execute_query(
@@ -567,7 +576,7 @@ def get_presupuesto_categorias():
 def get_anomalias():
     verify_jwt_in_request()
     user_id = _get_user_id()
-    meses = min(int(request.args.get('meses', 6)), 24)
+    meses = _get_meses(6)
     limite = min(int(request.args.get('limite', 10)), 50)
     db = DatabaseConnector()
     try:
@@ -769,7 +778,7 @@ def get_oportunidades():
 def get_cohortes():
     verify_jwt_in_request()
     user_id = _get_user_id()
-    meses = min(int(request.args.get('meses', 6)), 24)
+    meses = _get_meses(6)
     db = DatabaseConnector()
     try:
         por_dia = db.execute_query(
@@ -829,7 +838,7 @@ def get_cohortes():
 def get_fijo_variable():
     verify_jwt_in_request()
     user_id = _get_user_id()
-    meses = min(int(request.args.get('meses', 3)), 24)
+    meses = _get_meses(3)
     db = DatabaseConnector()
     try:
         rows = db.execute_query(

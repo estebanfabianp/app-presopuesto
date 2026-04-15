@@ -124,10 +124,32 @@ def get_catalogos():
         _ensure_estados_conciliacion(db)
 
         cuentas = db.execute_query(
-            """SELECT id_cuenta, nombre, tipo, moneda
-               FROM cuenta
-               WHERE id_persona = %s
-               ORDER BY nombre""",
+            """SELECT 
+                c.id_cuenta, 
+                c.nombre, 
+                c.tipo, 
+                c.moneda,
+                CAST(
+                    COALESCE(c.saldo_inicial, 0) + 
+                    COALESCE(SUM(
+                        CASE
+                            WHEN LOWER(TRIM(tm.nombre)) = 'ingreso' THEN COALESCE(m.monto, 0)
+                            ELSE 0
+                        END
+                    ), 0) - 
+                    COALESCE(SUM(
+                        CASE
+                            WHEN LOWER(TRIM(tm.nombre)) = 'gasto' THEN COALESCE(m.monto, 0)
+                            ELSE 0
+                        END
+                    ), 0)
+                AS DECIMAL(15,2)) AS saldo_actual
+               FROM cuenta c
+               LEFT JOIN movimiento m ON m.id_cuenta = c.id_cuenta
+               LEFT JOIN tipo_movimiento tm ON tm.id_tipo = m.id_tipo
+               WHERE c.id_persona = %s
+               GROUP BY c.id_cuenta, c.nombre, c.tipo, c.moneda, c.saldo_inicial
+               ORDER BY c.nombre""",
             (user_id,),
         )
         categorias = db.execute_query(
@@ -180,7 +202,7 @@ def list_movimientos():
                     m.id_cuenta,
                     c.nombre AS cuenta_nombre,
                     DATE(m.fecha_creacion) AS fecha,
-                    COALESCE(NULLIF(m.codigo,''), COALESCE(m.nota, 'Sin descripción')) AS descripcion,
+                    COALESCE(NULLIF(m.nota,''), COALESCE(NULLIF(m.codigo,''), 'Sin descripción')) AS descripcion,
                     COALESCE(m.nota, '') AS observacion,
                     COALESCE(cat.nombre, 'General') AS categoria,
                     m.id_categoria,
@@ -212,7 +234,7 @@ def list_movimientos():
                     m.id_cuenta,
                     c.nombre AS cuenta_nombre,
                     DATE(m.fecha_creacion) AS fecha,
-                    COALESCE(NULLIF(m.codigo,''), COALESCE(m.nota, 'Sin descripción')) AS descripcion,
+                    COALESCE(NULLIF(m.nota,''), COALESCE(NULLIF(m.codigo,''), 'Sin descripción')) AS descripcion,
                     COALESCE(m.nota, '') AS observacion,
                     COALESCE(cat.nombre, 'General') AS categoria,
                     m.id_categoria,
@@ -413,7 +435,7 @@ def update_movimiento(movimiento_id):
                 'tipo',
                 'id_producto',
             ]
-        if any(payload.get(campo) is not None for campo in campos_bloqueados) or payload.get('detalles') is not None:
+            if any(payload.get(campo) is not None for campo in campos_bloqueados) or payload.get('detalles') is not None:
                 return jsonify({
                     'message': 'El movimiento está conciliado. Solo puede cambiar estado u observación.'
                 }), 400

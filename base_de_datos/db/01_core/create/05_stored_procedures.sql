@@ -19,20 +19,10 @@ DELIMITER $$
 DROP PROCEDURE IF EXISTS `sp_recalcular_saldo_cuenta`$$
 CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_recalcular_saldo_cuenta` (IN `p_id_cuenta` INT)   
 BEGIN
-  -- Recalcula el saldo basado en la suma de todos los movimientos
-  UPDATE cuenta
-  SET saldo_inicial = (
-    SELECT IFNULL(SUM(
-      CASE
-        WHEN id_tipo = 1 THEN monto   -- id_tipo=1: ingreso (suma)
-        WHEN id_tipo = 2 THEN -monto  -- id_tipo=2: gasto (resta)
-        ELSE 0                        -- Otros tipos no afectan el saldo
-      END
-    ), 0)
-    FROM movimiento
-    WHERE id_cuenta = p_id_cuenta
-  )
-  WHERE id_cuenta = p_id_cuenta;
+  -- saldo_inicial conserva el saldo de apertura.
+  -- El saldo actual se obtiene en vistas y consultas como:
+  -- saldo_inicial + ingresos - gastos.
+  SELECT p_id_cuenta AS id_cuenta;
 END$$
 
 -- =================================================================

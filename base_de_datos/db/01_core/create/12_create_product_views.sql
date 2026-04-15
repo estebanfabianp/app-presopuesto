@@ -15,28 +15,46 @@ SELECT
     c.id_cuenta AS id_producto,
     'cuenta_bancaria' AS tipo_producto,
     c.nombre,
-    CAST(c.saldo_inicial + COALESCE(ms.saldo_movimientos, 0) AS DECIMAL(15,2)) AS saldo_actual,
-    CAST(c.saldo_inicial + COALESCE(ms.saldo_movimientos, 0) AS DECIMAL(15,2)) AS saldo_disponible,
+    CAST(
+        COALESCE(c.saldo_inicial, 0) + 
+        COALESCE(ms.total_ingresos, 0) - 
+        COALESCE(ms.total_gastos, 0) 
+    AS DECIMAL(15,2)) AS saldo_actual,
+    CAST(
+        COALESCE(c.saldo_inicial, 0) + 
+        COALESCE(ms.total_ingresos, 0) - 
+        COALESCE(ms.total_gastos, 0)
+    AS DECIMAL(15,2)) AS saldo_disponible,
     CAST(0 AS DECIMAL(15,2)) AS limite_credito,
     CAST(0 AS DECIMAL(10,2)) AS tasa_interes,
     c.fecha_creacion AS fecha_apertura,
     'ACTIVO' AS estado,
     'Cuenta Bancaria' AS tipo_display,
-    CAST(c.saldo_inicial + COALESCE(ms.saldo_movimientos, 0) AS DECIMAL(15,2)) AS valor_efectivo,
+    CAST(
+        COALESCE(c.saldo_inicial, 0) + 
+        COALESCE(ms.total_ingresos, 0) - 
+        COALESCE(ms.total_gastos, 0)
+    AS DECIMAL(15,2)) AS valor_efectivo,
     'cuenta' AS origen_tabla
 FROM cuenta c
 LEFT JOIN (
     SELECT
         m.id_cuenta,
-        SUM(
+        COALESCE(SUM(
             CASE
-                WHEN LOWER(tm.nombre) = 'ingreso' THEN COALESCE(m.monto, 0)
-                WHEN LOWER(tm.nombre) = 'gasto' THEN -COALESCE(m.monto, 0)
+                WHEN LOWER(TRIM(tm.nombre)) = 'ingreso' THEN COALESCE(m.monto, 0)
                 ELSE 0
             END
-        ) AS saldo_movimientos
+        ), 0) AS total_ingresos,
+        COALESCE(SUM(
+            CASE
+                WHEN LOWER(TRIM(tm.nombre)) = 'gasto' THEN COALESCE(m.monto, 0)
+                ELSE 0
+            END
+        ), 0) AS total_gastos
     FROM movimiento m
     LEFT JOIN tipo_movimiento tm ON tm.id_tipo = m.id_tipo
+    WHERE m.monto IS NOT NULL AND m.monto > 0
     GROUP BY m.id_cuenta
 ) ms ON ms.id_cuenta = c.id_cuenta
 

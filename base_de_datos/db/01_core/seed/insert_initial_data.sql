@@ -77,20 +77,21 @@ INSERT INTO `app_presupuesto`.`categoria` (`nombre`) VALUES
 ('Educación'),
 ('Salud - EPS/Medicina Prepagada'),
 ('Transporte Público'),
-('Combustible'),
+('Gasolina/Combustible'),
+('Moto - Gasolina, Mantenimiento, Accesorios, Seguridad'),
 ('Préstamos y Deudas'),
 ('Impuestos');
 
 -- CATEGORÍAS DE GASTOS VARIABLES (NECESARIOS)
 INSERT INTO `app_presupuesto`.`categoria` (`nombre`) VALUES
 ('Alimentación'),
-('Mercado y Supermercado'),
+('Supermercado'),
 ('Medicamentos'),
 ('Ropa y Calzado'),
 ('Cuidado Personal'),
 ('Mantenimiento del Hogar'),
 ('Reparaciones'),
-('Transporte - Taxi/Uber');
+('Taxi/Uber');
 
 -- CATEGORÍAS DE GASTOS DISCRECIONALES (OPCIONALES)
 INSERT INTO `app_presupuesto`.`categoria` (`nombre`) VALUES

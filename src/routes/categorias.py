@@ -79,7 +79,7 @@ def list_categorias():
 
         rows = db.execute_query(
             f"{base_select} {where} {order}",
-            tuple(params) if params else None,
+            (user_id,) + tuple(params),
         )
 
         flat = [

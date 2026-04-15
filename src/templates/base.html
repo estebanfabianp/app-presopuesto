@@ -51,7 +51,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     
     <!-- API Client -->
-    <script src="{{ url_for('static', filename='js/api-client.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/api-client.js') }}?v={{ range(1000,9999) | random }}"></script>
     
     <!-- Auth Manager -->
     <script src="{{ url_for('static', filename='js/auth.js') }}"></script>

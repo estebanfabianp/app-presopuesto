@@ -57,6 +57,18 @@ Opcionales:
 - archivo Excel válido,
 - existencia de persona y tarjeta objetivo.
 
+## Notas operativas
+
+- **Reloader**: al ejecutar `python app.py` el watchdog de Flask detecta módulos XML cargados por `openpyxl` y reinicia el servidor, cortando la conexión. Para evitarlo, lanzar con:
+
+  ```python
+  app.run(debug=True, use_reloader=False, port=5000)
+  ```
+
+- **Validación en cliente**: la interfaz web valida que exista una tarjeta seleccionada antes de enviar el formulario. Si no hay tarjetas registradas muestra un mensaje con guía.
+
+- El endpoint `GET /api/transacciones/debug/whoami` permite verificar qué tarjetas tiene asociadas el usuario autenticado.
+
 ## Uso programático
 
 ```python

@@ -80,8 +80,9 @@ app-presopuesto/
 │   │   ├── categorias.py
 │   │   ├── beneficiarios.py
 │   │   ├── constantes.py
-│   │   ├── programadas.py     # Transacciones programadas (recurrentes)
-│   │   └── analisis.py        # Análisis de consumo
+│   │   ├── programadas.py              # Transacciones programadas (recurrentes)
+│   │   ├── analisis.py                 # Análisis de consumo
+│   │   └── optimizacion_categorias.py  # Optimización de categorías y beneficiarios
 │   ├── static/                # CSS y JS de la versión web
 │   ├── templates/             # Templates Jinja
 │   │   ├── dashboard/
@@ -97,7 +98,8 @@ app-presopuesto/
 │   │   ├── beneficiarios/
 │   │   ├── constantes/
 │   │   ├── programadas/       # Interfaz transacciones programadas
-│   │   ├── analisis/          # Interfaz análisis de consumo
+│   │   ├── analisis/                    # Interfaz análisis de consumo
+│   │   ├── optimizacion_categorias/     # Interfaz optimización de clasificación
 │   │   └── components/
 │   └── views/                 # Vistas Flet existentes (heredadas)
 ├── base_de_datos/db/          # Scripts SQL y batch de inicialización
@@ -134,11 +136,13 @@ app-presopuesto/
 | `/beneficiarios`     | Catálogo de beneficiarios                     |
 | `/constantes`        | Constantes del sistema                        |
 | `/programadas`       | Transacciones programadas y recurrentes       |
-| `/analisis`          | Análisis de consumo con gráficos interactivos |
+| `/analisis`                | Análisis de consumo con gráficos interactivos                  |
+| `/optimizacion-categorias` | Optimización automática de categorías y beneficiarios          |
 
 ## Limitaciones conocidas
 
 - La UI Flet (`main.py`) convive con la web pero ya no es el foco principal de desarrollo.
+- Para importaciones ETL desde Excel se recomienda lanzar Flask con `use_reloader=False` para evitar que el watchdog reinicie el servidor al cargar módulos XML.
 - La instalación `full` desde cero sobre algunos entornos MariaDB aún requiere saneamiento adicional de scripts históricos.
 
 ## Organización del repositorio

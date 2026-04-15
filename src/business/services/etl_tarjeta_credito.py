@@ -2,7 +2,7 @@
 ETL para carga masiva de transacciones de tarjeta de crédito desde Excel.
 
 Procesa archivos Excel validando estructura, transformando datos y cargando
-en las tablas movimiento y movimiento_tarjeta con control transaccional completo.
+en movimiento_tarjeta con control transaccional completo.
 
 Reglas de negocio para diferidos:
 - Cada fila del extracto mensual debe conservarse en movimiento_tarjeta.
@@ -51,7 +51,6 @@ class TransformResult:
     """Resultado de transformación de datos."""
     is_valid: bool = True
     errors: List[str] = field(default_factory=list)
-    insert_movimiento: Dict[str, Any] = field(default_factory=dict)
     insert_movimiento_tarjeta: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -84,12 +83,18 @@ class ETLTarjetaCredito:
     
     # Columnas esperadas en Excel (case-insensitive)
     EXPECTED_COLUMNS = {
-        'fecha': ['fecha', 'date', 'date_transaction', 'fecha movimiento'],
+        'fecha': [
+            'fecha', 'date', 'date_transaction', 'fecha movimiento',
+            'fecha transaccion', 'fecha de transaccion', 'fecha de tran'
+        ],
         'concepto': [
             'concepto', 'description', 'descripcion', 'transaccion',
             'movimientos', 'movimiento', 'detalle', 'descripcion sucursal'
         ],
-        'monto': ['monto', 'amount', 'valor', 'quantity', 'valor movimiento', 'valor movimie'],
+        'monto': [
+            'monto', 'amount', 'valor', 'quantity', 'valor movimiento', 'valor movimie',
+            'valor original', 'cargos y abonos', 'cargos y abor', 'cargo y abono'
+        ],
         'cuotas': ['cuotas', 'quotas', 'installments', 'nro_cuotas', 'numero de cuotas', 'numero de cu'],
         'categoria': ['categoria', 'category', 'categoría'],
         'referencia': [
@@ -103,13 +108,6 @@ class ETLTarjetaCredito:
     }
 
     REQUIRED_COLUMNS = ('fecha', 'concepto', 'monto')
-
-    INSERT_MOVIMIENTO_SQL = (
-        "INSERT INTO movimiento "
-        "(codigo, monto, id_tipo, id_estado, id_producto, id_categoria, "
-        "id_beneficiario, numero_transaccion, nota, fecha_creacion, id_cuenta) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-    )
 
     INSERT_MOVIMIENTO_TARJETA_SQL = (
         "INSERT INTO movimiento_tarjeta "
@@ -146,7 +144,14 @@ class ETLTarjetaCredito:
             raise ValueError('Monto vacio')
 
         negative = raw.startswith('(') and raw.endswith(')')
+        trailing_negative = raw.endswith('-')
+        leading_negative = raw.startswith('-')
+
         cleaned = raw.replace('(', '').replace(')', '')
+        if trailing_negative:
+            cleaned = cleaned[:-1]
+        if cleaned.startswith('+'):
+            cleaned = cleaned[1:]
         cleaned = re.sub(r'[^0-9,.-]', '', cleaned)
 
         if cleaned.count(',') > 0 and cleaned.count('.') > 0:
@@ -161,8 +166,8 @@ class ETLTarjetaCredito:
         else:
             cleaned = cleaned.replace(',', '.')
 
-        amount = float(cleaned)
-        if negative:
+        amount = abs(float(cleaned))
+        if negative or trailing_negative or leading_negative:
             amount *= -1
         return amount
 
@@ -231,6 +236,18 @@ class ETLTarjetaCredito:
         if not raw or raw.lower() == 'nan':
             return False
         return raw != '000000'
+
+    @staticmethod
+    def _normalize_reference(value: Any) -> str:
+        """Normaliza la referencia para evitar formatos como 57833.0."""
+        raw = str(value or '').strip()
+        if not raw or raw.lower() == 'nan':
+            return ''
+
+        normalized = raw.replace(' ', '')
+        if re.fullmatch(r'\d+\.0+', normalized):
+            return normalized.split('.', 1)[0]
+        return raw
 
     def _ensure_diferidos_tables(self) -> None:
         self.db.execute_non_query(
@@ -418,10 +435,10 @@ class ETLTarjetaCredito:
             raise ImportError("pandas es requerido para procesar archivos Excel")
         
         try:
-            # Leer archivo
-            df = pd.read_excel(file_path)
-            if df.empty:
-                return 0, [{"error": "Archivo Excel vacío"}]
+            # Detectar hoja correcta (puede haber varias hojas con cabecera en fila 0 o con filas de encabezado)
+            df = self._read_best_sheet(file_path)
+            if df is None or df.empty:
+                return 0, [{"error": "Archivo Excel vacío o sin hojas con datos válidos"}]
             
             # Validar estructura
             self._validate_excel_structure(df.columns)
@@ -430,7 +447,7 @@ class ETLTarjetaCredito:
             col_map = self._map_columns(df.columns)
             
             # Procesar filas
-            rows_to_insert: List[Tuple[Dict, Dict]] = []
+            rows_to_insert: List[Dict[str, Any]] = []
             
             for idx, (_, row) in enumerate(df.iterrows(), start=2):  # start=2 para fila de header
                 validation = self._validate_row(row, col_map, idx)
@@ -461,10 +478,7 @@ class ETLTarjetaCredito:
                     self.error_count += 1
                     continue
                 
-                rows_to_insert.append((
-                    transform.insert_movimiento,
-                    transform.insert_movimiento_tarjeta
-                ))
+                rows_to_insert.append(transform.insert_movimiento_tarjeta)
             
             # Insertar en base de datos (transacción)
             if rows_to_insert:
@@ -481,6 +495,39 @@ class ETLTarjetaCredito:
             self.logger.error(f"Error procesando archivo: {e}")
             return 0, [{"error": f"Error de procesamiento: {str(e)}"}]
     
+    @classmethod
+    def _read_best_sheet(cls, file_path: str):
+        """Lee la hoja del Excel que contenga las columnas requeridas.
+        
+        Algunos extractos bancarios tienen varias hojas (DOLARES, PESOS, etc.).
+        Intenta cada hoja y retorna el primer DataFrame con columnas válidas.
+        También intenta detectar si el encabezado no está en la fila 0.
+        """
+        xl = pd.ExcelFile(file_path)
+        for sheet in xl.sheet_names:
+            # Intentar leer con header en fila 0
+            df = pd.read_excel(file_path, sheet_name=sheet)
+            if df.empty:
+                continue
+            try:
+                cls._validate_structure_static(list(df.columns))
+                return df  # Esta hoja tiene columnas válidas
+            except ValueError:
+                pass
+            # Intentar con header en la primera fila que no sea NaN
+            df_raw = pd.read_excel(file_path, sheet_name=sheet, header=None)
+            for i in range(min(10, len(df_raw))):
+                row_vals = [str(v).strip() for v in df_raw.iloc[i].tolist() if str(v) != 'nan']
+                if not row_vals:
+                    continue
+                df_attempt = pd.read_excel(file_path, sheet_name=sheet, header=i)
+                try:
+                    cls._validate_structure_static(list(df_attempt.columns))
+                    return df_attempt
+                except ValueError:
+                    continue
+        return None
+
     def _validate_excel_structure(self, columns: List[str]) -> None:
         """Valida que el Excel tenga las columnas requeridas."""
         self._validate_structure_static(columns)
@@ -519,7 +566,7 @@ class ETLTarjetaCredito:
         monto_str = str(row.get(col_map.get('monto', ''), '')).strip()
         cuotas_str = str(row.get(col_map.get('cuotas', '1'), '1')).strip()
         categoria = str(row.get(col_map.get('categoria', ''), '')).strip()
-        referencia = str(row.get(col_map.get('referencia', ''), '')).strip()
+        referencia = self._normalize_reference(row.get(col_map.get('referencia', ''), ''))
         valor_cuota_raw = row.get(col_map.get('valor_cuota', ''), None)
         interes_mensual_raw = row.get(col_map.get('interes_mensual', ''), None)
         interes_anual_raw = row.get(col_map.get('interes_anual', ''), None)
@@ -603,7 +650,7 @@ class ETLTarjetaCredito:
                 'cuota_actual': cuota_actual,
                 'cuotas': cuotas,
                 'categoria': categoria,
-                'referencia': referencia if referencia and referencia.lower() != 'nan' else '',
+                'referencia': referencia,
                 'valor_cuota': valor_cuota,
                 'tasa_mensual': tasa_mensual,
                 'saldo_pendiente': saldo_pendiente,
@@ -622,61 +669,16 @@ class ETLTarjetaCredito:
         result = TransformResult()
         
         try:
-            cursor = self.db.conn.cursor(dictionary=True)
-            
-            # Obtener id_tipo de movimiento (gasto para tarjeta de crédito)
-            tipo_movimiento = 'gasto' if float(validated_data['monto']) > 0 else 'ingreso'
-            cursor.execute(
-                "SELECT id_tipo FROM tipo_movimiento WHERE LOWER(nombre) = %s LIMIT 1",
-                (tipo_movimiento,)
-            )
-            tipo_row = cursor.fetchone()
-            id_tipo_gasto = int(tipo_row['id_tipo']) if tipo_row else 1
-            
-            # Obtener id_estado de movimiento
-            cursor.execute(
-                "SELECT id_estado FROM estado_movimiento ORDER BY id_estado LIMIT 1"
-            )
-            estado_row = cursor.fetchone()
-            id_estado_mov = int(estado_row['id_estado']) if estado_row else 1
-            
-            # Obtener id_cuenta del usuario (si no existe, usar la primera)
-            cursor.execute(
-                "SELECT id_cuenta FROM cuenta WHERE id_persona = %s LIMIT 1",
-                (id_persona,)
-            )
-            cuenta_row = cursor.fetchone()
-            id_cuenta = int(cuenta_row['id_cuenta']) if cuenta_row else 1
-            
-            cursor.close()
-            
             # Generar códigos únicos
             timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-            codigo_movimiento = f"MOV-{timestamp}-{row_number}"
             tracking_code = validated_data['referencia'] if self._is_valid_tracking_code(validated_data['referencia']) else None
             numero_transaccion = tracking_code or f"TRX-{timestamp}-{row_number}"
+            # La descripción debe conservar únicamente el concepto del extracto.
             nota = validated_data['concepto']
-            if validated_data['referencia']:
-                nota = f"{nota} - {validated_data['referencia']}"
             is_diferido = float(validated_data['monto']) > 0 and int(validated_data['cuotas']) > 1
             # El extracto mensual siempre genera movimiento; el seguimiento se consolida aparte.
             should_track_diferido = is_diferido and (tracking_code is not None or int(validated_data.get('cuota_actual') or 1) == 1)
             estado_movimiento = 'diferido' if is_diferido else ('compra' if float(validated_data['monto']) > 0 else 'abono')
-            
-            # Preparar INSERT para tabla movimiento
-            result.insert_movimiento = {
-                'codigo': codigo_movimiento,
-                'monto': abs(float(validated_data['monto'])),
-                'id_tipo': id_tipo_gasto,
-                'id_estado': id_estado_mov,
-                'id_producto': id_tarjeta,  # ID de tarjeta como producto
-                'id_categoria': None,
-                'id_beneficiario': None,
-                'numero_transaccion': numero_transaccion,
-                'nota': nota,
-                'fecha_creacion': datetime.datetime.now(),
-                'id_cuenta': id_cuenta
-            }
             
             # Preparar INSERT para tabla movimiento_tarjeta
             result.insert_movimiento_tarjeta = {
@@ -706,36 +708,18 @@ class ETLTarjetaCredito:
         
         return result
     
-    def _load_data(self, rows: List[Tuple[Dict, Dict]]) -> None:
+    def _load_data(self, rows: List[Dict[str, Any]]) -> None:
         """
         Carga datos en base de datos con transacción.
         
         Args:
-            rows: Lista de tuplas (movimiento_data, movimiento_tarjeta_data)
+            rows: Lista de registros para movimiento_tarjeta
         """
         cursor = None
         try:
             cursor = self.db.conn.cursor()
             
-            for mov_data, mov_tarjeta_data in rows:
-                # INSERT en movimiento (SQL estático para evitar construcción dinámica)
-                mov_values = (
-                    mov_data['codigo'],
-                    mov_data['monto'],
-                    mov_data['id_tipo'],
-                    mov_data['id_estado'],
-                    mov_data['id_producto'],
-                    mov_data['id_categoria'],
-                    mov_data['id_beneficiario'],
-                    mov_data['numero_transaccion'],
-                    mov_data['nota'],
-                    mov_data['fecha_creacion'],
-                    mov_data['id_cuenta'],
-                )
-
-                cursor.execute(self.INSERT_MOVIMIENTO_SQL, mov_values)
-                id_movimiento = int(cursor.lastrowid)
-                
+            for mov_tarjeta_data in rows:
                 # INSERT en movimiento_tarjeta (SQL estático para evitar construcción dinámica)
                 tarjeta_values = (
                     mov_tarjeta_data['id_tarjeta'],
@@ -794,17 +778,10 @@ def validate_excel_file(file_path: str) -> Tuple[bool, List[str]]:
     errors = []
     
     try:
-        df = pd.read_excel(file_path)
+        df = ETLTarjetaCredito._read_best_sheet(file_path)
         
-        if df.empty:
-            errors.append("Archivo Excel vacío")
-            return False, errors
-        
-        # Verificar columnas
-        try:
-            ETLTarjetaCredito._validate_structure_static(list(df.columns))
-        except ValueError as e:
-            errors.append(str(e))
+        if df is None or df.empty:
+            errors.append("Archivo Excel vacío o sin hojas con datos válidos")
             return False, errors
         
         return True, []

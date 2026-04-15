@@ -5,7 +5,7 @@
 /**
  * Formatear cantidad como moneda
  */
-function formatCurrency(amount, currency = 'USD') {
+function formatCurrency(amount, currency = 'COP') {
     try {
         return new Intl.NumberFormat('es-ES', {
             style: 'currency',

@@ -544,7 +544,9 @@ async function cargarCatalogosImportacion() {
         const tarjetas = data.tarjetas || [];
 
         const selCuenta = document.getElementById('etlCuenta');
-        selCuenta.innerHTML = cuentas.map(c => `<option value="${c.id_cuenta}">#${c.id_cuenta} - ${c.nombre}</option>`).join('');
+        selCuenta.innerHTML = cuentas.length
+            ? cuentas.map(c => `<option value="${c.id_cuenta}">#${c.id_cuenta} - ${c.nombre}</option>`).join('')
+            : '<option value="" disabled>Sin cuentas registradas - crea una en Productos</option>';
 
         const selTarjeta = document.getElementById('etlTarjeta');
         selTarjeta.innerHTML = tarjetas.length
@@ -552,7 +554,7 @@ async function cargarCatalogosImportacion() {
                 const label = t.nombre || (t.numero_tarjeta ? `****${String(t.numero_tarjeta).slice(-4)}` : `Tarjeta #${t.id_tarjeta}`);
                 return `<option value="${t.id_tarjeta}">${label}</option>`;
             }).join('')
-            : '<option value="" disabled>Sin tarjetas registradas</option>';
+            : '<option value="" disabled>Sin tarjetas registradas - crea una en Productos</option>';
 
         toggleImportSource();
     } catch (err) {
@@ -607,13 +609,33 @@ async function subirArchivoEtl() {
         return;
     }
 
+    // Validar que se haya seleccionado una tarjeta o cuenta
+    const resultElement = document.getElementById('etlResult');
+    if (source === 'cuenta_bancaria') {
+        const cuentaId = document.getElementById('etlCuenta').value;
+        if (!cuentaId || cuentaId.trim() === '') {
+            resultElement.className = 'alert alert-danger mt-3 mb-0';
+            resultElement.style.display = 'block';
+            resultElement.textContent = 'Debes seleccionar una cuenta bancaria. Si no ves opciones, crea una cuenta en el módulo de Productos.';
+            return;
+        }
+    } else {
+        const tarjetaId = document.getElementById('etlTarjeta').value;
+        if (!tarjetaId || tarjetaId.trim() === '') {
+            resultElement.className = 'alert alert-danger mt-3 mb-0';
+            resultElement.style.display = 'block';
+            resultElement.textContent = 'Debes seleccionar una tarjeta de crédito. Si no ves opciones, crea una tarjeta en el módulo de Productos.';
+            return;
+        }
+    }
+
     const formData = new FormData();
     formData.append('source', source);
     formData.append('file', file);
     if (source === 'cuenta_bancaria') {
-        formData.append('id_cuenta', document.getElementById('etlCuenta').value || '');
+        formData.append('id_cuenta', document.getElementById('etlCuenta').value);
     } else {
-        formData.append('id_tarjeta', document.getElementById('etlTarjeta').value || '');
+        formData.append('id_tarjeta', document.getElementById('etlTarjeta').value);
     }
 
     btn.disabled = true;

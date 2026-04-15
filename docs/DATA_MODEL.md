@@ -32,11 +32,16 @@ Campos usados por la capa web:
 
 - `id_cuenta`
 - `id_persona`
-- datos de producto o cuenta según el esquema existente
+- `nombre`
+- `tipo`
+- `moneda`
+- `saldo_inicial`
 
 Relación:
 
 - `persona 1 -> N cuenta`
+
+Nota: el saldo actual no se almacena directamente; se calcula como `saldo_inicial + SUM(ingresos) - SUM(gastos)` a través de la vista `v_cuenta_saldos`. El endpoint de catálogos de cuentas bancarias devuelve `saldo_actual` ya calculado.
 
 ### Movimiento
 
@@ -147,15 +152,52 @@ Campos usados:
 - `movimiento_tarjeta.saldo`
 - `movimiento_tarjeta.cuotas`
 
+## Tabla de auditoría de saldos
+
+### auditoria_saldo_cuenta
+
+Registra cada cambio de saldo en cuentas bancarias para trazabilidad.
+
+Campos relevantes:
+
+- `id_auditoria`
+- `id_cuenta`
+- `id_persona`
+- `saldo_anterior`
+- `saldo_nuevo`
+- `diferencia`
+- `tipo_cambio` (`ingreso`, `gasto`, `ajuste_manual`, `recalculo`, `correccion`)
+- `razon`
+- `id_movimiento`
+- `fecha_registro`
+- `usuario_sistema`
+
+## Vistas SQL disponibles
+
+| Vista                        | Descripción                                                                  |
+|------------------------------|------------------------------------------------------------------------------|
+| `v_cuenta_saldos`            | Saldo actual por cuenta: `saldo_inicial + ingresos - gastos` (via `movimiento`). Incluye `id_persona`. |
+| `v_producto_unificado`       | Unión de cuentas, tarjetas y préstamos con saldo real y tipo de producto.    |
+| `v_resumen_saldos_persona`   | Totales por persona: num cuentas, total ingresos, total gastos, saldo total. |
+
+## Procedimientos almacenados
+
+| Procedimiento                  | Descripción                                                         |
+|-------------------------------|----------------------------------------------------------------------|
+| `calc_saldo_cuenta`           | Calcula `saldo_actual`, `total_ingresos` y `total_gastos` de una cuenta. |
+| `validar_integridad_saldos`   | Verifica integridad de saldos de todas las cuentas de un usuario.   |
+| `registrar_cambio_saldo`      | Inserta un registro en `auditoria_saldo_cuenta`.                    |
+
 ## Relaciones operativas
 
 ```text
 persona
   ├── cuenta
-  │     └── movimiento
-  │            ├── categoria
-  │            ├── tipo_movimiento
-  │            └── beneficiario
+  │     ├── movimiento
+  │     │      ├── categoria
+  │     │      ├── tipo_movimiento
+  │     │      └── beneficiario
+  │     └── auditoria_saldo_cuenta
   ├── presupuesto
   │     └── presupuesto_categoria
   │            └── categoria
@@ -167,4 +209,5 @@ persona
 
 - El modelo web se apoya en el mismo esquema que la aplicación Flet.
 - No toda la nomenclatura del esquema es uniforme; hay deuda histórica en algunos nombres.
+- El saldo en `cuenta` no se actualiza directamente; siempre se calcula vía `v_cuenta_saldos` o la query equivalente.
 - Antes de cambiar claves o relaciones, revisa `base_de_datos/db/01_core/create` y `docs/DATABASE_SETUP.md`.

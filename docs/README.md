@@ -35,6 +35,12 @@ Este indice organiza la documentacion vigente del proyecto por categoria.
 
 - `MIGRATION_README.md`
 - `MIGRACION_2026_04_12.md`
+- `scripts/migrations/apply_migration_2026_04_14_consolidar_categorias.py`
+- `scripts/migrations/apply_migration_2026_04_14_fix_cuanto_inicial.py`
+- `scripts/migrations/apply_migration_2026_04_14_fix_saldos_vista.py`
+- `scripts/migrations/apply_migration_2026_04_14_moto_categoria.py`
+- `scripts/migrations/apply_migration_2026_04_14_notas_a_descripcion_ahorro.py`
+- `scripts/migrations/apply_migration_2026_04_14_sincronizar_etl.py`
 
 ## Reportes de estado
 

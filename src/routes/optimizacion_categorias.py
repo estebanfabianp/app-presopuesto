@@ -89,7 +89,10 @@ def catalogos():
     db, svc = _service()
     try:
         user_id = _get_user_id()
-        return jsonify({'categorias': svc.get_categorias(user_id)}), 200
+        return jsonify({
+            'categorias': svc.get_categorias(user_id),
+            'beneficiarios': svc.get_beneficiarios(user_id),
+        }), 200
     except Exception as exc:
         logger.error('Error cargando catálogos de optimización: %s', exc)
         return jsonify({'message': 'Error al cargar catálogos'}), 500
@@ -182,16 +185,165 @@ def asignar_movimiento():
     try:
         user_id = _get_user_id()
         data = request.get_json() or {}
-        id_movimiento_tarjeta = data.get('id_movimiento_tarjeta')
+        origen = (data.get('origen') or 'tarjeta').strip().lower()
+        id_movimiento = data.get('id_movimiento')
         id_categoria = data.get('id_categoria')
-        if not id_movimiento_tarjeta or not id_categoria:
-            return jsonify({'message': 'id_movimiento_tarjeta e id_categoria son obligatorios'}), 400
-        ok = svc.asignar_categoria_movimiento(int(id_movimiento_tarjeta), int(id_categoria), user_id)
+        if not id_movimiento or not id_categoria:
+            return jsonify({'message': 'id_movimiento e id_categoria son obligatorios'}), 400
+        if origen not in ('tarjeta', 'cuenta'):
+            return jsonify({'message': 'origen inválido'}), 400
+        ok = svc.asignar_categoria_movimiento(origen, int(id_movimiento), int(id_categoria), user_id)
         if not ok:
             return jsonify({'message': 'No se pudo asignar la categoría'}), 500
         return jsonify({'message': 'Categoría asignada'}), 200
     except Exception as exc:
         logger.error('Error asignando categoría a movimiento: %s', exc)
         return jsonify({'message': 'Error al asignar categoría'}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/reglas-beneficiario', methods=['GET'])
+def reglas_beneficiario():
+    verify_jwt_in_request()
+    db, svc = _service()
+    try:
+        user_id = _get_user_id()
+        return jsonify({'reglas': svc.get_reglas_beneficiario(user_id)}), 200
+    except Exception as exc:
+        logger.error('Error cargando reglas de beneficiario: %s', exc)
+        return jsonify({'message': 'Error al cargar reglas de beneficiario'}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/conflictos-beneficiario', methods=['GET'])
+def conflictos_beneficiario():
+    verify_jwt_in_request()
+    db, svc = _service()
+    try:
+        user_id = _get_user_id()
+        return jsonify({'conflictos': svc.get_conflictos_beneficiario(user_id)}), 200
+    except Exception as exc:
+        logger.error('Error cargando conflictos de beneficiario: %s', exc)
+        return jsonify({'message': 'Error al cargar conflictos de beneficiario'}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/pendientes-beneficiario', methods=['GET'])
+def pendientes_beneficiario():
+    verify_jwt_in_request()
+    db, svc = _service()
+    try:
+        user_id = _get_user_id()
+        limit = min(int(request.args.get('limit', 200)), 1000)
+        return jsonify({'movimientos': svc.get_sin_beneficiario(user_id, limit=limit)}), 200
+    except Exception as exc:
+        logger.error('Error cargando pendientes sin beneficiario: %s', exc)
+        return jsonify({'message': 'Error al cargar pendientes de beneficiario'}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/aplicar-beneficiario', methods=['POST'])
+def aplicar_beneficiario():
+    verify_jwt_in_request()
+    db, svc = _service()
+    try:
+        user_id = _get_user_id()
+        actualizados = svc.aplicar_reglas_beneficiario(user_id)
+        return jsonify({'message': 'Reglas de beneficiario aplicadas', 'actualizados': actualizados}), 200
+    except Exception as exc:
+        logger.error('Error aplicando reglas de beneficiario: %s', exc)
+        return jsonify({'message': 'Error al aplicar reglas de beneficiario'}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/reglas-beneficiario/confirmar', methods=['POST'])
+def confirmar_regla_beneficiario():
+    verify_jwt_in_request()
+    db, svc = _service()
+    try:
+        user_id = _get_user_id()
+        data = request.get_json() or {}
+        concepto = (data.get('concepto') or '').strip()
+        id_beneficiario = data.get('id_beneficiario')
+        if not concepto or not id_beneficiario:
+            return jsonify({'message': 'concepto e id_beneficiario son obligatorios'}), 400
+        ok = svc.confirmar_regla_beneficiario(concepto, int(id_beneficiario), user_id)
+        if not ok:
+            return jsonify({'message': 'No se pudo guardar la regla de beneficiario'}), 500
+        return jsonify({'message': 'Regla de beneficiario confirmada'}), 200
+    except Exception as exc:
+        logger.error('Error confirmando regla de beneficiario: %s', exc)
+        return jsonify({'message': 'Error al confirmar regla de beneficiario'}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/reglas-beneficiario/ignorar', methods=['POST'])
+def ignorar_regla_beneficiario():
+    verify_jwt_in_request()
+    db, svc = _service()
+    try:
+        user_id = _get_user_id()
+        data = request.get_json() or {}
+        concepto = (data.get('concepto') or '').strip()
+        if not concepto:
+            return jsonify({'message': 'concepto es obligatorio'}), 400
+        ok = svc.ignorar_concepto_beneficiario(concepto, user_id)
+        if not ok:
+            return jsonify({'message': 'No se pudo guardar la regla de ignorar beneficiario'}), 500
+        return jsonify({'message': 'Concepto ignorado para beneficiario'}), 200
+    except Exception as exc:
+        logger.error('Error ignorando concepto para beneficiario: %s', exc)
+        return jsonify({'message': 'Error al ignorar concepto de beneficiario'}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/reglas-beneficiario', methods=['DELETE'])
+def limpiar_regla_beneficiario():
+    verify_jwt_in_request()
+    db, svc = _service()
+    try:
+        user_id = _get_user_id()
+        concepto = (request.args.get('concepto') or '').strip()
+        if not concepto:
+            return jsonify({'message': 'concepto es obligatorio'}), 400
+        ok = svc.limpiar_regla_beneficiario(concepto, user_id)
+        if not ok:
+            return jsonify({'message': 'No se encontró regla de beneficiario para limpiar'}), 404
+        return jsonify({'message': 'Regla de beneficiario eliminada'}), 200
+    except Exception as exc:
+        logger.error('Error limpiando regla de beneficiario: %s', exc)
+        return jsonify({'message': 'Error al limpiar regla de beneficiario'}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/movimientos/asignar-beneficiario', methods=['POST'])
+def asignar_beneficiario_movimiento():
+    verify_jwt_in_request()
+    db, svc = _service()
+    try:
+        user_id = _get_user_id()
+        data = request.get_json() or {}
+        origen = (data.get('origen') or 'tarjeta').strip().lower()
+        id_movimiento = data.get('id_movimiento')
+        id_beneficiario = data.get('id_beneficiario')
+        if not id_movimiento or not id_beneficiario:
+            return jsonify({'message': 'id_movimiento e id_beneficiario son obligatorios'}), 400
+        if origen not in ('tarjeta', 'cuenta'):
+            return jsonify({'message': 'origen inválido'}), 400
+        ok = svc.asignar_beneficiario_movimiento(origen, int(id_movimiento), int(id_beneficiario), user_id)
+        if not ok:
+            return jsonify({'message': 'No se pudo asignar el beneficiario'}), 500
+        return jsonify({'message': 'Beneficiario asignado'}), 200
+    except Exception as exc:
+        logger.error('Error asignando beneficiario a movimiento: %s', exc)
+        return jsonify({'message': 'Error al asignar beneficiario'}), 500
     finally:
         db.close()

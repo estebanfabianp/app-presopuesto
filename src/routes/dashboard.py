@@ -299,6 +299,16 @@ def get_overview():
         presupuesto_total = _safe_float(budget_rows[0]['presupuesto_total']) if budget_rows else 0.0
         presupuestos_activos = int(budget_rows[0]['presupuestos_activos']) if budget_rows else 0
 
+        saldo_rows = db.execute_query(
+            """
+            SELECT COALESCE(SUM(saldo_actual), 0) AS saldo_total
+            FROM v_cuenta_saldos
+            WHERE id_persona = %s
+            """,
+            (user_id,),
+        )
+        saldo_total_cuentas = _safe_float(saldo_rows[0]['saldo_total']) if saldo_rows else 0.0
+
         tx_rows = db.execute_query(
             """
             SELECT COUNT(*) AS total
@@ -390,8 +400,8 @@ def get_overview():
                         (user_id,),
         )
 
-        saldo_actual = current_ingresos - current_gastos
-        ahorro_rate = (saldo_actual / current_ingresos * 100) if current_ingresos > 0 else 0
+        saldo_mes = current_ingresos - current_gastos
+        ahorro_rate = (saldo_mes / current_ingresos * 100) if current_ingresos > 0 else 0
 
         delta_ingresos = current_ingresos - prev_ingresos
         delta_gastos = current_gastos - prev_gastos
@@ -412,7 +422,7 @@ def get_overview():
                     'detalle': f'Ya consumiste {consumo:.1f}% del presupuesto activo.'
                 })
 
-        if saldo_actual < 0:
+        if saldo_mes < 0:
             alertas.append({
                 'nivel': 'danger',
                 'titulo': 'Flujo mensual negativo',
@@ -430,7 +440,8 @@ def get_overview():
             'kpis': {
                 'ingresos_mes': current_ingresos,
                 'gastos_mes': current_gastos,
-                'saldo_mes': saldo_actual,
+                'saldo_mes': saldo_mes,
+                'saldo_total_cuentas': saldo_total_cuentas,
                 'tasa_ahorro_pct': round(ahorro_rate, 2),
                 'delta_ingresos': delta_ingresos,
                 'delta_gastos': delta_gastos,

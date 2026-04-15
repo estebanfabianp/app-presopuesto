@@ -560,14 +560,9 @@ class PersonaModel:
         if not self._password_matches(stored_password, password):
             return None
 
-        if stored_password == password and not self._looks_like_sha256_hash(stored_password):
-            self._upgrade_password_hash(user_data['id_persona'], password)
-            user_data['clave'] = self._hash_password(password)
-
-        try:
-            self.ensure_default_constants_for_user(user_data['id_persona'])
-        except Exception as exc:
-            logger.warning("No se pudieron asegurar constantes base en login de %s: %s", user_data['id_persona'], exc)
+        # Importante: mantener login en modo solo lectura para evitar esperas
+        # cuando existan bloqueos de escritura en BD. El sembrado de datos base
+        # se realiza en registro u otros flujos de mantenimiento.
 
         user_data.pop('clave', None)
         return user_data

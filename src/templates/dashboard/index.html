@@ -52,9 +52,9 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="card-subtitle mb-2 text-muted">Saldo (mes)</h6>
+                            <h6 class="card-subtitle mb-2 text-muted">Saldo total en cuentas</h6>
                             <h3 class="amount" id="totalSaldo">$0.00</h3>
-                            <small class="text-muted">Tasa de ahorro: <span id="tasaAhorro">0%</span></small>
+                            <small class="text-muted">Flujo del mes: <span id="saldoMes">$0.00</span> · Ahorro: <span id="tasaAhorro">0%</span></small>
                         </div>
                         <div class="card-icon"><i class="fas fa-wallet"></i></div>
                     </div>
@@ -241,7 +241,8 @@ async function loadDashboard() {
         // Cards
         document.getElementById('totalIngresos').textContent       = formatCurrency(kpis.ingresos_mes || 0);
         document.getElementById('totalGastos').textContent         = formatCurrency(kpis.gastos_mes || 0);
-        document.getElementById('totalSaldo').textContent          = formatCurrency(kpis.saldo_mes || 0);
+        document.getElementById('totalSaldo').textContent          = formatCurrency(kpis.saldo_total_cuentas || 0);
+        document.getElementById('saldoMes').textContent            = formatCurrency(kpis.saldo_mes || 0);
         document.getElementById('presupuestosActivos').textContent = (kpis.presupuestos_activos || 0);
         document.getElementById('presupuestoTotal').textContent    = formatCurrency(kpis.presupuesto_total || 0);
         document.getElementById('deltaIngresos').textContent       = `vs mes anterior: ${formatSignedCurrency(kpis.delta_ingresos || 0)}`;

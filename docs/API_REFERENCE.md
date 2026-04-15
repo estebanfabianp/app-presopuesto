@@ -71,11 +71,14 @@ Cierre de sesión del lado cliente.
 
 Dashboard extendido con:
 
-- KPIs comparativos del mes,
-- alertas financieras,
+- KPIs comparativos del mes: `ingresos_mes`, `gastos_mes`, `saldo_mes` (flujo), `saldo_total_cuentas` (suma real de saldos en `v_cuenta_saldos`),
+- tasa de ahorro del mes (`tasa_ahorro_pct`),
+- alertas financieras (presupuesto excedido, flujo negativo),
 - flujo semanal,
 - top categorías y beneficiarios,
 - próximos compromisos (programadas).
+
+Nota: `saldo_total_cuentas` refleja el patrimonio real en cuentas bancarias; `saldo_mes` es solo el flujo (ingresos - gastos) del mes en curso.
 
 #### `GET /api/dashboard/summary`
 
@@ -183,15 +186,34 @@ Elimina una transacción.
 
 #### `GET /api/transacciones/import/catalogos`
 
-Obtiene catálogos requeridos para importación ETL (personas, cuentas, tipos, categorías, estados).
+Obtiene catálogos requeridos para importación ETL (personas, cuentas con `saldo_actual` calculado, tipos, categorías, estados, tarjetas).
 
 #### `POST /api/transacciones/import/upload`
 
-Recibe archivo Excel y procesa ETL según la fuente (`tarjeta_credito` o `cuenta_bancaria`).
+Recibe archivo Excel y procesa ETL según la fuente (`tarjeta_credito` o `cuenta_bancaria`). El cliente debe seleccionar una tarjeta o cuenta válida antes de enviar; el servidor devuelve mensaje descriptivo si no hay productos registrados.
+
+Form data:
+
+| Campo       | Requerido | Descripción                                        |
+|-------------|-----------|----------------------------------------------------|
+| `source`    | Sí        | `tarjeta_credito` o `cuenta_bancaria`              |
+| `file`      | Sí        | Archivo `.xlsx` o `.xls`                           |
+| `id_tarjeta`| Condicional| ID de tarjeta (cuando `source=tarjeta_credito`)   |
+| `id_cuenta` | Condicional| ID de cuenta (cuando `source=cuenta_bancaria`)    |
+
+**Nota operativa**: lanzar Flask con `use_reloader=False` para evitar que el watchdog interrumpa la carga del Excel.
 
 #### `GET /api/transacciones/import/template?source=<origen>`
 
 Descarga plantilla de ejemplo para el origen seleccionado.
+
+#### `GET /api/transacciones/debug/status`
+
+Endpoint de diagnóstico sin JWT. Devuelve estado del servidor y guía para verificar token desde consola del navegador.
+
+#### `GET /api/transacciones/debug/whoami`
+
+Devuelve `id_persona`, tarjetas y cuentas del usuario autenticado. Útil para confirmar qué IDs están disponibles al depurar importaciones.
 
 ---
 
@@ -296,6 +318,10 @@ Actualiza cuenta.
 #### `DELETE /api/cuentas-bancarias/<id>`
 
 Elimina cuenta.
+
+#### `GET /api/cuentas-bancarias/catalogos`
+
+Devuelve cuentas con `saldo_actual` calculado (saldo_inicial + ingresos - gastos), categorías, estados y productos. Usado por la vista de cuentas bancarias para mostrar el panel de saldos reales.
 
 ---
 
@@ -437,7 +463,118 @@ Gasto por categoría comparando mes actual vs mes anterior con porcentaje de var
 
 Resumen de uso de cada tarjeta de crédito: límite, saldo, disponible, porcentaje de uso, gasto del mes y cantidad de diferidos activos.
 
-Parámetro `meses` soportado (1–24) en todos los endpoints que lo aceptan.
+Parámetro `meses` soportado (1–120) en todos los endpoints que lo aceptan. Valor especial `desde_2024` calculado dinámicamente en el cliente (meses desde enero 2024 hasta hoy).
+
+---
+
+### Optimización de Clasificación (`/api/optimizacion-categorias`)
+
+#### `GET /api/optimizacion-categorias/resumen`
+
+KPIs del módulo:
+
+```json
+{
+  "reglas": 15,
+  "conflictos": 2,
+  "sin_categoria": 30,
+  "reglas_beneficiario": 8,
+  "conflictos_beneficiario": 1,
+  "sin_beneficiario": 45
+}
+```
+
+#### `GET /api/optimizacion-categorias/catalogos`
+
+Devuelve `categorias` y `beneficiarios` disponibles para los selectores.
+
+#### `GET /api/optimizacion-categorias/reglas`
+
+Lista reglas automáticas de categoría con concepto, categoría sugerida, total de movimientos y fuente (`automatica` / `confirmada`).
+
+#### `GET /api/optimizacion-categorias/conflictos`
+
+Conceptos que tienen movimientos asignados a múltiples categorías (requieren resolución manual).
+
+#### `GET /api/optimizacion-categorias/pendientes?limit=<n>`
+
+Movimientos sin categoría asignada, ordenados por valor descendente. Incluye `origen` (`tarjeta` / `cuenta`).
+
+#### `POST /api/optimizacion-categorias/aplicar`
+
+Aplica todas las reglas automáticas de categoría a movimientos sin clasificar.
+
+```json
+{ "actualizados": 12 }
+```
+
+#### `POST /api/optimizacion-categorias/reglas/confirmar`
+
+Confirma una regla de categoría:
+
+```json
+{ "concepto": "RAPPI", "id_categoria": 5 }
+```
+
+#### `POST /api/optimizacion-categorias/reglas/ignorar`
+
+Excluye un concepto de la automatización de categorías.
+
+#### `DELETE /api/optimizacion-categorias/reglas?concepto=<concepto>`
+
+Elimina la regla confirmada de un concepto.
+
+#### `POST /api/optimizacion-categorias/movimientos/asignar`
+
+Asigna categoría a un movimiento individual:
+
+```json
+{ "origen": "tarjeta", "id_movimiento": 123, "id_categoria": 5 }
+```
+
+`origen`: `tarjeta` o `cuenta`.
+
+---
+
+#### Beneficiarios (sub-módulo de optimización)
+
+#### `GET /api/optimizacion-categorias/reglas-beneficiario`
+
+Lista reglas automáticas de beneficiario.
+
+#### `GET /api/optimizacion-categorias/conflictos-beneficiario`
+
+Conceptos con múltiples beneficiarios detectados.
+
+#### `GET /api/optimizacion-categorias/pendientes-beneficiario?limit=<n>`
+
+Movimientos sin beneficiario asignado.
+
+#### `POST /api/optimizacion-categorias/aplicar-beneficiario`
+
+Aplica reglas de beneficiario masivamente.
+
+#### `POST /api/optimizacion-categorias/reglas-beneficiario/confirmar`
+
+```json
+{ "concepto": "RAPPI", "id_beneficiario": 3 }
+```
+
+#### `POST /api/optimizacion-categorias/reglas-beneficiario/ignorar`
+
+```json
+{ "concepto": "RAPPI" }
+```
+
+#### `DELETE /api/optimizacion-categorias/reglas-beneficiario?concepto=<concepto>`
+
+Elimina regla de beneficiario.
+
+#### `POST /api/optimizacion-categorias/movimientos/asignar-beneficiario`
+
+```json
+{ "origen": "cuenta", "id_movimiento": 456, "id_beneficiario": 3 }
+```
 
 ---
 

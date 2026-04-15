@@ -43,7 +43,7 @@ Pasos:
 
 Resumen financiero ampliado:
 
-- KPIs del mes con variación vs mes anterior (ingresos, gastos, saldo).
+- KPIs del mes: ingresos, gastos, flujo del mes y **saldo total en cuentas** (patrimonio real acumulado en cuentas bancarias, calculado desde `v_cuenta_saldos`).
 - Tasa de ahorro y estado de presupuestos activos.
 - Alertas de presupuesto y flujo mensual.
 - Gráficos de dona por categoría, tendencia mensual y flujo semanal.
@@ -92,7 +92,10 @@ Vista consolidada de todos los productos financieros del usuario.
 
 ### Cuentas Bancarias (`/cuentas-bancarias`)
 
-CRUD de cuentas bancarias con saldo y tipo de cuenta.
+- CRUD de cuentas bancarias con tipo, moneda y saldo inicial.
+- **Panel de saldos actuales**: muestra el saldo real de cada cuenta (saldo_inicial + movimientos) con card individual y card de total consolidado. Botón de refresco manual.
+- Tabla de movimientos con paginación (25 por página por defecto, configurable a 10/25/50/100).
+- La descripción del movimiento prioriza el campo `nota` sobre el `codigo`.
 
 ### Categorías (`/categorias`)
 
@@ -118,7 +121,7 @@ Gestión de pagos recurrentes y cobros automáticos:
 
 ### Análisis de Consumo (`/analisis`)
 
-Dashboard analítico con selector de periodo (1, 3, 6 o 12 meses):
+Dashboard analítico con selector de periodo (1, 3, 6, 12, 24, 36 meses o `Desde 2024`):
 
 - **KPIs**: ingresos, gastos, ahorro neto con tasa de ahorro, y ejecución del presupuesto vigente.
 - **Gasto por categoría**: gráfico donut interactivo con las principales categorías del periodo.
@@ -127,11 +130,33 @@ Dashboard analítico con selector de periodo (1, 3, 6 o 12 meses):
 - **Top gastos**: las 10 transacciones de mayor monto en el periodo seleccionado.
 - **Uso de tarjetas**: cards por tarjeta con barra de capacidad utilizada, gasto del mes y diferidos activos.
 
+### Optimización de Clasificación (`/optimizacion-categorias`)
+
+Módulo de clasificación automática de movimientos:
+
+**Pestaña Reglas (categorías)**:
+- Lista de reglas automáticas derivadas del historial de descripciones.
+- Confirmar una regla la fija permanentemente; ignorar la excluye de la automatización.
+- Botón **Aplicar reglas** para clasificar masivamente todos los movimientos pendientes.
+
+**Pestaña Conflictos**:
+- Descripciones con múltiples categorías distintas en el historial.
+- Seleccionar la categoría correcta y confirmar para resolver.
+
+**Pestaña Sin categoría**:
+- Movimientos sin clasificar de tarjeta y cuenta bancaria.
+- Filtros por origen, periodo y texto libre.
+- Asignación individual o masiva con checkbox.
+
+**Pestaña Beneficiarios**:
+- Gestión equivalente para el campo beneficiario: reglas, conflictos y pendientes.
+- Botón **Aplicar todo lo seguro** ejecuta simultamente reglas de categoría y beneficiario.
+
 ## 5. Navegación lateral (sidebar)
 
 El menú lateral agrupa los módulos en secciones:
 
-- **Principal**: Dashboard, Transacciones, Presupuesto, Reportes, Transacciones Programadas, Análisis.
+- **Principal**: Dashboard, Transacciones, Presupuesto, Reportes, Transacciones Programadas, Análisis, Optimización de Clasificación.
 - **Productos**: Mis Productos, Cuentas Bancarias, Tarjetas, Inversiones, Metas de Ahorro.
 - **Catálogos**: Categorías, Beneficiarios, Constantes.
 - **Cuenta**: Perfil, Configuración.
