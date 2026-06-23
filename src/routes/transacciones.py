@@ -59,12 +59,33 @@ def _resolve_categoria_id(db: DatabaseConnector, nombre_categoria: str):
 
 def _default_cuenta_id(db: DatabaseConnector, user_id: int):
     rows = db.execute_query(
-        "SELECT id_cuenta FROM cuenta WHERE id_persona = %s ORDER BY id_cuenta ASC LIMIT 1",
+        """
+        SELECT id_cuenta
+        FROM cuenta
+        WHERE id_persona = %s
+          AND COALESCE(LOWER(estado), 'activo') IN ('activo', 'activa')
+        ORDER BY id_cuenta ASC
+        LIMIT 1
+        """,
         (user_id,),
     )
     if rows:
         return rows[0]['id_cuenta']
     return None
+
+
+def _user_accounts(db: DatabaseConnector, user_id: int):
+    rows = db.execute_query(
+        """
+        SELECT id_cuenta, nombre
+        FROM cuenta
+        WHERE id_persona = %s
+          AND COALESCE(LOWER(estado), 'activo') IN ('activo', 'activa')
+        ORDER BY id_cuenta
+        """,
+        (user_id,),
+    )
+    return rows or []
 
 
 def _user_cards(db: DatabaseConnector, user_id: int):
@@ -74,7 +95,9 @@ def _user_cards(db: DatabaseConnector, user_id: int):
                tc.numero_tarjeta,
                CONCAT(COALESCE(tc.banco, 'Tarjeta'), ' ****', RIGHT(tc.numero_tarjeta, 4)) AS nombre
         FROM tarjeta_credito tc
+        LEFT JOIN estado_tarjeta et ON tc.id_estado = et.id_estado
         WHERE tc.id_persona = %s
+          AND COALESCE(LOWER(et.nombre), 'activa') = 'activa'
         ORDER BY tc.fecha_creacion DESC, tc.id_tarjeta DESC
         """,
         (user_id,),
@@ -121,8 +144,14 @@ def debug_whoami():
             (user_id,)
         )
         cuentas = db.execute_query(
-            "SELECT id_cuenta, nombre FROM cuenta WHERE id_persona = %s",
-            (user_id,)
+                        """
+                        SELECT id_cuenta, nombre
+                        FROM cuenta
+                        WHERE id_persona = %s
+                            AND COALESCE(LOWER(estado), 'activo') IN ('activo', 'activa')
+                        ORDER BY id_cuenta
+                        """,
+                        (user_id,),
         )
         return jsonify({
             'id_persona': user_id,
@@ -145,10 +174,7 @@ def import_catalogos():
     db = DatabaseConnector()
     try:
         user_id = _get_user_id()
-        cuentas = db.execute_query(
-            "SELECT id_cuenta, nombre FROM cuenta WHERE id_persona = %s ORDER BY id_cuenta",
-            (user_id,),
-        )
+        cuentas = _user_accounts(db, user_id)
         tarjetas = _user_cards(db, user_id)
         return jsonify({'cuentas': cuentas or [], 'tarjetas': tarjetas}), 200
     except Exception as e:
@@ -191,14 +217,33 @@ def import_upload():
             id_cuenta = request.form.get('id_cuenta', type=int)
             if not id_cuenta:
                 available_cuentas = db.execute_query(
-                    "SELECT COUNT(*) as total FROM cuenta WHERE id_persona = %s",
+                    """
+                    SELECT COUNT(*) as total
+                    FROM cuenta
+                    WHERE id_persona = %s
+                      AND COALESCE(LOWER(estado), 'activo') IN ('activo', 'activa')
+                    """,
                     (user_id,)
                 )
                 total_cuentas = available_cuentas[0]['total'] if available_cuentas else 0
-                error_msg = f'No hay cuentas bancarias registradas para tu usuario (ID: {user_id}). Crea una cuenta primero.'
+                error_msg = f'No hay cuentas bancarias activas registradas para tu usuario (ID: {user_id}). Activa o crea una cuenta primero.'
                 if total_cuentas > 0:
                     error_msg = 'Debes seleccionar una cuenta bancaria'
                 return jsonify({'message': error_msg}), 400
+
+            cuenta = db.execute_query(
+                """
+                SELECT id_cuenta
+                FROM cuenta
+                WHERE id_cuenta = %s
+                  AND id_persona = %s
+                  AND COALESCE(LOWER(estado), 'activo') IN ('activo', 'activa')
+                LIMIT 1
+                """,
+                (id_cuenta, user_id),
+            )
+            if not cuenta:
+                return jsonify({'message': 'Cuenta no encontrada, no pertenece al usuario o esta inactiva'}), 403
 
             valid, errors = validate_bank_excel_file(tmp_path)
             if not valid:
@@ -211,15 +256,36 @@ def import_upload():
             logger.warning("UPLOAD DEBUG - id_tarjeta raw='%s' parsed=%s", request.form.get('id_tarjeta'), id_tarjeta)
             if not id_tarjeta:
                 available_cards = db.execute_query(
-                    "SELECT COUNT(*) as total FROM tarjeta_credito WHERE id_persona = %s",
+                    """
+                    SELECT COUNT(*) as total
+                    FROM tarjeta_credito tc
+                    LEFT JOIN estado_tarjeta et ON tc.id_estado = et.id_estado
+                    WHERE tc.id_persona = %s
+                      AND COALESCE(LOWER(et.nombre), 'activa') = 'activa'
+                    """,
                     (user_id,)
                 )
                 total_cards = available_cards[0]['total'] if available_cards else 0
-                error_msg = f'No hay tarjetas registradas para tu usuario (ID: {user_id}). Crea una tarjeta primero.'
+                error_msg = f'No hay tarjetas activas registradas para tu usuario (ID: {user_id}). Activa o crea una tarjeta primero.'
                 if total_cards > 0:
                     error_msg = 'Debes seleccionar una tarjeta de credito'
                 logger.warning("UPLOAD 400 - id_tarjeta vacio o invalido")
                 return jsonify({'message': error_msg}), 400
+
+            tarjeta = db.execute_query(
+                """
+                SELECT tc.id_tarjeta
+                FROM tarjeta_credito tc
+                LEFT JOIN estado_tarjeta et ON tc.id_estado = et.id_estado
+                WHERE tc.id_tarjeta = %s
+                  AND tc.id_persona = %s
+                  AND COALESCE(LOWER(et.nombre), 'activa') = 'activa'
+                LIMIT 1
+                """,
+                (id_tarjeta, user_id),
+            )
+            if not tarjeta:
+                return jsonify({'message': 'Tarjeta no encontrada, no pertenece al usuario o esta inactiva'}), 403
 
             valid, errors = validate_excel_file(tmp_path)
             if not valid:
@@ -245,6 +311,58 @@ def import_upload():
                 os.unlink(tmp_path)
             except OSError:
                 pass
+        db.close()
+
+
+
+@bp.route('/import/upload-folder', methods=['POST'])
+def import_upload_folder():
+    """Procesa todos los archivos Excel de una carpeta en orden cronologico."""
+    verify_jwt_in_request()
+    db = DatabaseConnector()
+    try:
+        user_id = _get_user_id()
+        data = request.get_json(silent=True) or {}
+        folder_path = (data.get('folder_path') or '').strip()
+        id_tarjeta = data.get('id_tarjeta')
+
+        if not folder_path:
+            return jsonify({'message': 'Debes indicar la ruta de la carpeta (folder_path)'}), 400
+        if not id_tarjeta:
+            return jsonify({'message': 'Debes indicar id_tarjeta'}), 400
+
+        tarjeta = db.execute_query(
+                        """
+                        SELECT tc.id_tarjeta
+                        FROM tarjeta_credito tc
+                        LEFT JOIN estado_tarjeta et ON tc.id_estado = et.id_estado
+                        WHERE tc.id_tarjeta = %s
+                            AND tc.id_persona = %s
+                            AND COALESCE(LOWER(et.nombre), 'activa') = 'activa'
+                        LIMIT 1
+                        """,
+            (id_tarjeta, user_id)
+        )
+        if not tarjeta:
+                        return jsonify({'message': 'Tarjeta no encontrada, no pertenece al usuario o esta inactiva'}), 403
+
+        etl = ETLTarjetaCredito(db)
+        resumen = etl.process_folder(folder_path, user_id, id_tarjeta)
+
+        if 'error' in resumen:
+            return jsonify({'message': resumen['error']}), 400
+
+        return jsonify({
+            'message': 'Carga masiva completada',
+            'total_archivos': resumen['total_archivos'],
+            'total_insertados': resumen['total_insertados'],
+            'total_errores': resumen['total_errores'],
+            'detalle': resumen['detalle'],
+        }), 200
+    except Exception as e:
+        logger.exception('Error en carga masiva de carpeta: %s', e)
+        return jsonify({'message': 'Error en carga masiva', 'error': str(e)}), 500
+    finally:
         db.close()
 
 

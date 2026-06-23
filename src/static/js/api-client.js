@@ -298,7 +298,11 @@ class APIClient {
             : { message: await response.text() };
 
         if (!response.ok) {
-            const error = new Error(payload.message || 'Error en importacion ETL');
+            let message = payload.message || 'Error en importacion ETL';
+            if (Array.isArray(payload.errors) && payload.errors.length) {
+                message = `${message}: ${payload.errors.join('; ')}`;
+            }
+            const error = new Error(message);
             error.status = response.status;
             error.data = payload;
             throw error;

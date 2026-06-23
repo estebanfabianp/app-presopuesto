@@ -17,6 +17,10 @@
 			"/^C:/Users/Asus/Documents/GitHub/app-presopuesto/venv/Scripts/python\\.exe -m pytest test_resumen_view\\.py -v$/": {
 				"approve": true,
 				"matchCommandLine": true
+			},
+			"/^C:/Users/Asus/Documents/GitHub/app-presopuesto/venv/Scripts/python\\.exe scripts/verify/grafica_tarjeta_1654_abr_may_2023\\.py$/": {
+				"approve": true,
+				"matchCommandLine": true
 			}
 		}
 	}

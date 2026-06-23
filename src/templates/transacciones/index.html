@@ -186,6 +186,37 @@
         </div>
     </div>
 
+                <!-- Carga masiva por carpeta -->
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-folder-open"></i> Carga masiva — múltiples extractos</h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-2">
+                            Sube todos los extractos de una tarjeta de una sola vez. Indica la ruta de la carpeta en el servidor
+                            donde están los archivos <code>.xlsx</code>. Los archivos se procesarán en orden alfabético (ej. <code>3495_JUN2024.xlsx</code>, <code>3495_JUL2024.xlsx</code>…).
+                        </p>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-4">
+                                <label class="form-label">Tarjeta de crédito</label>
+                                <select id="folderTarjeta" class="form-select"></select>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label">Ruta de la carpeta (en el servidor)</label>
+                                <input type="text" id="folderPath" class="form-control" placeholder="Ej: C:/extractos/tarjeta_3495">
+                            </div>
+                            <div class="col-md-3 d-grid">
+                                <button class="btn btn-success" id="btnFolderEtl" onclick="subirCarpetaEtl()">
+                                    <i class="fas fa-folder-open"></i> Cargar carpeta
+                                </button>
+                            </div>
+                        </div>
+                        <div class="alert mt-3 mb-0" id="folderResult" style="display:none;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     <div class="modal fade" id="modalTransaccion" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -556,6 +587,14 @@ async function cargarCatalogosImportacion() {
             }).join('')
             : '<option value="" disabled>Sin tarjetas registradas - crea una en Productos</option>';
 
+            const selFolderTarjeta = document.getElementById('folderTarjeta');
+            selFolderTarjeta.innerHTML = tarjetas.length
+                ? tarjetas.map(t => {
+                    const label = t.nombre || (t.numero_tarjeta ? `****${String(t.numero_tarjeta).slice(-4)}` : `Tarjeta #${t.id_tarjeta}`);
+                    return `<option value="${t.id_tarjeta}">${label}</option>`;
+                }).join('')
+                : '<option value="" disabled>Sin tarjetas registradas</option>';
+
         toggleImportSource();
     } catch (err) {
         showToast('No se pudieron cargar catalogos ETL: ' + (err.message || ''), 'danger');
@@ -595,6 +634,54 @@ function previewArchivoEtl() {
 function toggleEtlErrors() {
     const wrap = document.getElementById('etlErrorsWrap');
     wrap.style.display = wrap.style.display === 'none' ? '' : 'none';
+}
+
+async function subirCarpetaEtl() {
+    const idTarjeta = document.getElementById('folderTarjeta').value;
+    const folderPath = document.getElementById('folderPath').value.trim();
+    const resultEl = document.getElementById('folderResult');
+    const btn = document.getElementById('btnFolderEtl');
+
+    if (!idTarjeta) { showToast('Selecciona una tarjeta', 'warning'); return; }
+    if (!folderPath) { showToast('Indica la ruta de la carpeta', 'warning'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+    resultEl.style.display = 'none';
+
+    try {
+        const token = localStorage.getItem('authToken');
+        const res = await fetch('/api/transacciones/import/upload-folder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ id_tarjeta: parseInt(idTarjeta), folder_path: folderPath }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            resultEl.className = 'alert alert-danger mt-3 mb-0';
+            resultEl.innerHTML = `<strong>Error:</strong> ${data.message || 'Error desconocido'}`;
+        } else {
+            resultEl.className = 'alert alert-success mt-3 mb-0';
+            const detalles = (data.detalle || []).map(d =>
+                `<li><strong>${d.archivo}</strong>: ${d.insertados} filas cargadas${d.errores ? `, ${d.errores} errores` : ''}</li>`
+            ).join('');
+            resultEl.innerHTML = `
+                <strong>Carga masiva completada</strong><br>
+                Archivos procesados: ${data.total_archivos}<br>
+                Filas insertadas: ${data.total_insertados}<br>
+                Errores: ${data.total_errores}
+                ${detalles ? `<ul class="mb-0 mt-2">${detalles}</ul>` : ''}
+            `;
+            await cargarTransacciones();
+        }
+    } catch (err) {
+        resultEl.className = 'alert alert-danger mt-3 mb-0';
+        resultEl.innerHTML = err.message || 'Error de conexión';
+    } finally {
+        resultEl.style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-folder-open"></i> Cargar carpeta';
+    }
 }
 
 async function subirArchivoEtl() {

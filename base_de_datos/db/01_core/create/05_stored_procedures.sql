@@ -64,18 +64,22 @@ END$$
 DROP PROCEDURE IF EXISTS `sp_recalcular_saldo_tarjeta`$$
 CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_recalcular_saldo_tarjeta` (IN `p_id_tarjeta` INT)   
 BEGIN
-  -- Recalcula saldo considerando abonos y compras
+  -- Fórmula: saldo_inicial + compras - abonos + saldo pendiente de diferidos activos
   UPDATE tarjeta_credito
-  SET saldo_actual = (
+  SET saldo_actual = saldo_inicial + (
     SELECT IFNULL(SUM(
       CASE
-        WHEN estado = 'abono' THEN -valor    -- Abonos reducen la deuda
-        WHEN estado = 'compra' THEN valor    -- Compras aumentan la deuda
-        ELSE 0                               -- Otros estados no afectan
+        WHEN estado = 'abono'    THEN -valor   -- Abonos reducen la deuda
+        WHEN estado = 'compra'   THEN  valor   -- Compras aumentan la deuda
+        ELSE 0                                 -- diferido/pendiente/aprobado: no duplicar
       END
     ), 0)
     FROM movimiento_tarjeta
     WHERE id_tarjeta = p_id_tarjeta
+  ) + (
+    SELECT IFNULL(SUM(saldo_pendiente), 0)
+    FROM tarjeta_diferido
+    WHERE id_tarjeta = p_id_tarjeta AND estado = 'activo'
   )
   WHERE id_tarjeta = p_id_tarjeta;
 END$$

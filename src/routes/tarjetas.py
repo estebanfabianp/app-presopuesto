@@ -98,6 +98,35 @@ def _ensure_diferidos_tables(db: DatabaseConnector):
         """
     )
 
+
+def _ensure_tarjeta_interest_columns(db: DatabaseConnector) -> None:
+    cols = db.execute_query(
+        """
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'tarjeta_credito'
+          AND COLUMN_NAME IN ('cobra_interes_compra_1_cuota', 'tasa_interes_compra_1_cuota')
+        """
+    ) or []
+    existing = {str(r.get('COLUMN_NAME')) for r in cols}
+
+    if 'cobra_interes_compra_1_cuota' not in existing:
+        db.execute_non_query(
+            """
+            ALTER TABLE tarjeta_credito
+            ADD COLUMN cobra_interes_compra_1_cuota TINYINT(1) NOT NULL DEFAULT 0
+            """
+        )
+
+    if 'tasa_interes_compra_1_cuota' not in existing:
+        db.execute_non_query(
+            """
+            ALTER TABLE tarjeta_credito
+            ADD COLUMN tasa_interes_compra_1_cuota DECIMAL(8,4) NOT NULL DEFAULT 0
+            """
+        )
+
     db.execute_non_query(
         """
         CREATE TABLE IF NOT EXISTS tarjeta_diferido_pago (
@@ -125,6 +154,7 @@ def get_catalogos():
     verify_jwt_in_request()
     db = DatabaseConnector()
     try:
+        _ensure_tarjeta_interest_columns(db)
         user_id = _get_user_id()
 
         tarjetas = db.execute_query(
@@ -133,18 +163,48 @@ def get_catalogos():
                    CONCAT('****', RIGHT(tc.numero_tarjeta, 4)) AS nombre,
                    tc.numero_tarjeta,
                    tc.limite_credito,
-                   tc.saldo_actual,
+                   tc.saldo_inicial,
+                   CASE
+                       WHEN sm.saldo_movimientos IS NULL AND sd.saldo_diferidos IS NULL THEN COALESCE(tc.saldo_actual, 0)
+                       ELSE (
+                           GREATEST(0, COALESCE(sm.saldo_movimientos, 0))
+                           + GREATEST(0, COALESCE(sd.saldo_diferidos, 0))
+                       )
+                   END AS saldo_actual,
+                   tc.cobra_interes_compra_1_cuota,
+                   tc.tasa_interes_compra_1_cuota,
                    tc.fecha_corte,
                    tc.fecha_pago,
                    COALESCE(et.nombre, 'activa') AS estado
             FROM tarjeta_credito tc
+            LEFT JOIN (
+                SELECT
+                    mt.id_tarjeta,
+                    ROUND(SUM(
+                        CASE
+                            WHEN LOWER(COALESCE(mt.estado, '')) IN ('abono', 'aprobado') THEN -ABS(COALESCE(mt.valor, 0))
+                            ELSE ABS(COALESCE(mt.valor, 0))
+                        END
+                    ), 2) AS saldo_movimientos
+                FROM movimiento_tarjeta mt
+                WHERE mt.id_persona = %s
+                GROUP BY mt.id_tarjeta
+            ) sm ON sm.id_tarjeta = tc.id_tarjeta
+            LEFT JOIN (
+                SELECT
+                    td.id_tarjeta,
+                    ROUND(SUM(CASE WHEN LOWER(COALESCE(td.estado, '')) = 'activo' THEN COALESCE(td.saldo_pendiente, 0) ELSE 0 END), 2) AS saldo_diferidos
+                FROM tarjeta_diferido td
+                WHERE td.id_persona = %s
+                GROUP BY td.id_tarjeta
+            ) sd ON sd.id_tarjeta = tc.id_tarjeta
             LEFT JOIN estado_tarjeta et ON tc.id_estado = et.id_estado
             WHERE tc.id_tarjeta IN (
                 SELECT DISTINCT id_tarjeta FROM movimiento_tarjeta WHERE id_persona = %s
             )
             ORDER BY tc.id_tarjeta
             """,
-            (user_id,),
+            (user_id, user_id, user_id),
         )
 
         categorias = db.execute_query(
@@ -160,8 +220,13 @@ def get_catalogos():
             for k in ('fecha_corte', 'fecha_pago'):
                 if t.get(k):
                     t[k] = t[k].isoformat()
-            for k in ('limite_credito', 'saldo_actual'):
+            for k in ('limite_credito', 'saldo_inicial', 'saldo_actual', 'tasa_interes_compra_1_cuota'):
                 t[k] = float(t.get(k) or 0)
+            t['cobra_interes_compra_1_cuota'] = bool(int(t.get('cobra_interes_compra_1_cuota') or 0))
+            if t['cobra_interes_compra_1_cuota'] and t['tasa_interes_compra_1_cuota'] > 0:
+                t['interes_estimado_mes'] = round((t['saldo_actual'] * t['tasa_interes_compra_1_cuota']) / 100.0, 2)
+            else:
+                t['interes_estimado_mes'] = 0.0
 
         return jsonify({
             'tarjetas': tarjetas,

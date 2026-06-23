@@ -340,9 +340,18 @@
             <input type="number" id="tarjetaLimite" class="form-control" value="0" step="0.01" min="0">
           </div>
           <div class="col-6 mb-3">
-            <label class="form-label">Saldo actual</label>
+            <label class="form-label">Saldo inicial</label>
             <input type="number" id="tarjetaSaldo" class="form-control" value="0" step="0.01">
           </div>
+        </div>
+        <div class="mb-2 form-check">
+          <input class="form-check-input" type="checkbox" id="tarjetaCobraInteres1Cuota" onchange="toggleInteresTarjeta()">
+          <label class="form-check-label" for="tarjetaCobraInteres1Cuota">Esta tarjeta cobra interés incluso en compras a 1 cuota</label>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Tasa mensual para compras a 1 cuota (%)</label>
+          <input type="number" id="tarjetaTasaInteres1Cuota" class="form-control" value="0" step="0.0001" min="0" max="100" disabled>
+          <small class="text-muted">Ejemplo: 3.0352 significa 3.0352% mensual sobre saldo.</small>
         </div>
         <div class="mb-3">
           <label class="form-label">Fecha vencimiento</label>
@@ -372,6 +381,34 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <button class="btn btn-primary" onclick="guardarTarjeta()"><i class="fas fa-save me-1"></i>Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL PASO DE DEUDA ════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalPasoDeuda" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-right-left me-2"></i>Paso de deuda</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="pasoDeudaTarjetaOrigenId">
+        <div class="alert alert-warning py-2">
+          Se copiaran los diferidos vivos a la tarjeta destino y los de la tarjeta origen quedaran desactivados.
+        </div>
+        <div class="mb-2 small text-muted" id="pasoDeudaTarjetaOrigenNombre"></div>
+        <div class="mb-3">
+          <label class="form-label">Tarjeta destino <span class="text-danger">*</span></label>
+          <select id="pasoDeudaTarjetaDestino" class="form-select"></select>
+          <small class="text-muted">Solo se listan tus tarjetas activas diferentes a la origen.</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="confirmarPasoDeuda()"><i class="fas fa-right-left me-1"></i>Trasladar deuda</button>
       </div>
     </div>
   </div>
@@ -527,6 +564,7 @@ function renderAlertas() {
   const tarjetas = _data.tarjetas || [];
 
   tarjetas.forEach(t => {
+    if (!['ACTIVO', 'ACTIVA'].includes((t.estado || '').toUpperCase())) return;
     const dias = diasPara(t.fecha_pago);
     if (dias !== null && dias <= 3) {
       alertas.push({
@@ -654,10 +692,14 @@ const estadoBadge = (e) => {
     return `<span class="badge bg-${activo?'success':'secondary'}">${activo?'Activo':'Inactivo'}</span>`;
 };
 
+function esTarjetaActiva(item) {
+  return ['ACTIVO', 'ACTIVA'].includes((item?.estado || '').toUpperCase());
+}
+
 function valorImpacto(tipo, x) {
   return {
     cuentas: Number(x.saldo_inicial || 0),
-    tarjetas: Number(x.saldo_actual || 0),
+    tarjetas: esTarjetaActiva(x) ? Number(x.saldo_actual || 0) : 0,
     acciones: Number(x.valor_total || 0),
     fondos: Number(x.valor_total || 0),
     activos: Number(x.valor || 0),
@@ -676,6 +718,7 @@ function aplicarFiltroRapido(tipo, items) {
             return d !== null && d <= 7;
         }
         if (_quickFilter === 'riesgo' && tipo === 'tarjetas') {
+          if (!esTarjetaActiva(x)) return false;
             const limite = Number(x.limite_credito || 0);
             const uso = limite > 0 ? (Number(x.saldo_actual || 0) / limite) * 100 : 0;
             return uso > 60;
@@ -747,6 +790,9 @@ function cardTarjeta(t) {
     const diaPago = extraerDiaMes(t.fecha_pago);
     const estadoActivo = ['ACTIVO','ACTIVA'].includes((t.estado||'').toUpperCase());
     const trend = sparkline([pct * 0.72, pct * 0.81, pct * 0.9, pct], '#be185d');
+    const cobraInteres1Cuota = !!t.cobra_interes_compra_1_cuota;
+    const tasaInteres1Cuota = Number(t.tasa_interes_compra_1_cuota || 0);
+    const interesEstimadoMes = Number(t.interes_estimado_mes || 0);
     return `
     <div class="col-12 col-sm-6 col-lg-4">
       <div class="card prod-card h-100 ${cls}">
@@ -760,7 +806,8 @@ function cardTarjeta(t) {
             ${estadoBadge(t.estado)}
           </div>
           <div class="mb-2">${healthBadge('tarjetas', t)}</div>
-          <div class="mb-1 d-flex justify-content-between small">
+          ${estadoActivo
+            ? `<div class="mb-1 d-flex justify-content-between small">
             <span>Usado: ${fmt(t.saldo_actual)}</span><span>Límite: ${fmt(t.limite_credito)}</span>
           </div>
           <div class="progress mb-2" style="height:6px">
@@ -768,7 +815,11 @@ function cardTarjeta(t) {
           </div>
           <small class="text-${riesgo} d-block mb-1">Riesgo: ${riesgoTxt} (${pct.toFixed(1)}% del cupo)</small>
           <small class="text-muted d-flex align-items-center gap-1">Tendencia uso: ${trend}</small>
-          <small class="text-muted">Disponible: <strong>${fmt(disp)}</strong></small>
+          <small class="text-muted">Disponible: <strong>${fmt(disp)}</strong></small>`
+            : `<small class="text-muted">Saldo oculto por estado inactiva</small>`}
+          ${cobraInteres1Cuota
+            ? `<br><small class="text-danger"><i class="fas fa-percent me-1"></i>Interés 1 cuota: ${tasaInteres1Cuota.toFixed(4)}% · Estimado mes: ${fmt(interesEstimadoMes)}</small>`
+            : '<br><small class="text-success"><i class="fas fa-check-circle me-1"></i>Sin interés configurado para compras a 1 cuota</small>'}
           ${diaCorte?`<br><small class="text-muted">Corte: dia ${diaCorte}</small>`:''}
           ${diaPago?`<br><small class="text-muted">Pago: dia ${diaPago}${pagoRel ? ` (${pagoRel})` : ''}</small>`:''}
           <div class="d-flex flex-wrap gap-1 mt-2">
@@ -777,6 +828,9 @@ function cardTarjeta(t) {
             </button>
             <button class="btn btn-sm ${estadoActivo?'btn-outline-warning':'btn-outline-success'}" title="Cambiar estado" onclick="toggleEstado('tarjetas',${t.id},this)">
               <i class="fas fa-${estadoActivo?'eye-slash':'eye'}"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-dark" title="Paso de deuda" onclick="abrirModalPasoDeuda(${t.id}, ${JSON.stringify(t.nombre || '').replace(/"/g,'&quot;')})">
+              <i class="fas fa-right-left"></i>
             </button>
             <a class="btn btn-sm btn-outline-primary" href="/tarjetas" title="Historial"><i class="fas fa-clock-rotate-left"></i></a>
           </div>
@@ -945,8 +999,19 @@ function abrirModal(tipo) {
       document.getElementById('tarjetaFechaCorte').value = '';
       document.getElementById('tarjetaFechaPago').value = '';
       document.getElementById('tarjetaEstado').value = 'activa';
+      document.getElementById('tarjetaCobraInteres1Cuota').checked = false;
+      document.getElementById('tarjetaTasaInteres1Cuota').value = '0';
+      toggleInteresTarjeta();
         bsModal('modalTarjeta').show();
     }
+}
+
+function toggleInteresTarjeta() {
+  const chk = document.getElementById('tarjetaCobraInteres1Cuota');
+  const tasa = document.getElementById('tarjetaTasaInteres1Cuota');
+  const enabled = !!chk?.checked;
+  tasa.disabled = !enabled;
+  if (!enabled) tasa.value = '0';
 }
 
 function editarCuenta(c) {
@@ -1006,11 +1071,14 @@ function editarActivo(a) {
     document.getElementById('tarjetaBanco').value = t.banco || '';
     document.getElementById('tarjetaTipo').value = t.tipo_tarjeta || 'credito';
     document.getElementById('tarjetaLimite').value = t.limite_credito || 0;
-    document.getElementById('tarjetaSaldo').value = t.saldo_actual || 0;
+    document.getElementById('tarjetaSaldo').value = t.saldo_inicial || 0;
     document.getElementById('tarjetaVencimiento').value = (t.fecha_vencimiento || '').slice(0, 7);
     document.getElementById('tarjetaFechaCorte').value = extraerDiaMes(t.fecha_corte);
     document.getElementById('tarjetaFechaPago').value = extraerDiaMes(t.fecha_pago);
     document.getElementById('tarjetaEstado').value = (t.estado || 'activa').toLowerCase();
+    document.getElementById('tarjetaCobraInteres1Cuota').checked = !!t.cobra_interes_compra_1_cuota;
+    document.getElementById('tarjetaTasaInteres1Cuota').value = Number(t.tasa_interes_compra_1_cuota || 0);
+    toggleInteresTarjeta();
     bsModal('modalTarjeta').show();
   }
 
@@ -1041,6 +1109,8 @@ async function guardarTarjeta() {
     const diaCorte = fechaCorteRaw ? parseInt(fechaCorteRaw, 10) : null;
     const diaPago = fechaPagoRaw ? parseInt(fechaPagoRaw, 10) : null;
     const estado = document.getElementById('tarjetaEstado').value;
+    const cobraInteres1Cuota = document.getElementById('tarjetaCobraInteres1Cuota').checked;
+    const tasaInteres1Cuota = parseFloat(document.getElementById('tarjetaTasaInteres1Cuota').value || 0);
 
     if (!nombreTitular) { alert('Ingresa el nombre del titular'); return; }
     if (numero && (numero.length < 4 || numero.length > 16)) {
@@ -1049,6 +1119,10 @@ async function guardarTarjeta() {
     }
     if (diaCorte !== null && (Number.isNaN(diaCorte) || diaCorte < 1 || diaCorte > 31)) { alert('El día de corte debe estar entre 1 y 31'); return; }
     if (diaPago !== null && (Number.isNaN(diaPago) || diaPago < 1 || diaPago > 31)) { alert('El día de pago debe estar entre 1 y 31'); return; }
+    if (Number.isNaN(tasaInteres1Cuota) || tasaInteres1Cuota < 0 || tasaInteres1Cuota > 100) {
+      alert('La tasa para compras a 1 cuota debe estar entre 0 y 100');
+      return;
+    }
 
     const body = {
         numero_tarjeta: numero || null,
@@ -1056,11 +1130,13 @@ async function guardarTarjeta() {
         banco: banco || null,
         tipo_tarjeta: tipo,
         limite_credito: limite,
-        saldo_actual: saldo,
+        saldo_inicial: saldo,
         fecha_vencimiento: vencimiento || null,
       dia_corte: diaCorte,
       dia_pago: diaPago,
         estado: estado,
+        cobra_interes_compra_1_cuota: cobraInteres1Cuota,
+        tasa_interes_compra_1_cuota: cobraInteres1Cuota ? tasaInteres1Cuota : 0,
     };
 
     const res = id
@@ -1075,6 +1151,80 @@ async function guardarTarjeta() {
         const error = await res.json();
         alert(error.message || 'Error al guardar tarjeta');
     }
+}
+
+function _tarjetasDestinoPasoDeuda(origenId) {
+  return (_data.tarjetas || []).filter((t) => {
+    const id = Number(t.id || 0);
+    if (!id || id === Number(origenId)) return false;
+    return ['ACTIVO', 'ACTIVA'].includes((t.estado || '').toUpperCase());
+  });
+}
+
+function abrirModalPasoDeuda(origenId, origenNombre) {
+  const sel = document.getElementById('pasoDeudaTarjetaDestino');
+  const destinos = _tarjetasDestinoPasoDeuda(origenId);
+
+  document.getElementById('pasoDeudaTarjetaOrigenId').value = String(origenId || '');
+  document.getElementById('pasoDeudaTarjetaOrigenNombre').textContent = `Origen: ${origenNombre || `Tarjeta ${origenId}`}`;
+
+  sel.innerHTML = '';
+  if (!destinos.length) {
+    sel.innerHTML = '<option value="">No hay tarjetas destino disponibles</option>';
+    sel.disabled = true;
+  } else {
+    destinos.forEach((t) => {
+      const opt = document.createElement('option');
+      opt.value = String(t.id);
+      const numero = String(t.numero_tarjeta || '').slice(-4);
+      opt.textContent = `${t.nombre || 'Tarjeta'}${numero ? ` (**** ${numero})` : ''}`;
+      sel.appendChild(opt);
+    });
+    sel.disabled = false;
+  }
+
+  bsModal('modalPasoDeuda').show();
+}
+
+async function confirmarPasoDeuda() {
+  const origenId = Number(document.getElementById('pasoDeudaTarjetaOrigenId').value || 0);
+  const destinoId = Number(document.getElementById('pasoDeudaTarjetaDestino').value || 0);
+
+  if (!origenId) {
+    alert('No se pudo determinar la tarjeta origen.');
+    return;
+  }
+  if (!destinoId) {
+    alert('Selecciona una tarjeta destino valida.');
+    return;
+  }
+  if (destinoId === origenId) {
+    alert('La tarjeta destino debe ser diferente a la origen.');
+    return;
+  }
+
+  const confirmar = window.confirm('Se trasladaran los diferidos vivos a la tarjeta destino y se desactivaran en la tarjeta origen. Deseas continuar?');
+  if (!confirmar) return;
+
+  const res = await apiCall('POST', `/api/productos/tarjetas/${origenId}/paso-deuda`, {
+    id_tarjeta_destino: destinoId,
+  });
+
+  let data = {};
+  try {
+    data = await res.json();
+  } catch (_) {
+    data = {};
+  }
+
+  if (!res.ok) {
+    alert(data.message || 'No fue posible completar el paso de deuda');
+    return;
+  }
+
+  bsModal('modalPasoDeuda').hide();
+  toast(data.message || 'Paso de deuda realizado', 'success');
+  cargarProductos();
 }
 
 async function guardarCuenta() {

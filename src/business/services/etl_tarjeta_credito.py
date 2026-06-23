@@ -9,6 +9,8 @@ Reglas de negocio para diferidos:
 - Si la cuota llega con formato N/X y X > 1, el movimiento se clasifica como diferido.
 - El seguimiento consolidado vive en tarjeta_diferido y se actualiza por código
     del extracto cuando dicho código existe, no está vacío y no es 000000.
+- Excepción: si código = 000000 y concepto = AMPLIACION DE PLAZO,
+    el registro sí participa en seguimiento consolidado.
 - El historial mensual no se deduplica: el upsert aplica solo al seguimiento.
 """
 
@@ -21,7 +23,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 try:
     import pandas as pd
@@ -82,6 +84,7 @@ class ETLTarjetaCredito:
     """
     
     # Columnas esperadas en Excel (case-insensitive)
+
     EXPECTED_COLUMNS = {
         'fecha': [
             'fecha', 'date', 'date_transaction', 'fecha movimiento',
@@ -93,7 +96,10 @@ class ETLTarjetaCredito:
         ],
         'monto': [
             'monto', 'amount', 'valor', 'quantity', 'valor movimiento', 'valor movimie',
-            'valor original', 'cargos y abonos', 'cargos y abor', 'cargo y abono'
+            'cargos y abonos', 'cargos abonos'
+        ],
+        'valor_original': [
+            'valor original'
         ],
         'cuotas': ['cuotas', 'quotas', 'installments', 'nro_cuotas', 'numero de cuotas', 'numero de cu'],
         'categoria': ['categoria', 'category', 'categoría'],
@@ -102,9 +108,17 @@ class ETLTarjetaCredito:
             'numero de autorizacion', 'numero de au', 'autorizacion'
         ],
         'valor_cuota': ['valor cuota', 'valor cuota/al', 'valor cuota al', 'valor_cuota'],
-        'interes_mensual': ['interes mensual', 'interes mensu', 'tasa mensual', 'interes mes'],
+        'interes_mensual': ['interes mensual', 'interes mensu', 'tasa mensual', 'interes mes', 'tasa pactada'],
         'interes_anual': ['interes anual', 'tasa anual'],
-        'saldo_pendiente': ['saldo pendiente', 'saldo pendiente capital', 'saldo restante'],
+        'saldo_pendiente': [
+            'saldo pendiente',
+            'saldo pendiente capital',
+            'saldo restante',
+            'saldo a diferir',
+            'saldo diferir',
+            'saldo por diferir',
+        ],
+        'cargos_abonos': ['cargos y abonos'],
     }
 
     REQUIRED_COLUMNS = ('fecha', 'concepto', 'monto')
@@ -128,6 +142,25 @@ class ETLTarjetaCredito:
         self.validation_errors: List[Dict[str, Any]] = []
         self.processed_count = 0
         self.error_count = 0
+
+    def _assert_tarjeta_activa(self, id_persona: int, id_tarjeta: int) -> None:
+        rows = self.db.execute_query(
+            """
+            SELECT tc.id_tarjeta, COALESCE(LOWER(et.nombre), 'activa') AS estado
+            FROM tarjeta_credito tc
+            LEFT JOIN estado_tarjeta et ON tc.id_estado = et.id_estado
+            WHERE tc.id_tarjeta = %s AND tc.id_persona = %s
+            LIMIT 1
+            """,
+            (id_tarjeta, id_persona),
+        )
+
+        if not rows:
+            raise ValueError('Tarjeta no encontrada o no pertenece al usuario')
+
+        estado = str(rows[0].get('estado') or 'activa').strip().lower()
+        if estado != 'activa':
+            raise ValueError('La tarjeta seleccionada esta inactiva. Activala para importar por ETL')
 
     @staticmethod
     def _normalize_text(value: Any) -> str:
@@ -226,28 +259,44 @@ class ETLTarjetaCredito:
             return None
 
         rate = abs(float(rate))
-        if rate > 1:
-            rate = rate / 100.0
+        # Normalizar a porcentaje mensual (ej. 3.0352), que es el formato
+        # esperado por tarjeta_diferido y por los endpoints de tarjetas.
+        if rate <= 1:
+            rate = rate * 100.0
         return rate
 
     @staticmethod
     def _is_valid_tracking_code(value: Any) -> bool:
-        raw = str(value or '').strip()
+        raw = str(value or '').strip().upper()
         if not raw or raw.lower() == 'nan':
             return False
-        return raw != '000000'
+        if raw in {'000000', '0'}:
+            return False
+        # Evitar usar IDs sintéticos internos como código de autorización.
+        if raw.startswith('TRX-'):
+            return False
+        return bool(re.fullmatch(r'[A-Z0-9]{4,30}', raw))
+
+    @classmethod
+    def _is_tracking_exception_ampliacion_plazo(cls, tracking_code: Any, description: Any) -> bool:
+        raw_code = str(tracking_code or '').strip().upper()
+        if raw_code != '000000':
+            return False
+        normalized_description = cls._normalize_text(description)
+        return normalized_description == 'ampliacion de plazo'
 
     @staticmethod
     def _normalize_reference(value: Any) -> str:
-        """Normaliza la referencia para evitar formatos como 57833.0."""
+        """Normaliza número de autorización para matching estable en ETL."""
         raw = str(value or '').strip()
         if not raw or raw.lower() == 'nan':
             return ''
 
         normalized = raw.replace(' ', '')
         if re.fullmatch(r'\d+\.0+', normalized):
-            return normalized.split('.', 1)[0]
-        return raw
+            normalized = normalized.split('.', 1)[0]
+
+        return normalized.upper()
 
     def _ensure_diferidos_tables(self) -> None:
         self.db.execute_non_query(
@@ -289,6 +338,10 @@ class ETLTarjetaCredito:
           válido del extracto para evitar duplicados en seguimiento.
         """
         tracking_code = mov_tarjeta_data.get('tracking_code')
+        is_exception_ampliacion = self._is_tracking_exception_ampliacion_plazo(
+            tracking_code,
+            mov_tarjeta_data.get('nota'),
+        )
         total_installments = int(mov_tarjeta_data.get('tracking_total_installments') or 1)
         current_installment = int(mov_tarjeta_data.get('tracking_current_installment') or 1)
         should_track = bool(mov_tarjeta_data.get('tracking_should_track'))
@@ -298,11 +351,26 @@ class ETLTarjetaCredito:
 
         self._ensure_diferidos_tables()
 
-        cuota_mensual = abs(float(mov_tarjeta_data.get('tracking_payment_value') or mov_tarjeta_data['valor']))
-        saldo_pendiente = mov_tarjeta_data.get('tracking_remaining_balance')
-        if saldo_pendiente is None:
-            saldo_pendiente = max(cuota_mensual * (total_installments - current_installment), 0)
-        saldo_pendiente = abs(float(saldo_pendiente))
+
+        # Ajuste: priorizar datos del extracto para diferidos.
+        # - valor_total: valor original de la compra cuando esté disponible
+        # - cuota_mensual: valor de cuota/reportado en extracto (si existe)
+        valor_total = abs(float(mov_tarjeta_data.get('tracking_original_value') or mov_tarjeta_data['valor']))
+        pago_extracto = mov_tarjeta_data.get('tracking_payment_value')
+        if pago_extracto is not None and abs(float(pago_extracto)) > 0:
+            cuota_mensual = round(abs(float(pago_extracto)), 2)
+        else:
+            cuota_mensual = round(valor_total / total_installments, 2)
+        cuotas_pagadas = max(current_installment - 1, 0)
+        saldo_pendiente = round(valor_total - (cuota_mensual * cuotas_pagadas), 2)
+        # Si el extracto trae saldo pendiente, se respeta ese valor reportado.
+        saldo_pendiente_extracto = mov_tarjeta_data.get('tracking_remaining_balance')
+        if saldo_pendiente_extracto is not None:
+            try:
+                saldo_pendiente_extracto = abs(float(saldo_pendiente_extracto))
+                saldo_pendiente = saldo_pendiente_extracto
+            except Exception:
+                pass
 
         tasa_mensual = mov_tarjeta_data.get('tracking_monthly_rate')
         tasa_mensual = abs(float(tasa_mensual)) if tasa_mensual is not None else 0.0
@@ -311,14 +379,14 @@ class ETLTarjetaCredito:
         fecha_proximo_pago = None if saldo_pendiente <= 0.01 or cuotas_pagadas >= total_installments else _add_months(fecha_compra, 1)
         estado = 'pagado' if saldo_pendiente <= 0.01 or cuotas_pagadas >= total_installments else 'activo'
 
-        estimated_total = max(saldo_pendiente + (cuota_mensual * cuotas_pagadas) + cuota_mensual, cuota_mensual)
-        total_pagado_estimado = cuota_mensual * total_installments
-        total_intereses = max(total_pagado_estimado - estimated_total, 0)
+        estimated_total = max(valor_total, saldo_pendiente + (cuota_mensual * cuotas_pagadas))
+        total_pagado_estimado = cuota_mensual * total_installments if cuota_mensual > 0 else estimated_total
+        total_intereses = max(total_pagado_estimado - valor_total, 0)
 
         cursor = self.db.conn.cursor(dictionary=True)
         try:
             existing = None
-            if self._is_valid_tracking_code(tracking_code):
+            if self._is_valid_tracking_code(tracking_code) or is_exception_ampliacion:
                 cursor.execute(
                     """
                     SELECT id_diferido, tasa_mensual
@@ -339,6 +407,7 @@ class ETLTarjetaCredito:
                     UPDATE tarjeta_diferido
                     SET id_movimiento_tarjeta = %s,
                         descripcion = %s,
+                        valor_total = %s,
                         numero_cuotas = %s,
                         cuotas_pagadas = %s,
                         cuota_mensual = %s,
@@ -351,6 +420,7 @@ class ETLTarjetaCredito:
                     (
                         id_movimiento_tarjeta,
                         mov_tarjeta_data['nota'],
+                        float(_q2(estimated_total)),
                         total_installments,
                         cuotas_pagadas,
                         float(_q2(cuota_mensual)),
@@ -389,7 +459,7 @@ class ETLTarjetaCredito:
                     fecha_compra,
                     fecha_proximo_pago,
                     estado,
-                    tracking_code if self._is_valid_tracking_code(tracking_code) else None,
+                    tracking_code if (self._is_valid_tracking_code(tracking_code) or is_exception_ampliacion) else None,
                 ),
             )
         finally:
@@ -433,6 +503,8 @@ class ETLTarjetaCredito:
         """
         if not pd:
             raise ImportError("pandas es requerido para procesar archivos Excel")
+
+        self._assert_tarjeta_activa(id_persona, id_tarjeta)
         
         try:
             # Detectar hoja correcta (puede haber varias hojas con cabecera en fila 0 o con filas de encabezado)
@@ -453,6 +525,16 @@ class ETLTarjetaCredito:
                 validation = self._validate_row(row, col_map, idx)
                 
                 if not validation.is_valid:
+                    # Algunas entidades bancarias incluyen filas informativas con monto 0.
+                    # Se omiten para no bloquear la carga mensual.
+                    only_zero_amount = (
+                        bool(validation.errors)
+                        and all(err == "Monto debe ser diferente de cero" for err in validation.errors)
+                    )
+                    if only_zero_amount:
+                        self.logger.info("[ETL] Fila %s omitida por monto igual a cero", idx)
+                        continue
+
                     self.validation_errors.append({
                         "row": idx,
                         "errors": validation.errors,
@@ -484,6 +566,7 @@ class ETLTarjetaCredito:
             if rows_to_insert:
                 self._load_data(rows_to_insert)
                 self.processed_count = len(rows_to_insert)
+                self._reconcile_missing_diferidos(rows_to_insert, id_persona, id_tarjeta)
 
             # Auto-categorizar los movimientos recién insertados
             if self.processed_count > 0:
@@ -494,6 +577,89 @@ class ETLTarjetaCredito:
         except Exception as e:
             self.logger.error(f"Error procesando archivo: {e}")
             return 0, [{"error": f"Error de procesamiento: {str(e)}"}]
+
+    def _reconcile_missing_diferidos(
+        self,
+        rows_to_insert: List[Dict[str, Any]],
+        id_persona: int,
+        id_tarjeta: int,
+    ) -> None:
+        """
+        Cierra diferidos activos no reportados en el extracto importado.
+
+        Reglas aplicadas:
+        - Se validan únicamente códigos de autorización de filas realmente diferidas
+          (tracking_should_track=True).
+        - Si un diferido activo no aparece en esos códigos, se marca como pagado.
+        - Si el ETL no trae ninguna fila diferida, se cierran todos los activos,
+          asumiendo que ya no hay diferidos vigentes en el extracto.
+        """
+        if not rows_to_insert:
+            return
+
+        has_diferido_rows = any(bool(r.get('tracking_should_track')) for r in rows_to_insert)
+
+        seen_codes: Set[str] = set()
+        for r in rows_to_insert:
+            if not r.get('tracking_should_track'):
+                continue
+            code = r.get('tracking_code')
+            if self._is_valid_tracking_code(code) or bool(r.get('tracking_exception_ampliacion_plazo')):
+                seen_codes.add(str(code).strip().upper())
+
+        if has_diferido_rows and not seen_codes:
+            # Llegaron filas diferidas pero sin código válido de autorización;
+            # no se puede conciliar por ausencia de código sin riesgo.
+            self.logger.warning(
+                "[ETL] Diferidos detectados sin código de autorización válido; se omite conciliación por código"
+            )
+            return
+
+        cursor = self.db.conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT id_diferido, numero_transaccion
+                FROM tarjeta_diferido
+                WHERE id_persona = %s
+                  AND id_tarjeta = %s
+                  AND estado = 'activo'
+                  AND numero_transaccion IS NOT NULL
+                  AND numero_transaccion <> ''
+                """,
+                (id_persona, id_tarjeta),
+            )
+            candidates = cursor.fetchall() or []
+
+            to_close_ids: List[int] = []
+            for row in candidates:
+                code = str(row[1] or '').strip().upper()
+                if not code:
+                    continue
+                if not has_diferido_rows:
+                    to_close_ids.append(int(row[0]))
+                elif code not in seen_codes:
+                    to_close_ids.append(int(row[0]))
+
+            if to_close_ids:
+                cursor.executemany(
+                    """
+                    UPDATE tarjeta_diferido
+                    SET estado = 'pagado',
+                        saldo_pendiente = 0,
+                        fecha_proximo_pago = NULL,
+                        cuotas_pagadas = numero_cuotas
+                    WHERE id_diferido = %s
+                    """,
+                    [(x,) for x in to_close_ids],
+                )
+                self.logger.info(
+                    "[ETL] Conciliacion diferidos: %d registro(s) cerrados como pagados",
+                    len(to_close_ids),
+                )
+            self.db.conn.commit()
+        finally:
+            cursor.close()
     
     @classmethod
     def _read_best_sheet(cls, file_path: str):
@@ -504,29 +670,37 @@ class ETLTarjetaCredito:
         También intenta detectar si el encabezado no está en la fila 0.
         """
         xl = pd.ExcelFile(file_path)
+        first_non_empty = None
         for sheet in xl.sheet_names:
             # Intentar leer con header en fila 0
             df = pd.read_excel(file_path, sheet_name=sheet)
-            if df.empty:
-                continue
-            try:
-                cls._validate_structure_static(list(df.columns))
-                return df  # Esta hoja tiene columnas válidas
-            except ValueError:
-                pass
+            if first_non_empty is None and not df.empty:
+                first_non_empty = df
+            if not df.empty:
+                try:
+                    cls._validate_structure_static(list(df.columns))
+                    return df  # Esta hoja tiene columnas válidas
+                except ValueError:
+                    pass
             # Intentar con header en la primera fila que no sea NaN
             df_raw = pd.read_excel(file_path, sheet_name=sheet, header=None)
+            if first_non_empty is None and not df_raw.empty and df_raw.notna().any().any():
+                first_non_empty = df_raw
             for i in range(min(10, len(df_raw))):
                 row_vals = [str(v).strip() for v in df_raw.iloc[i].tolist() if str(v) != 'nan']
                 if not row_vals:
                     continue
                 df_attempt = pd.read_excel(file_path, sheet_name=sheet, header=i)
+                if first_non_empty is None and not df_attempt.empty:
+                    first_non_empty = df_attempt
                 try:
                     cls._validate_structure_static(list(df_attempt.columns))
                     return df_attempt
                 except ValueError:
                     continue
-        return None
+        # Fallback: si hay datos pero no se detectó estructura perfecta,
+        # retornar la primera hoja no vacía para generar errores más precisos.
+        return first_non_empty
 
     def _validate_excel_structure(self, columns: List[str]) -> None:
         """Valida que el Excel tenga las columnas requeridas."""
@@ -561,8 +735,11 @@ class ETLTarjetaCredito:
         result = ValidationResult(row_number=row_number)
         
         # Extraer valores
+
         fecha_str = str(row.get(col_map.get('fecha', ''), '')).strip()
         concepto = str(row.get(col_map.get('concepto', ''), '')).strip()
+        # Valor original de la deuda
+        valor_original_str = str(row.get(col_map.get('valor_original', ''), '')).strip()
         monto_str = str(row.get(col_map.get('monto', ''), '')).strip()
         cuotas_str = str(row.get(col_map.get('cuotas', '1'), '1')).strip()
         categoria = str(row.get(col_map.get('categoria', ''), '')).strip()
@@ -571,6 +748,7 @@ class ETLTarjetaCredito:
         interes_mensual_raw = row.get(col_map.get('interes_mensual', ''), None)
         interes_anual_raw = row.get(col_map.get('interes_anual', ''), None)
         saldo_pendiente_raw = row.get(col_map.get('saldo_pendiente', ''), None)
+        cargos_abonos_raw = row.get(col_map.get('cargos_abonos', ''), None)
         
         # Validar campos obligatorios
         if not concepto or concepto.lower() == 'nan':
@@ -647,6 +825,7 @@ class ETLTarjetaCredito:
                 'fecha': fecha,
                 'concepto': concepto,
                 'monto': monto,
+                'valor_original': valor_original_str,
                 'cuota_actual': cuota_actual,
                 'cuotas': cuotas,
                 'categoria': categoria,
@@ -654,6 +833,7 @@ class ETLTarjetaCredito:
                 'valor_cuota': valor_cuota,
                 'tasa_mensual': tasa_mensual,
                 'saldo_pendiente': saldo_pendiente,
+                'cargos_abonos': cargos_abonos_raw,
             }
         
         return result
@@ -671,33 +851,59 @@ class ETLTarjetaCredito:
         try:
             # Generar códigos únicos
             timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-            tracking_code = validated_data['referencia'] if self._is_valid_tracking_code(validated_data['referencia']) else None
+            referencia_raw = validated_data.get('referencia')
+            nota = validated_data['concepto']
+            is_exception_ampliacion = self._is_tracking_exception_ampliacion_plazo(referencia_raw, nota)
+            tracking_code = referencia_raw if (self._is_valid_tracking_code(referencia_raw) or is_exception_ampliacion) else None
             numero_transaccion = tracking_code or f"TRX-{timestamp}-{row_number}"
             # La descripción debe conservar únicamente el concepto del extracto.
-            nota = validated_data['concepto']
             is_diferido = float(validated_data['monto']) > 0 and int(validated_data['cuotas']) > 1
-            # El extracto mensual siempre genera movimiento; el seguimiento se consolida aparte.
-            should_track_diferido = is_diferido and (tracking_code is not None or int(validated_data.get('cuota_actual') or 1) == 1)
+            # Para consolidar diferidos y cambiar estado correctamente, el número de autorización es obligatorio.
+            should_track_diferido = is_diferido and (tracking_code is not None)
             estado_movimiento = 'diferido' if is_diferido else ('compra' if float(validated_data['monto']) > 0 else 'abono')
+
+            if is_diferido and tracking_code is None:
+                self.logger.warning(
+                    "[ETL] Diferido sin número de autorización válido en fila %s; se carga movimiento sin tracking consolidado",
+                    row_number,
+                )
             
+            # Usar siempre el valor original cuando sea válido para el tracking consolidado.
+            # Algunos extractos traen formato bancario (ej. 215,000.00-), por eso se parsea igual que monto.
+            valor_base = validated_data.get('monto')
+            valor_original_raw = validated_data.get('valor_original')
+            if valor_original_raw not in (None, '', 'nan', 'NaN'):
+                try:
+                    valor_base = self._parse_amount(valor_original_raw)
+                except ValueError:
+                    # Si valor_original no es parseable, conservar monto ya validado.
+                    pass
+
+            valor_original_num = abs(float(valor_base))
+            # Para la grilla de movimientos, el valor debe reflejar la cuota/cargo reportado
+            # por el extracto (monto), no el saldo a diferir acumulado.
+            valor_movimiento = abs(float(validated_data['monto']))
+
             # Preparar INSERT para tabla movimiento_tarjeta
             result.insert_movimiento_tarjeta = {
                 'id_tarjeta': id_tarjeta,
                 'id_persona': id_persona,
                 'fecha': validated_data['fecha'],
-                'valor': abs(float(validated_data['monto'])),
+                'valor': valor_movimiento,
                 'estado': estado_movimiento,
                 'nota': nota,
                 'numero_transaccion': numero_transaccion,
                 'id_categoria': None,
                 'id_beneficiario': None,
-                'saldo': abs(float(validated_data['monto'])),
+                'saldo': valor_movimiento,
                 'cuotas': validated_data['cuotas'],
                 'tracking_should_track': should_track_diferido,
                 'tracking_code': tracking_code,
+                'tracking_exception_ampliacion_plazo': is_exception_ampliacion,
                 'tracking_current_installment': validated_data.get('cuota_actual') or 1,
                 'tracking_total_installments': validated_data['cuotas'],
                 'tracking_payment_value': validated_data.get('valor_cuota') or abs(float(validated_data['monto'])),
+                'tracking_original_value': valor_original_num,
                 'tracking_monthly_rate': validated_data.get('tasa_mensual'),
                 'tracking_remaining_balance': validated_data.get('saldo_pendiente'),
             }
@@ -763,6 +969,78 @@ class ETLTarjetaCredito:
                 )
         except Exception as exc:
             self.logger.warning("[ETL] Auto-categorización omitida: %s", exc)
+
+    def process_folder(
+        self,
+        folder_path: str,
+        id_persona: int,
+        id_tarjeta: int,
+    ) -> Dict[str, Any]:
+        """
+        Procesa todos los archivos Excel de una carpeta en orden cronológico.
+
+        Ordena los archivos por nombre (ej. 3495_JUN2024.xlsx, 3495_JUL2024.xlsx...)
+        Ignora archivos que no sean .xlsx / .xls.
+
+        Returns:
+            Dict con resumen: { total_archivos, total_insertados, total_errores, detalle }
+        """
+        folder = Path(folder_path)
+        if not folder.is_dir():
+            return {'error': f'La carpeta no existe: {folder_path}'}
+
+        try:
+            self._assert_tarjeta_activa(id_persona, id_tarjeta)
+        except ValueError as exc:
+            return {'error': str(exc)}
+
+        archivos = sorted(
+            [f for f in folder.iterdir() if f.suffix.lower() in ('.xlsx', '.xls')],
+            key=lambda f: f.name
+        )
+
+        if not archivos:
+            return {'error': 'No se encontraron archivos Excel en la carpeta'}
+
+        resumen: Dict[str, Any] = {
+            'total_archivos': len(archivos),
+            'total_insertados': 0,
+            'total_errores': 0,
+            'detalle': [],
+        }
+
+        for archivo in archivos:
+            self.validation_errors = []
+            self.processed_count = 0
+            self.error_count = 0
+
+            try:
+                insertados, errores = self.process_file(
+                    str(archivo), id_persona, id_tarjeta
+                )
+                resumen['total_insertados'] += insertados
+                resumen['total_errores'] += len(errores)
+                resumen['detalle'].append({
+                    'archivo': archivo.name,
+                    'insertados': insertados,
+                    'errores': len(errores),
+                    'detalle_errores': errores[:5],
+                })
+                self.logger.info(
+                    "[ETL folder] %s -> %d insertados, %d errores",
+                    archivo.name, insertados, len(errores)
+                )
+            except Exception as exc:
+                resumen['total_errores'] += 1
+                resumen['detalle'].append({
+                    'archivo': archivo.name,
+                    'insertados': 0,
+                    'errores': 1,
+                    'detalle_errores': [{'error': str(exc)}],
+                })
+                self.logger.error("[ETL folder] Error en %s: %s", archivo.name, exc)
+
+        return resumen
 
 
 def validate_excel_file(file_path: str) -> Tuple[bool, List[str]]:

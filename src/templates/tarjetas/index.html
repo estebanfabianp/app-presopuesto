@@ -559,8 +559,50 @@ let difSummary = { saldo_pendiente_total: 0, cuotas_mes_actual: 0, diferidos_act
 const FISCAL_START_MONTH = 7;
 const ESTADOS_MOV = ['compra', 'abono', 'diferido', 'pendiente', 'aprobado'];
 
+function isTarjetaActiva(t) {
+    return String(t?.estado || 'activa').toLowerCase() === 'activa';
+}
+
+function getTarjetasActivas() {
+    return (catalogos.tarjetas || []).filter(isTarjetaActiva);
+}
+
 function toast(msg, type = 'success') {
     if (typeof showToast === 'function') showToast(msg, type); else alert(msg);
+}
+
+function calcularInteresRestanteDiferido(d) {
+    const valorTotal = Number(d.valor_total || 0);
+    const numeroCuotas = Number(d.numero_cuotas || 0);
+    const tasaMensual = Number(d.tasa_mensual || 0);
+    const cuotasPagadas = Number(d.cuotas_pagadas || 0);
+    const sinInteres = !!d.sin_interes;
+
+    if (!valorTotal || !numeroCuotas || sinInteres || tasaMensual <= 0) {
+        return 0;
+    }
+
+    const tasa = tasaMensual / 100;
+    const factor = Math.pow(1 + tasa, numeroCuotas);
+    if (!Number.isFinite(factor) || factor <= 1) {
+        return 0;
+    }
+
+    const cuota = valorTotal * ((tasa * factor) / (factor - 1));
+    let saldo = valorTotal;
+    let interesPendiente = 0;
+
+    for (let numeroCuota = 1; numeroCuota <= numeroCuotas; numeroCuota += 1) {
+        const interes = saldo * tasa;
+        const capital = cuota - interes;
+        saldo = Math.max(0, saldo - capital);
+
+        if (numeroCuota > cuotasPagadas) {
+            interesPendiente += interes;
+        }
+    }
+
+    return Math.max(0, Math.round(interesPendiente * 100) / 100);
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -608,8 +650,9 @@ function pintarCatalogos() {
     const filtroTarj = document.getElementById('filtroTarjeta');
     const movTarj = document.getElementById('movTarjeta');
     const difTarj = document.getElementById('difTarjeta');
+    const tarjetasActivas = getTarjetasActivas();
 
-    const optsTarj = catalogos.tarjetas.map(t => {
+    const optsTarj = tarjetasActivas.map(t => {
         const disp = Number(t.limite_credito) - Number(t.saldo_actual);
         return `<option value="${t.id_tarjeta}" data-corte="${t.fecha_corte || ''}" data-pago="${t.fecha_pago || ''}" data-limite="${t.limite_credito}" data-saldo="${t.saldo_actual}" data-disponible="${disp}">${esc(t.nombre)} — Disponible: ${formatCurrency(disp)}</option>`;
     }).join('');
@@ -688,8 +731,9 @@ function renderDiferidosTableFiltered(filtros = {}) {
             }
         }
         
-        // Calcular total de interés pendiente
-        const interestPending = Math.max(0, (d.total_intereses || 0) - (d.intereses_pagados || 0));
+        // Mostrar la tasa mensual del diferido y la suma estimada del interés que queda por pagar
+        const tasaMensual = Number(d.tasa_mensual || 0);
+        const interestPending = calcularInteresRestanteDiferido(d);
         
         html += `<tr>
             <td>
@@ -700,7 +744,8 @@ function renderDiferidosTableFiltered(filtros = {}) {
             <td style="min-width:180px;">
                 <div class="small mb-1">${esc(d.progreso_texto || '')}</div>
                 <div class="progress" style="height:8px;"><div class="progress-bar bg-warning" style="width:${pct}%"></div></div>
-                <small class="text-danger">Interés: ${formatCurrency(interestPending)}</small>
+                <small class="text-danger">Tasa: ${tasaMensual.toFixed(4)}% mensual</small>
+                <small class="text-muted d-block">Interés restante estimado: ${formatCurrency(interestPending)}</small>
             </td>
             <td>${formatCurrency(d.cuota_mensual || 0)}</td>
             <td class="text-warning fw-semibold">${formatCurrency(d.saldo_pendiente || 0)}</td>
@@ -752,8 +797,9 @@ function renderDiferidosTable() {
             }
         }
         
-        // Calcular total de interés pendiente
-        const interestPending = Math.max(0, (d.total_intereses || 0) - (d.intereses_pagados || 0));
+        // Mostrar la tasa mensual del diferido y la suma estimada del interés que queda por pagar
+        const tasaMensual = Number(d.tasa_mensual || 0);
+        const interestPending = calcularInteresRestanteDiferido(d);
         
         html += `<tr>
             <td>
@@ -764,7 +810,8 @@ function renderDiferidosTable() {
             <td style="min-width:180px;">
                 <div class="small mb-1">${esc(d.progreso_texto || '')}</div>
                 <div class="progress" style="height:8px;"><div class="progress-bar bg-warning" style="width:${pct}%"></div></div>
-                <small class="text-danger">Interés: ${formatCurrency(interestPending)}</small>
+                <small class="text-danger">Tasa: ${tasaMensual.toFixed(4)}% mensual</small>
+                <small class="text-muted d-block">Interés restante estimado: ${formatCurrency(interestPending)}</small>
             </td>
             <td>${formatCurrency(d.cuota_mensual || 0)}</td>
             <td class="text-warning fw-semibold">${formatCurrency(d.saldo_pendiente || 0)}</td>
@@ -789,10 +836,11 @@ function renderDiferidosTable() {
 
 function renderIndicadorFechas() {
     const cont = document.getElementById('indicadorFechas');
-    if (!catalogos.tarjetas.length) { cont.innerHTML = ''; return; }
+    const tarjetasActivas = getTarjetasActivas();
+    if (!tarjetasActivas.length) { cont.innerHTML = ''; return; }
     const hoy = new Date(); hoy.setHours(0,0,0,0);
     let html = '';
-    catalogos.tarjetas.forEach(t => {
+    tarjetasActivas.forEach(t => {
         [{label: 'Corte', campo: 'fecha_corte'}, {label: 'Pago', campo: 'fecha_pago'}].forEach(({label, campo}) => {
             if (!t[campo]) return;
             const df = new Date(t[campo] + 'T00:00:00');
@@ -810,9 +858,10 @@ function renderIndicadorFechas() {
 
 function renderBarrasCredito() {
     const cont = document.getElementById('barrasCredito');
-    if (!catalogos.tarjetas.length) { cont.innerHTML = ''; return; }
+    const tarjetasActivas = getTarjetasActivas();
+    if (!tarjetasActivas.length) { cont.innerHTML = ''; return; }
     let html = '<div class="card card-body py-2 mb-0"><div class="row g-3">';
-    catalogos.tarjetas.forEach(t => {
+    tarjetasActivas.forEach(t => {
         const limite = Number(t.limite_credito) || 1;
         const usado = Number(t.saldo_actual) || 0;
         const pct = Math.min(100, Math.round((usado / limite) * 100));
@@ -830,13 +879,16 @@ function onFiltroTarjetaChange() {
     const panel = document.getElementById('panelTarjetaInfo');
     const body = document.getElementById('panelTarjetaInfoBody');
     if (!tarjetaId) { panel.style.display = 'none'; filtrar(); return; }
-    const t = catalogos.tarjetas.find(x => String(x.id_tarjeta) === String(tarjetaId));
+    const t = getTarjetasActivas().find(x => String(x.id_tarjeta) === String(tarjetaId));
     if (!t) { panel.style.display = 'none'; filtrar(); return; }
 
     const hoy = new Date(); hoy.setHours(0,0,0,0);
     const diasCorte = t.fecha_corte ? Math.round((new Date(t.fecha_corte + 'T00:00:00') - hoy) / 86400000) : null;
     const diasPago = t.fecha_pago ? Math.round((new Date(t.fecha_pago + 'T00:00:00') - hoy) / 86400000) : null;
     const disp = Number(t.limite_credito) - Number(t.saldo_actual);
+    const cobraInteres1Cuota = !!t.cobra_interes_compra_1_cuota;
+    const tasaInteres1Cuota = Number(t.tasa_interes_compra_1_cuota || 0);
+    const interesEstimadoMes = Number(t.interes_estimado_mes || 0);
 
     const fmtDias = (d, label) => {
         if (d === null) return '—';
@@ -846,7 +898,7 @@ function onFiltroTarjetaChange() {
         return `<span class="${cls}">${label} en ${d} día${d !== 1 ? 's' : ''}</span>`;
     };
 
-    body.innerHTML = `<div class="col-md-4"><small class="text-muted d-block">Límite</small><strong>${formatCurrency(t.limite_credito)}</strong></div><div class="col-md-4"><small class="text-muted d-block">Saldo usado</small><strong class="text-warning">${formatCurrency(t.saldo_actual)}</strong></div><div class="col-md-4"><small class="text-muted d-block">Disponible</small><strong class="text-success">${formatCurrency(disp)}</strong></div><div class="col-md-6"><small class="text-muted d-block">Fecha de corte</small><span>${t.fecha_corte || '—'}</span> ${fmtDias(diasCorte, 'Corte')}</div><div class="col-md-6"><small class="text-muted d-block">Fecha de pago</small><span>${t.fecha_pago || '—'}</span> ${fmtDias(diasPago, 'Pago')}</div>`;
+    body.innerHTML = `<div class="col-md-4"><small class="text-muted d-block">Límite</small><strong>${formatCurrency(t.limite_credito)}</strong></div><div class="col-md-4"><small class="text-muted d-block">Saldo usado</small><strong class="text-warning">${formatCurrency(t.saldo_actual)}</strong></div><div class="col-md-4"><small class="text-muted d-block">Disponible</small><strong class="text-success">${formatCurrency(disp)}</strong></div><div class="col-md-6"><small class="text-muted d-block">Fecha de corte</small><span>${t.fecha_corte || '—'}</span> ${fmtDias(diasCorte, 'Corte')}</div><div class="col-md-6"><small class="text-muted d-block">Fecha de pago</small><span>${t.fecha_pago || '—'}</span> ${fmtDias(diasPago, 'Pago')}</div><div class="col-md-6"><small class="text-muted d-block">Interés en 1 cuota</small><strong class="${cobraInteres1Cuota ? 'text-danger' : 'text-success'}">${cobraInteres1Cuota ? 'Sí' : 'No'}</strong>${cobraInteres1Cuota ? `<small class="d-block text-muted">Tasa: ${tasaInteres1Cuota.toFixed(4)}% mensual</small>` : ''}</div><div class="col-md-6"><small class="text-muted d-block">Interés estimado del mes</small><strong class="text-danger">${formatCurrency(interesEstimadoMes)}</strong></div>`;
     panel.style.display = '';
     filtrar();
 }
@@ -903,18 +955,20 @@ function filtrar() {
     const estado = (document.getElementById('filtroEstado').value || '').toLowerCase();
     const preset = document.getElementById('filtroPeriodo').value;
     const rango = getDateRange(preset);
+    const tarjetasActivasSet = new Set(getTarjetasActivas().map(t => String(t.id_tarjeta)));
 
     filteredRows = allRows.filter(r => {
         const txt = `${r.nota || ''} ${r.categoria || ''} ${r.beneficiario || ''} ${r.tarjeta_nombre || ''}`.toLowerCase();
         const okQ = !q || txt.includes(q);
         const okTarj = !tarjeta || String(r.id_tarjeta) === String(tarjeta);
         const okEst = !estado || (r.estado || '').toLowerCase() === estado;
+        const okTarjetaActiva = tarjetasActivasSet.has(String(r.id_tarjeta));
         let okFecha = true;
         if (rango && r.fecha) {
             const f = new Date(r.fecha + 'T12:00:00');
             okFecha = f >= rango.from && f <= rango.to;
         }
-        return okQ && okTarj && okEst && okFecha;
+        return okQ && okTarj && okEst && okFecha && okTarjetaActiva;
     });
 
     render(filteredRows);
@@ -926,16 +980,17 @@ function filtrar() {
 }
 
 function renderKpi(rows) {
+    const tarjetasActivas = getTarjetasActivas();
     const compras = rows.filter(r => (r.estado || '') === 'compra').reduce((s, r) => s + Math.abs(Number(r.valor || 0)), 0);
     const abonos = rows.filter(r => (r.estado || '') === 'abono').reduce((s, r) => s + Math.abs(Number(r.valor || 0)), 0);
 
     document.getElementById('kpiCompras').textContent = formatCurrency(compras);
     document.getElementById('kpiAbonos').textContent = formatCurrency(abonos);
     document.getElementById('kpiMovimientos').textContent = rows.length;
-    document.getElementById('kpiTarjetas').textContent = catalogos.tarjetas.length;
+    document.getElementById('kpiTarjetas').textContent = tarjetasActivas.length;
 
-    const saldoTotal = catalogos.tarjetas.reduce((s, t) => s + Number(t.saldo_actual || 0), 0);
-    const dispTotal = catalogos.tarjetas.reduce((s, t) => s + (Number(t.limite_credito) - Number(t.saldo_actual)), 0);
+    const saldoTotal = tarjetasActivas.reduce((s, t) => s + Number(t.saldo_actual || 0), 0);
+    const dispTotal = tarjetasActivas.reduce((s, t) => s + (Number(t.limite_credito) - Number(t.saldo_actual)), 0);
     document.getElementById('kpiSaldo').textContent = formatCurrency(saldoTotal);
     document.getElementById('kpiDisponible').textContent = formatCurrency(dispTotal);
 

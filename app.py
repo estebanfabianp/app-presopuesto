@@ -203,10 +203,17 @@ def create_app(env='development'):
 if __name__ == "__main__":
     # Crear la app
     app = create_app(os.getenv('FLASK_ENV', 'development'))
+
+    def _env_bool(name: str, default: bool) -> bool:
+        raw = os.getenv(name)
+        if raw is None:
+            return default
+        return str(raw).strip().lower() in {'1', 'true', 'yes', 'y', 'on'}
     
     # Ejecutar servidor
     app.run(
         host=os.getenv('FLASK_HOST', '127.0.0.1'),
         port=int(os.getenv('FLASK_PORT', 5000)),
-        debug=os.getenv('FLASK_DEBUG', True)
+        debug=_env_bool('FLASK_DEBUG', True),
+        use_reloader=_env_bool('FLASK_USE_RELOADER', False)
     )

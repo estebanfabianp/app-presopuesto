@@ -12,7 +12,7 @@ Todos los endpoints requieren JWT.  El id_persona proviene del token.
 
 import logging
 import calendar
-from datetime import date
+from datetime import date, datetime
 import secrets
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
@@ -107,6 +107,69 @@ def _normalize_card_number(raw_value, current_value=None):
     return _generate_surrogate_card_number(raw_digits[-4:])
 
 
+def _ensure_tarjeta_interest_columns(db: DatabaseConnector) -> None:
+    """Garantiza columnas para calcular interes en compras a una cuota."""
+    cols = db.execute_query(
+        """
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'tarjeta_credito'
+          AND COLUMN_NAME IN ('cobra_interes_compra_1_cuota', 'tasa_interes_compra_1_cuota')
+        """
+    ) or []
+    existing = {str(r.get('COLUMN_NAME')) for r in cols}
+
+    if 'cobra_interes_compra_1_cuota' not in existing:
+        db.execute_non_query(
+            """
+            ALTER TABLE tarjeta_credito
+            ADD COLUMN cobra_interes_compra_1_cuota TINYINT(1) NOT NULL DEFAULT 0
+            """
+        )
+
+    if 'tasa_interes_compra_1_cuota' not in existing:
+        db.execute_non_query(
+            """
+            ALTER TABLE tarjeta_credito
+            ADD COLUMN tasa_interes_compra_1_cuota DECIMAL(8,4) NOT NULL DEFAULT 0
+            """
+        )
+
+
+def _ensure_tarjeta_diferido_table(db: DatabaseConnector) -> None:
+    """Garantiza la tabla de seguimiento de diferidos para tarjetas."""
+    db.execute_non_query(
+        """
+        CREATE TABLE IF NOT EXISTS tarjeta_diferido (
+            id_diferido INT AUTO_INCREMENT PRIMARY KEY,
+            id_tarjeta INT NOT NULL,
+            id_persona INT NOT NULL,
+            id_movimiento_tarjeta INT NULL,
+            descripcion VARCHAR(255) NOT NULL,
+            valor_total DECIMAL(15,2) NOT NULL,
+            numero_cuotas INT NOT NULL,
+            tasa_mensual DECIMAL(10,6) NOT NULL DEFAULT 0,
+            sin_interes TINYINT(1) NOT NULL DEFAULT 0,
+            cuota_mensual DECIMAL(15,2) NOT NULL,
+            total_intereses DECIMAL(15,2) NOT NULL DEFAULT 0,
+            total_pagado_estimado DECIMAL(15,2) NOT NULL,
+            cuotas_pagadas INT NOT NULL DEFAULT 0,
+            saldo_pendiente DECIMAL(15,2) NOT NULL,
+            fecha_compra DATE NOT NULL,
+            fecha_proximo_pago DATE NULL,
+            estado VARCHAR(20) NOT NULL DEFAULT 'activo',
+            numero_transaccion VARCHAR(60) NULL,
+            fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+            fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_td_persona (id_persona),
+            INDEX idx_td_tarjeta (id_tarjeta),
+            INDEX idx_td_estado (estado)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """
+    )
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # GET /api/productos  — resumen unificado
 # ──────────────────────────────────────────────────────────────────────────────
@@ -116,6 +179,7 @@ def list_productos():
     persona_id = _persona_id()
     db = DatabaseConnector()
     try:
+        _ensure_tarjeta_interest_columns(db)
         solo_activos = request.args.get('solo_activos', 'false').lower() == 'true'
 
         # ── Cuentas (desde tabla directa) ─────────────────────────────────────
@@ -153,17 +217,52 @@ def list_productos():
                     t.banco,
                     t.tipo_tarjeta,
                     t.limite_credito,
-                    t.saldo_actual,
+                    CASE
+                        WHEN sm.saldo_movimientos IS NULL AND sd.saldo_diferidos IS NULL THEN COALESCE(t.saldo_actual, 0)
+                        ELSE (
+                            GREATEST(0, COALESCE(sm.saldo_movimientos, 0))
+                            + GREATEST(0, COALESCE(sd.saldo_diferidos, 0))
+                        )
+                    END AS saldo_actual,
+                    t.saldo_inicial,
                     t.fecha_vencimiento,
                     t.fecha_corte,
                     t.fecha_pago,
+                    t.cobra_interes_compra_1_cuota,
+                    t.tasa_interes_compra_1_cuota,
                     t.fecha_creacion,
                     UPPER(COALESCE(t.estado, 'ACTIVA')) AS estado_tarjeta,
                     t.id_persona
                FROM tarjeta_credito t
+               LEFT JOIN (
+                    SELECT
+                        mt.id_tarjeta,
+                        ROUND(SUM(
+                            CASE
+                                WHEN LOWER(COALESCE(mt.estado, '')) IN ('abono', 'aprobado') THEN -ABS(COALESCE(mt.valor, 0))
+                                ELSE ABS(COALESCE(mt.valor, 0))
+                            END
+                        ), 2) AS saldo_movimientos
+                    FROM movimiento_tarjeta mt
+                    WHERE mt.id_persona = %s
+                    GROUP BY mt.id_tarjeta
+               ) sm ON sm.id_tarjeta = t.id_tarjeta
+               LEFT JOIN (
+                    SELECT
+                        td.id_tarjeta,
+                        ROUND(SUM(
+                            CASE
+                                WHEN LOWER(COALESCE(td.estado, '')) = 'activo' THEN COALESCE(td.saldo_pendiente, 0)
+                                ELSE 0
+                            END
+                        ), 2) AS saldo_diferidos
+                    FROM tarjeta_diferido td
+                    WHERE td.id_persona = %s
+                    GROUP BY td.id_tarjeta
+               ) sd ON sd.id_tarjeta = t.id_tarjeta
                WHERE t.id_persona = %s
                ORDER BY t.fecha_creacion DESC, t.id_tarjeta DESC""",
-            (persona_id,),
+            (persona_id, persona_id, persona_id),
         ) or []
 
         # ── Acciones / Fondos ─────────────────────────────────────────────────
@@ -240,6 +339,11 @@ def _serializar_cuenta(r):
     }
 
 def _serializar_tarjeta(r):
+    cobra_interes_1_cuota = bool(int(r.get('cobra_interes_compra_1_cuota') or 0))
+    tasa_interes_1_cuota = float(r.get('tasa_interes_compra_1_cuota') or 0)
+    saldo_actual = float(r['saldo_actual'] or 0)
+    interes_estimado = (saldo_actual * tasa_interes_1_cuota / 100.0) if cobra_interes_1_cuota and tasa_interes_1_cuota > 0 else 0.0
+
     return {
         'id': r['id'], 'nombre': r.get('nombre') or f"Tarjeta {r.get('numero_tarjeta','')[-4:]}",
         'numero_tarjeta': r.get('numero_tarjeta'),
@@ -247,7 +351,11 @@ def _serializar_tarjeta(r):
         'banco': r.get('banco'),
         'tipo_tarjeta': r.get('tipo_tarjeta') or 'credito',
         'limite_credito': float(r['limite_credito'] or 0),
-        'saldo_actual': float(r['saldo_actual'] or 0),
+        'saldo_inicial': float(r.get('saldo_inicial') or 0),
+        'saldo_actual': saldo_actual,
+        'cobra_interes_compra_1_cuota': cobra_interes_1_cuota,
+        'tasa_interes_compra_1_cuota': tasa_interes_1_cuota,
+        'interes_estimado_mes': round(interes_estimado, 2),
         'fecha_vencimiento': _fmt(r.get('fecha_vencimiento')),
         'fecha_corte': _fmt(r.get('fecha_corte')),
         'fecha_pago': _fmt(r.get('fecha_pago')),
@@ -506,6 +614,7 @@ def create_tarjeta():
     persona_id = _persona_id()
     db = DatabaseConnector()
     try:
+        _ensure_tarjeta_interest_columns(db)
         d = request.get_json() or {}
         try:
             numero_tarjeta = _normalize_card_number(d.get('numero_tarjeta'))
@@ -515,7 +624,8 @@ def create_tarjeta():
         banco = (d.get('banco') or '').strip()
         tipo_tarjeta = (d.get('tipo_tarjeta') or 'credito').strip().lower()
         limite_credito = float(d.get('limite_credito') or 0)
-        saldo_actual = float(d.get('saldo_actual') or 0)
+        saldo_inicial = float(d.get('saldo_inicial') or 0)
+        saldo_actual = float(d.get('saldo_actual') or saldo_inicial)
         fecha_vencimiento = d.get('fecha_vencimiento') or None
         try:
             fecha_corte = _normalize_card_day(d, 'fecha_corte', 'dia_corte')
@@ -523,17 +633,25 @@ def create_tarjeta():
         except ValueError as ve:
             return jsonify({'message': str(ve)}), 400
         estado = (d.get('estado') or 'activa').strip().lower()
+        cobra_interes_1_cuota = bool(d.get('cobra_interes_compra_1_cuota') or False)
+        tasa_interes_1_cuota = float(d.get('tasa_interes_compra_1_cuota') or 0)
 
         # Validaciones
         if not nombre_titular:
             return jsonify({'message': 'El nombre del titular es obligatorio'}), 400
+        if tasa_interes_1_cuota < 0 or tasa_interes_1_cuota > 100:
+            return jsonify({'message': 'La tasa para compras a una cuota debe estar entre 0 y 100'}), 400
+        if not cobra_interes_1_cuota:
+            tasa_interes_1_cuota = 0.0
 
         db.execute_non_query(
             """INSERT INTO tarjeta_credito (numero_tarjeta, nombre_titular, banco, tipo_tarjeta,
-                    limite_credito, saldo_actual, fecha_vencimiento, fecha_corte, fecha_pago, estado, id_persona)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-            (numero_tarjeta, nombre_titular, banco, tipo_tarjeta, limite_credito, saldo_actual,
-                 fecha_vencimiento, fecha_corte, fecha_pago, estado, persona_id),
+                    limite_credito, saldo_inicial, saldo_actual, fecha_vencimiento, fecha_corte, fecha_pago,
+                    estado, cobra_interes_compra_1_cuota, tasa_interes_compra_1_cuota, id_persona)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (numero_tarjeta, nombre_titular, banco, tipo_tarjeta, limite_credito, saldo_inicial, saldo_actual,
+                 fecha_vencimiento, fecha_corte, fecha_pago, estado,
+                 1 if cobra_interes_1_cuota else 0, tasa_interes_1_cuota, persona_id),
         )
         return jsonify({'message': 'Tarjeta creada', 'status': 'success'}), 201
     except Exception as e:
@@ -549,6 +667,7 @@ def update_tarjeta(tarjeta_id):
     persona_id = _persona_id()
     db = DatabaseConnector()
     try:
+        _ensure_tarjeta_interest_columns(db)
         row = db.execute_query(
             "SELECT id_tarjeta, numero_tarjeta FROM tarjeta_credito WHERE id_tarjeta=%s AND id_persona=%s LIMIT 1",
             (tarjeta_id, persona_id),
@@ -568,6 +687,7 @@ def update_tarjeta(tarjeta_id):
         banco = (d.get('banco') or '').strip()
         tipo_tarjeta = (d.get('tipo_tarjeta') or 'credito').strip().lower()
         limite_credito = float(d.get('limite_credito') or 0)
+        saldo_inicial = float(d.get('saldo_inicial') or 0)
         saldo_actual = float(d.get('saldo_actual') or 0)
         fecha_vencimiento = d.get('fecha_vencimiento') or None
         try:
@@ -576,18 +696,26 @@ def update_tarjeta(tarjeta_id):
         except ValueError as ve:
             return jsonify({'message': str(ve)}), 400
         estado = (d.get('estado') or 'activa').strip().lower()
+        cobra_interes_1_cuota = bool(d.get('cobra_interes_compra_1_cuota') or False)
+        tasa_interes_1_cuota = float(d.get('tasa_interes_compra_1_cuota') or 0)
 
         # Validaciones
         if not nombre_titular:
             return jsonify({'message': 'El nombre del titular es obligatorio'}), 400
+        if tasa_interes_1_cuota < 0 or tasa_interes_1_cuota > 100:
+            return jsonify({'message': 'La tasa para compras a una cuota debe estar entre 0 y 100'}), 400
+        if not cobra_interes_1_cuota:
+            tasa_interes_1_cuota = 0.0
 
         db.execute_non_query(
             """UPDATE tarjeta_credito SET numero_tarjeta=%s, nombre_titular=%s, banco=%s,
-                    tipo_tarjeta=%s, limite_credito=%s, saldo_actual=%s, fecha_vencimiento=%s,
-                          fecha_corte=%s, fecha_pago=%s, estado=%s, id_persona=%s
+                    tipo_tarjeta=%s, limite_credito=%s, saldo_inicial=%s, saldo_actual=%s, fecha_vencimiento=%s,
+                          fecha_corte=%s, fecha_pago=%s, estado=%s,
+                          cobra_interes_compra_1_cuota=%s, tasa_interes_compra_1_cuota=%s, id_persona=%s
                WHERE id_tarjeta=%s""",
-            (numero_tarjeta, nombre_titular, banco, tipo_tarjeta, limite_credito, saldo_actual,
-                      fecha_vencimiento, fecha_corte, fecha_pago, estado, persona_id, tarjeta_id),
+            (numero_tarjeta, nombre_titular, banco, tipo_tarjeta, limite_credito, saldo_inicial, saldo_actual,
+                      fecha_vencimiento, fecha_corte, fecha_pago, estado,
+                      1 if cobra_interes_1_cuota else 0, tasa_interes_1_cuota, persona_id, tarjeta_id),
         )
         return jsonify({'message': 'Tarjeta actualizada', 'status': 'success'}), 200
     except Exception as e:
@@ -615,6 +743,211 @@ def toggle_tarjeta(tarjeta_id):
     except Exception as e:
         logger.error('Error toggle tarjeta %s: %s', tarjeta_id, e)
         return jsonify({'message': 'Error al cambiar estado'}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/tarjetas/<int:tarjeta_id_origen>/paso-deuda', methods=['POST'])
+def paso_deuda_tarjeta(tarjeta_id_origen):
+    """Traslada diferidos vivos de una tarjeta origen a una tarjeta destino.
+
+    Regla funcional:
+    - Copia diferidos activos (saldo_pendiente > 0) a la tarjeta nueva.
+    - Los diferidos de la tarjeta antigua quedan desactivados como 'trasladado'.
+    """
+    verify_jwt_in_request()
+    persona_id = _persona_id()
+    db = DatabaseConnector()
+    try:
+        _ensure_tarjeta_diferido_table(db)
+        _ensure_tarjeta_interest_columns(db)
+
+        payload = request.get_json() or {}
+        try:
+            tarjeta_id_destino = int(payload.get('id_tarjeta_destino') or 0)
+        except (TypeError, ValueError):
+            return jsonify({'message': 'id_tarjeta_destino inválido'}), 400
+
+        if tarjeta_id_destino <= 0:
+            return jsonify({'message': 'id_tarjeta_destino es obligatorio'}), 400
+        if tarjeta_id_destino == tarjeta_id_origen:
+            return jsonify({'message': 'La tarjeta destino debe ser diferente a la tarjeta origen'}), 400
+
+        tarjetas_validas = db.execute_query(
+            """
+            SELECT id_tarjeta
+            FROM tarjeta_credito
+            WHERE id_persona = %s
+              AND id_tarjeta IN (%s, %s)
+            """,
+            (persona_id, tarjeta_id_origen, tarjeta_id_destino),
+        ) or []
+
+        if len(tarjetas_validas) != 2:
+            return jsonify({'message': 'Tarjeta origen o destino no encontrada para el usuario'}), 404
+
+        diferidos_vivos = db.execute_query(
+            """
+            SELECT
+                id_diferido,
+                id_movimiento_tarjeta,
+                descripcion,
+                valor_total,
+                numero_cuotas,
+                tasa_mensual,
+                sin_interes,
+                cuota_mensual,
+                total_intereses,
+                total_pagado_estimado,
+                cuotas_pagadas,
+                saldo_pendiente,
+                fecha_compra,
+                fecha_proximo_pago,
+                numero_transaccion
+            FROM tarjeta_diferido
+            WHERE id_persona = %s
+              AND id_tarjeta = %s
+              AND LOWER(COALESCE(estado, '')) = 'activo'
+              AND COALESCE(saldo_pendiente, 0) > 0
+            ORDER BY id_diferido
+            """,
+            (persona_id, tarjeta_id_origen),
+        ) or []
+
+        if not diferidos_vivos:
+            return jsonify({'message': 'No hay diferidos vivos para trasladar en la tarjeta origen'}), 400
+
+        cursor = db.conn.cursor(dictionary=True)
+        try:
+            nuevos = 0
+            pagos_copiados = 0
+            trasladados_ids = []
+            ts = int(datetime.now().timestamp())
+
+            for item in diferidos_vivos:
+                old_id = int(item['id_diferido'])
+                num_tx_original = str(item.get('numero_transaccion') or '').strip()
+                if num_tx_original:
+                    numero_tx_nuevo = f"{num_tx_original[:40]}-TR-{old_id}"
+                else:
+                    numero_tx_nuevo = f"TR-{old_id}-{ts}"
+                numero_tx_nuevo = numero_tx_nuevo[:60]
+
+                cursor.execute(
+                    """
+                    INSERT INTO tarjeta_diferido (
+                        id_tarjeta,
+                        id_persona,
+                        id_movimiento_tarjeta,
+                        descripcion,
+                        valor_total,
+                        numero_cuotas,
+                        tasa_mensual,
+                        sin_interes,
+                        cuota_mensual,
+                        total_intereses,
+                        total_pagado_estimado,
+                        cuotas_pagadas,
+                        saldo_pendiente,
+                        fecha_compra,
+                        fecha_proximo_pago,
+                        estado,
+                        numero_transaccion
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'activo', %s)
+                    """,
+                    (
+                        tarjeta_id_destino,
+                        persona_id,
+                        item.get('id_movimiento_tarjeta'),
+                        item.get('descripcion'),
+                        item.get('valor_total'),
+                        item.get('numero_cuotas'),
+                        item.get('tasa_mensual'),
+                        item.get('sin_interes'),
+                        item.get('cuota_mensual'),
+                        item.get('total_intereses'),
+                        item.get('total_pagado_estimado'),
+                        item.get('cuotas_pagadas'),
+                        item.get('saldo_pendiente'),
+                        item.get('fecha_compra'),
+                        item.get('fecha_proximo_pago'),
+                        numero_tx_nuevo,
+                    ),
+                )
+                new_id = cursor.lastrowid
+                nuevos += 1
+                trasladados_ids.append(old_id)
+
+                cursor.execute(
+                    """
+                    SELECT numero_cuota, fecha_pago, valor_pagado, interes_pagado, capital_pagado, saldo_restante
+                    FROM tarjeta_diferido_pago
+                    WHERE id_diferido = %s
+                    ORDER BY numero_cuota
+                    """,
+                    (old_id,),
+                )
+                pagos_previos = cursor.fetchall() or []
+
+                for p in pagos_previos:
+                    cursor.execute(
+                        """
+                        INSERT INTO tarjeta_diferido_pago
+                            (id_diferido, numero_cuota, fecha_pago, valor_pagado, interes_pagado, capital_pagado, saldo_restante)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            new_id,
+                            p.get('numero_cuota'),
+                            p.get('fecha_pago'),
+                            p.get('valor_pagado'),
+                            p.get('interes_pagado'),
+                            p.get('capital_pagado'),
+                            p.get('saldo_restante'),
+                        ),
+                    )
+                pagos_copiados += len(pagos_previos)
+
+            cursor.executemany(
+                """
+                UPDATE tarjeta_diferido
+                SET estado = 'trasladado',
+                    fecha_proximo_pago = NULL
+                WHERE id_diferido = %s
+                  AND id_persona = %s
+                """,
+                [(x, persona_id) for x in trasladados_ids],
+            )
+
+            cursor.execute(
+                """
+                UPDATE tarjeta_credito
+                SET estado = 'inactiva'
+                WHERE id_tarjeta = %s
+                    AND id_persona = %s
+                """,
+                (tarjeta_id_origen, persona_id),
+            )
+
+            db.conn.commit()
+        except Exception:
+            db.conn.rollback()
+            raise
+        finally:
+            cursor.close()
+
+        return jsonify({
+            'message': 'Paso de deuda realizado correctamente',
+            'tarjeta_origen': tarjeta_id_origen,
+            'tarjeta_destino': tarjeta_id_destino,
+            'tarjeta_origen_estado': 'inactiva',
+            'diferidos_trasladados': nuevos,
+            'pagos_copiados': pagos_copiados,
+            'status': 'success',
+        }), 200
+    except Exception as e:
+        logger.error('Error en paso de deuda de tarjeta %s: %s', tarjeta_id_origen, e)
+        return jsonify({'message': 'Error al realizar el paso de deuda', 'error': str(e)}), 500
     finally:
         db.close()
 

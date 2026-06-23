@@ -141,7 +141,13 @@ class NuevaTransaccionView(ft.View):
             self._active_user_id = int(user_rows[0]["id_persona"])
 
             account_rows = db.execute_query(
-                "SELECT id_cuenta, nombre FROM cuenta WHERE id_persona = %s ORDER BY id_cuenta",
+                                """
+                                SELECT id_cuenta, nombre
+                                FROM cuenta
+                                WHERE id_persona = %s
+                                    AND COALESCE(LOWER(estado), 'activo') IN ('activo', 'activa')
+                                ORDER BY id_cuenta
+                                """,
                 (self._active_user_id,),
             )
             account_options = [
@@ -156,11 +162,13 @@ class NuevaTransaccionView(ft.View):
                 """
                 SELECT tc.id_tarjeta, tc.numero_tarjeta
                 FROM tarjeta_credito tc
+                LEFT JOIN estado_tarjeta et ON tc.id_estado = et.id_estado
                 WHERE EXISTS (
                     SELECT 1
                     FROM movimiento_tarjeta mt
                     WHERE mt.id_tarjeta = tc.id_tarjeta AND mt.id_persona = %s
                 )
+                  AND COALESCE(LOWER(et.nombre), 'activa') = 'activa'
                 ORDER BY tc.id_tarjeta
                 """,
                 (self._active_user_id,),
@@ -637,7 +645,14 @@ class NuevaTransaccionView(ft.View):
                 id_persona = int(user_row["id_persona"])
 
                 cursor.execute(
-                    "SELECT id_cuenta FROM cuenta WHERE id_persona = %s ORDER BY id_cuenta LIMIT 1",
+                                        """
+                                        SELECT id_cuenta
+                                        FROM cuenta
+                                        WHERE id_persona = %s
+                                            AND COALESCE(LOWER(estado), 'activo') IN ('activo', 'activa')
+                                        ORDER BY id_cuenta
+                                        LIMIT 1
+                                        """,
                     (id_persona,),
                 )
                 account_row = cursor.fetchone()

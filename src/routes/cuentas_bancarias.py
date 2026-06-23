@@ -148,6 +148,7 @@ def get_catalogos():
                LEFT JOIN movimiento m ON m.id_cuenta = c.id_cuenta
                LEFT JOIN tipo_movimiento tm ON tm.id_tipo = m.id_tipo
                WHERE c.id_persona = %s
+                                 AND COALESCE(LOWER(c.estado), 'activo') IN ('activo', 'activa')
                GROUP BY c.id_cuenta, c.nombre, c.tipo, c.moneda, c.saldo_inicial
                ORDER BY c.nombre""",
             (user_id,),

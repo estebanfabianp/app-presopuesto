@@ -56,18 +56,22 @@ CREATE TRIGGER `tr_update_saldo_tarjeta_after_delete`
 AFTER DELETE ON `movimiento_tarjeta` 
 FOR EACH ROW 
 BEGIN
-  -- Recalcula el saldo de la tarjeta después de eliminar un movimiento
+  -- Fórmula: saldo_inicial + compras - abonos + saldo_pendiente diferidos activos
   UPDATE tarjeta_credito
-  SET saldo_actual = (
+  SET saldo_actual = saldo_inicial + (
     SELECT IFNULL(SUM(
       CASE
-        WHEN estado = 'abono' THEN -valor    -- Abonos reducen la deuda
-        WHEN estado = 'compra' THEN valor    -- Compras aumentan la deuda
+        WHEN estado = 'abono'    THEN -valor
+        WHEN estado = 'compra'   THEN  valor
         ELSE 0
       END
     ), 0)
     FROM movimiento_tarjeta
     WHERE id_tarjeta = OLD.id_tarjeta
+  ) + (
+    SELECT IFNULL(SUM(saldo_pendiente), 0)
+    FROM tarjeta_diferido
+    WHERE id_tarjeta = OLD.id_tarjeta AND estado = 'activo'
   )
   WHERE id_tarjeta = OLD.id_tarjeta;
 END$$
@@ -78,17 +82,22 @@ CREATE TRIGGER `tr_update_saldo_tarjeta_after_insert`
 AFTER INSERT ON `movimiento_tarjeta` 
 FOR EACH ROW 
 BEGIN
+  -- Fórmula: saldo_inicial + compras - abonos + saldo_pendiente diferidos activos
   UPDATE tarjeta_credito
-  SET saldo_actual = (
+  SET saldo_actual = saldo_inicial + (
     SELECT IFNULL(SUM(
       CASE
-        WHEN estado = 'abono' THEN -valor
-        WHEN estado = 'compra' THEN valor
+        WHEN estado = 'abono'    THEN -valor
+        WHEN estado = 'compra'   THEN  valor
         ELSE 0
       END
     ), 0)
     FROM movimiento_tarjeta
     WHERE id_tarjeta = NEW.id_tarjeta
+  ) + (
+    SELECT IFNULL(SUM(saldo_pendiente), 0)
+    FROM tarjeta_diferido
+    WHERE id_tarjeta = NEW.id_tarjeta AND estado = 'activo'
   )
   WHERE id_tarjeta = NEW.id_tarjeta;
 END$$
@@ -102,32 +111,117 @@ BEGIN
   -- Si cambió la tarjeta, actualizar la tarjeta anterior
   IF OLD.id_tarjeta <> NEW.id_tarjeta THEN
     UPDATE tarjeta_credito
-    SET saldo_actual = (
+    SET saldo_actual = saldo_inicial + (
       SELECT IFNULL(SUM(
         CASE
-          WHEN estado = 'abono' THEN -valor
-          WHEN estado = 'compra' THEN valor
+          WHEN estado = 'abono'    THEN -valor
+          WHEN estado = 'compra'   THEN  valor
           ELSE 0
         END
       ), 0)
       FROM movimiento_tarjeta
       WHERE id_tarjeta = OLD.id_tarjeta
+    ) + (
+      SELECT IFNULL(SUM(saldo_pendiente), 0)
+      FROM tarjeta_diferido
+      WHERE id_tarjeta = OLD.id_tarjeta AND estado = 'activo'
     )
     WHERE id_tarjeta = OLD.id_tarjeta;
   END IF;
 
   -- Actualizar la tarjeta nueva/actual
   UPDATE tarjeta_credito
-  SET saldo_actual = (
+  SET saldo_actual = saldo_inicial + (
     SELECT IFNULL(SUM(
       CASE
-        WHEN estado = 'abono' THEN -valor
-        WHEN estado = 'compra' THEN valor
+        WHEN estado = 'abono'    THEN -valor
+        WHEN estado = 'compra'   THEN  valor
         ELSE 0
       END
     ), 0)
     FROM movimiento_tarjeta
     WHERE id_tarjeta = NEW.id_tarjeta
+  ) + (
+    SELECT IFNULL(SUM(saldo_pendiente), 0)
+    FROM tarjeta_diferido
+    WHERE id_tarjeta = NEW.id_tarjeta AND estado = 'activo'
+  )
+  WHERE id_tarjeta = NEW.id_tarjeta;
+END$$
+
+-- =================================================================
+-- TRIGGERS PARA TABLA TARJETA_DIFERIDO
+-- Descripción: Recalcula saldo_actual de la tarjeta cuando cambia
+--             el saldo_pendiente o el estado de un diferido
+-- =================================================================
+
+-- Trigger: Insertar diferido - Recalcula saldo de tarjeta
+DROP TRIGGER IF EXISTS `tr_update_saldo_tarjeta_diferido_insert`$$
+CREATE TRIGGER `tr_update_saldo_tarjeta_diferido_insert`
+AFTER INSERT ON `tarjeta_diferido`
+FOR EACH ROW
+BEGIN
+  UPDATE tarjeta_credito
+  SET saldo_actual = saldo_inicial + (
+    SELECT IFNULL(SUM(
+      CASE
+        WHEN estado = 'abono'    THEN -valor
+        WHEN estado = 'compra'   THEN  valor
+        ELSE 0
+      END
+    ), 0)
+    FROM movimiento_tarjeta
+    WHERE id_tarjeta = NEW.id_tarjeta
+  ) + (
+    SELECT IFNULL(SUM(saldo_pendiente), 0)
+    FROM tarjeta_diferido
+    WHERE id_tarjeta = NEW.id_tarjeta AND estado = 'activo'
+  )
+  WHERE id_tarjeta = NEW.id_tarjeta;
+END$$
+
+-- Trigger: Actualizar diferido - Recalcula saldo de tarjeta
+DROP TRIGGER IF EXISTS `tr_update_saldo_tarjeta_diferido_update`$$
+CREATE TRIGGER `tr_update_saldo_tarjeta_diferido_update`
+AFTER UPDATE ON `tarjeta_diferido`
+FOR EACH ROW
+BEGIN
+  -- Si cambió la tarjeta, recalcular la anterior
+  IF OLD.id_tarjeta <> NEW.id_tarjeta THEN
+    UPDATE tarjeta_credito
+    SET saldo_actual = saldo_inicial + (
+      SELECT IFNULL(SUM(
+        CASE
+          WHEN estado = 'abono'    THEN -valor
+          WHEN estado = 'compra'   THEN  valor
+          ELSE 0
+        END
+      ), 0)
+      FROM movimiento_tarjeta
+      WHERE id_tarjeta = OLD.id_tarjeta
+    ) + (
+      SELECT IFNULL(SUM(saldo_pendiente), 0)
+      FROM tarjeta_diferido
+      WHERE id_tarjeta = OLD.id_tarjeta AND estado = 'activo'
+    )
+    WHERE id_tarjeta = OLD.id_tarjeta;
+  END IF;
+
+  UPDATE tarjeta_credito
+  SET saldo_actual = saldo_inicial + (
+    SELECT IFNULL(SUM(
+      CASE
+        WHEN estado = 'abono'    THEN -valor
+        WHEN estado = 'compra'   THEN  valor
+        ELSE 0
+      END
+    ), 0)
+    FROM movimiento_tarjeta
+    WHERE id_tarjeta = NEW.id_tarjeta
+  ) + (
+    SELECT IFNULL(SUM(saldo_pendiente), 0)
+    FROM tarjeta_diferido
+    WHERE id_tarjeta = NEW.id_tarjeta AND estado = 'activo'
   )
   WHERE id_tarjeta = NEW.id_tarjeta;
 END$$

@@ -37,7 +37,7 @@
                 <option value="12">Últimos 12 meses</option>
                 <option value="24">Últimos 24 meses</option>
                 <option value="36">Últimos 36 meses</option>
-                <option value="desde_2024">Desde 2024</option>
+                <option value="desde_2023">Desde 2023</option>
             </select>
             <button class="btn btn-sm btn-outline-secondary" onclick="recargarTodo()">
                 <i class="fas fa-sync-alt"></i>
@@ -430,9 +430,9 @@ const PALETTE = [
 
 function getMeses() {
     const value = document.getElementById('selMeses').value;
-    if (value === 'desde_2024') {
+    if (value === 'desde_2023') {
         const now = new Date();
-        const startYear = 2024;
+        const startYear = 2023;
         const meses = (now.getFullYear() - startYear) * 12 + (now.getMonth() + 1);
         return Math.max(1, meses);
     }
@@ -442,8 +442,8 @@ function getMeses() {
 function recargarTodo() {
     const m = getMeses();
     const selected = document.getElementById('selMeses').value;
-    const lbl = selected === 'desde_2024'
-        ? 'desde 2024'
+    const lbl = selected === 'desde_2023'
+        ? 'desde 2023'
         : (m === 1 ? 'último mes' : `últimos ${m} meses`);
     document.getElementById('lblPeriodoCat').textContent  = lbl;
     document.getElementById('lblPeriodoTend').textContent = lbl;
