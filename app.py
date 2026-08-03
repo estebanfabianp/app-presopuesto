@@ -93,6 +93,11 @@ def create_app(env='development'):
         """Página de login"""
         return render_template('auth/login.html')
 
+    @app.route('/registro')
+    def register_page():
+        """Página de registro"""
+        return render_template('auth/register.html')
+
     @app.route('/recuperar-password')
     def recover_password_page():
         """Página de recuperación de contraseña"""

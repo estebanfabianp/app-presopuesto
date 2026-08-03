@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% set hide_sidebar = true %}
+
+{% block title %}Registro - App Presupuesto{% endblock %}
+
+{% block content %}
+<div class="login-wrapper">
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-icon">
+                    <i class="fas fa-user-plus"></i>
+                </div>
+                <h1 class="login-title">Crear Cuenta</h1>
+                <p class="login-subtitle">Comienza a gestionar tus finanzas</p>
+            </div>
+
+            <form id="registerForm" class="login-form">
+                <div class="mb-3">
+                    <label for="nombre" class="form-label">Nombre</label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-user"></i>
+                        </span>
+                        <input type="text" class="form-control" id="nombre" name="nombre" required placeholder="Tu nombre completo">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email</label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-envelope"></i>
+                        </span>
+                        <input type="email" class="form-control" id="email" name="email" required placeholder="tu@email.com">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="password" class="form-label">Contraseña</label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-lock"></i>
+                        </span>
+                        <input type="password" class="form-control" id="password" name="password" required minlength="6" placeholder="Mínimo 6 caracteres">
+                        <button class="btn btn-outline-secondary" type="button" id="togglePassword" tabindex="-1">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 btn-lg mb-3" id="submitBtn">
+                    <i class="fas fa-user-check"></i> Crear cuenta
+                </button>
+
+                <div id="errorAlert" class="alert alert-danger alert-dismissible" style="display:none;" role="alert">
+                    <i class="fas fa-exclamation-circle"></i> <span id="errorMessage"></span>
+                    <button type="button" class="btn-close" id="closeErrorAlert"></button>
+                </div>
+
+                <div id="successAlert" class="alert alert-success" style="display:none;" role="alert">
+                    <i class="fas fa-check-circle"></i> <span id="successMessage"></span>
+                </div>
+            </form>
+
+            <div class="login-footer">
+                <p class="text-center mb-0">
+                    <a href="/login" class="text-decoration-none">
+                        <i class="fas fa-arrow-left"></i> Ya tengo cuenta
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const errorAlert = document.getElementById('errorAlert');
+    const successAlert = document.getElementById('successAlert');
+    const errorMessage = document.getElementById('errorMessage');
+    const successMessage = document.getElementById('successMessage');
+
+    document.getElementById('closeErrorAlert').addEventListener('click', () => {
+        errorAlert.style.display = 'none';
+    });
+
+    document.getElementById('togglePassword').addEventListener('click', (e) => {
+        e.preventDefault();
+        const field = document.getElementById('password');
+        const icon = e.currentTarget.querySelector('i');
+        if (field.type === 'password') {
+            field.type = 'text';
+            icon.className = 'fas fa-eye-slash';
+        } else {
+            field.type = 'password';
+            icon.className = 'fas fa-eye';
+        }
+    });
+
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        errorAlert.style.display = 'none';
+        successAlert.style.display = 'none';
+
+        const nombre = document.getElementById('nombre').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+
+        if (!nombre || !email || !password) {
+            errorMessage.textContent = 'Debes completar todos los campos.';
+            errorAlert.style.display = 'block';
+            return;
+        }
+
+        if (password.length < 6) {
+            errorMessage.textContent = 'La contraseña debe tener al menos 6 caracteres.';
+            errorAlert.style.display = 'block';
+            return;
+        }
+
+        const btn = document.getElementById('submitBtn');
+        const original = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creando cuenta...';
+
+        try {
+            const response = await api.register(nombre, email, password);
+            successMessage.textContent = response.message || 'Cuenta creada correctamente.';
+            successAlert.style.display = 'block';
+
+            setTimeout(() => {
+                window.location.href = '/dashboard';
+            }, 1200);
+        } catch (error) {
+            errorMessage.textContent = error.message || 'No fue posible crear la cuenta.';
+            errorAlert.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = original;
+        }
+    });
+});
+</script>
+{% endblock %}

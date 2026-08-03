@@ -7,6 +7,7 @@ class AuthManager {
         this.user = null;
         this.isAuthenticated = false;
         this.publicRoutes = ['/login', '/registro', '/recuperar-password', '/'];
+        this.authRoutes = ['/login', '/registro', '/recuperar-password', '/'];
     }
 
     /**
@@ -27,6 +28,10 @@ class AuthManager {
         try {
             this.user = await api.getCurrentUser();
             this.isAuthenticated = true;
+            if (this.shouldRedirectAuthenticatedUser()) {
+                window.location.href = '/dashboard';
+                return;
+            }
             this.setupUI();
         } catch (error) {
             console.error('Auth initialization failed:', error);
@@ -48,6 +53,11 @@ class AuthManager {
             }
             return currentPath === route || currentPath.startsWith(route + '/');
         });
+    }
+
+    shouldRedirectAuthenticatedUser() {
+        const currentPath = window.location.pathname;
+        return this.authRoutes.includes(currentPath);
     }
 
     /**

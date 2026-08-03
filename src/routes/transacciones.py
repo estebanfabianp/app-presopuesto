@@ -57,51 +57,147 @@ def _resolve_categoria_id(db: DatabaseConnector, nombre_categoria: str):
     return db.execute_non_query("INSERT INTO categoria (nombre) VALUES (%s)", (nombre_categoria,))
 
 
-def _default_cuenta_id(db: DatabaseConnector, user_id: int):
+def _cuenta_has_estado_column(db: DatabaseConnector) -> bool:
     rows = db.execute_query(
         """
-        SELECT id_cuenta
-        FROM cuenta
-        WHERE id_persona = %s
-          AND COALESCE(LOWER(estado), 'activo') IN ('activo', 'activa')
-        ORDER BY id_cuenta ASC
+        SELECT 1
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'cuenta'
+          AND COLUMN_NAME = 'estado'
         LIMIT 1
-        """,
-        (user_id,),
-    )
+        """
+    ) or []
+    return bool(rows)
+
+
+def _table_exists(db: DatabaseConnector, table_name: str) -> bool:
+        rows = db.execute_query(
+                """
+                SELECT 1
+                FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME = %s
+                LIMIT 1
+                """,
+                (table_name,),
+        ) or []
+        return bool(rows)
+
+
+def _tarjeta_has_column(db: DatabaseConnector, column_name: str) -> bool:
+        rows = db.execute_query(
+                """
+                SELECT 1
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME = 'tarjeta_credito'
+                    AND COLUMN_NAME = %s
+                LIMIT 1
+                """,
+                (column_name,),
+        ) or []
+        return bool(rows)
+
+
+def _default_cuenta_id(db: DatabaseConnector, user_id: int):
+    if _cuenta_has_estado_column(db):
+        rows = db.execute_query(
+            """
+            SELECT id_cuenta
+            FROM cuenta
+            WHERE id_persona = %s
+              AND COALESCE(LOWER(estado), 'activo') IN ('activo', 'activa')
+            ORDER BY id_cuenta ASC
+            LIMIT 1
+            """,
+            (user_id,),
+        )
+    else:
+        rows = db.execute_query(
+            """
+            SELECT id_cuenta
+            FROM cuenta
+            WHERE id_persona = %s
+            ORDER BY id_cuenta ASC
+            LIMIT 1
+            """,
+            (user_id,),
+        )
     if rows:
         return rows[0]['id_cuenta']
     return None
 
 
 def _user_accounts(db: DatabaseConnector, user_id: int):
-    rows = db.execute_query(
-        """
-        SELECT id_cuenta, nombre
-        FROM cuenta
-        WHERE id_persona = %s
-          AND COALESCE(LOWER(estado), 'activo') IN ('activo', 'activa')
-        ORDER BY id_cuenta
-        """,
-        (user_id,),
-    )
+    if _cuenta_has_estado_column(db):
+        rows = db.execute_query(
+            """
+            SELECT id_cuenta, nombre
+            FROM cuenta
+            WHERE id_persona = %s
+              AND COALESCE(LOWER(estado), 'activo') IN ('activo', 'activa')
+            ORDER BY id_cuenta
+            """,
+            (user_id,),
+        )
+    else:
+        rows = db.execute_query(
+            """
+            SELECT id_cuenta, nombre
+            FROM cuenta
+            WHERE id_persona = %s
+            ORDER BY id_cuenta
+            """,
+            (user_id,),
+        )
     return rows or []
 
 
 def _user_cards(db: DatabaseConnector, user_id: int):
-    rows = db.execute_query(
-        """
-        SELECT tc.id_tarjeta,
-               tc.numero_tarjeta,
-               CONCAT(COALESCE(tc.banco, 'Tarjeta'), ' ****', RIGHT(tc.numero_tarjeta, 4)) AS nombre
-        FROM tarjeta_credito tc
-        LEFT JOIN estado_tarjeta et ON tc.id_estado = et.id_estado
-        WHERE tc.id_persona = %s
-          AND COALESCE(LOWER(et.nombre), 'activa') = 'activa'
-        ORDER BY tc.fecha_creacion DESC, tc.id_tarjeta DESC
-        """,
-        (user_id,),
-    )
+    has_estado_col = _tarjeta_has_column(db, 'estado')
+    has_id_estado_col = _tarjeta_has_column(db, 'id_estado')
+    has_estado_tarjeta_table = _table_exists(db, 'estado_tarjeta')
+
+    if has_id_estado_col and has_estado_tarjeta_table:
+        rows = db.execute_query(
+            """
+            SELECT tc.id_tarjeta,
+                   tc.numero_tarjeta,
+                   CONCAT(COALESCE(tc.banco, 'Tarjeta'), ' ****', RIGHT(tc.numero_tarjeta, 4)) AS nombre
+            FROM tarjeta_credito tc
+            LEFT JOIN estado_tarjeta et ON tc.id_estado = et.id_estado
+            WHERE tc.id_persona = %s
+              AND COALESCE(LOWER(et.nombre), 'activa') = 'activa'
+            ORDER BY tc.fecha_creacion DESC, tc.id_tarjeta DESC
+            """,
+            (user_id,),
+        )
+    elif has_estado_col:
+        rows = db.execute_query(
+            """
+            SELECT tc.id_tarjeta,
+                   tc.numero_tarjeta,
+                   CONCAT(COALESCE(tc.banco, 'Tarjeta'), ' ****', RIGHT(tc.numero_tarjeta, 4)) AS nombre
+            FROM tarjeta_credito tc
+            WHERE tc.id_persona = %s
+              AND COALESCE(LOWER(tc.estado), 'activa') IN ('activa', 'activo')
+            ORDER BY tc.fecha_creacion DESC, tc.id_tarjeta DESC
+            """,
+            (user_id,),
+        )
+    else:
+        rows = db.execute_query(
+            """
+            SELECT tc.id_tarjeta,
+                   tc.numero_tarjeta,
+                   CONCAT(COALESCE(tc.banco, 'Tarjeta'), ' ****', RIGHT(tc.numero_tarjeta, 4)) AS nombre
+            FROM tarjeta_credito tc
+            WHERE tc.id_persona = %s
+            ORDER BY tc.fecha_creacion DESC, tc.id_tarjeta DESC
+            """,
+            (user_id,),
+        )
     return rows or []
 
 
@@ -144,14 +240,13 @@ def debug_whoami():
             (user_id,)
         )
         cuentas = db.execute_query(
-                        """
-                        SELECT id_cuenta, nombre
-                        FROM cuenta
-                        WHERE id_persona = %s
-                            AND COALESCE(LOWER(estado), 'activo') IN ('activo', 'activa')
-                        ORDER BY id_cuenta
-                        """,
-                        (user_id,),
+            """
+            SELECT id_cuenta, nombre
+            FROM cuenta
+            WHERE id_persona = %s
+            ORDER BY id_cuenta
+            """,
+            (user_id,),
         )
         return jsonify({
             'id_persona': user_id,
@@ -254,37 +349,17 @@ def import_upload():
         else:
             id_tarjeta = request.form.get('id_tarjeta', type=int)
             logger.warning("UPLOAD DEBUG - id_tarjeta raw='%s' parsed=%s", request.form.get('id_tarjeta'), id_tarjeta)
+            tarjetas_activas = _user_cards(db, user_id)
             if not id_tarjeta:
-                available_cards = db.execute_query(
-                    """
-                    SELECT COUNT(*) as total
-                    FROM tarjeta_credito tc
-                    LEFT JOIN estado_tarjeta et ON tc.id_estado = et.id_estado
-                    WHERE tc.id_persona = %s
-                      AND COALESCE(LOWER(et.nombre), 'activa') = 'activa'
-                    """,
-                    (user_id,)
-                )
-                total_cards = available_cards[0]['total'] if available_cards else 0
+                total_cards = len(tarjetas_activas)
                 error_msg = f'No hay tarjetas activas registradas para tu usuario (ID: {user_id}). Activa o crea una tarjeta primero.'
                 if total_cards > 0:
                     error_msg = 'Debes seleccionar una tarjeta de credito'
                 logger.warning("UPLOAD 400 - id_tarjeta vacio o invalido")
                 return jsonify({'message': error_msg}), 400
 
-            tarjeta = db.execute_query(
-                """
-                SELECT tc.id_tarjeta
-                FROM tarjeta_credito tc
-                LEFT JOIN estado_tarjeta et ON tc.id_estado = et.id_estado
-                WHERE tc.id_tarjeta = %s
-                  AND tc.id_persona = %s
-                  AND COALESCE(LOWER(et.nombre), 'activa') = 'activa'
-                LIMIT 1
-                """,
-                (id_tarjeta, user_id),
-            )
-            if not tarjeta:
+            tarjeta_valida = any(int(t.get('id_tarjeta') or 0) == int(id_tarjeta) for t in tarjetas_activas)
+            if not tarjeta_valida:
                 return jsonify({'message': 'Tarjeta no encontrada, no pertenece al usuario o esta inactiva'}), 403
 
             valid, errors = validate_excel_file(tmp_path)
@@ -324,27 +399,20 @@ def import_upload_folder():
         user_id = _get_user_id()
         data = request.get_json(silent=True) or {}
         folder_path = (data.get('folder_path') or '').strip()
-        id_tarjeta = data.get('id_tarjeta')
+        try:
+            id_tarjeta = int(data.get('id_tarjeta'))
+        except (TypeError, ValueError):
+            id_tarjeta = 0
 
         if not folder_path:
             return jsonify({'message': 'Debes indicar la ruta de la carpeta (folder_path)'}), 400
         if not id_tarjeta:
             return jsonify({'message': 'Debes indicar id_tarjeta'}), 400
 
-        tarjeta = db.execute_query(
-                        """
-                        SELECT tc.id_tarjeta
-                        FROM tarjeta_credito tc
-                        LEFT JOIN estado_tarjeta et ON tc.id_estado = et.id_estado
-                        WHERE tc.id_tarjeta = %s
-                            AND tc.id_persona = %s
-                            AND COALESCE(LOWER(et.nombre), 'activa') = 'activa'
-                        LIMIT 1
-                        """,
-            (id_tarjeta, user_id)
-        )
-        if not tarjeta:
-                        return jsonify({'message': 'Tarjeta no encontrada, no pertenece al usuario o esta inactiva'}), 403
+        tarjetas_activas = _user_cards(db, user_id)
+        tarjeta_valida = any(int(t.get('id_tarjeta') or 0) == int(id_tarjeta) for t in tarjetas_activas)
+        if not tarjeta_valida:
+            return jsonify({'message': 'Tarjeta no encontrada, no pertenece al usuario o esta inactiva'}), 403
 
         etl = ETLTarjetaCredito(db)
         resumen = etl.process_folder(folder_path, user_id, id_tarjeta)

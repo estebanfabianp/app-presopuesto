@@ -128,6 +128,47 @@
         </div>
     </div>
 
+    <!-- Nuevo módulo: Tendencia de gastos por categoría -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-chart-line"></i> Evolución de Gastos por Categoría</h5>
+                    <small class="text-muted">filtros dinámicos por fecha y categoría</small>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-3">
+                            <label class="form-label mb-1" for="trendCatStartDate">Fecha inicial</label>
+                            <input type="date" class="form-control" id="trendCatStartDate">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label mb-1" for="trendCatEndDate">Fecha final</label>
+                            <input type="date" class="form-control" id="trendCatEndDate">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label mb-1" for="trendCatCategories">Categorías (multiselección)</label>
+                            <select id="trendCatCategories" class="form-select" multiple size="5"></select>
+                            <small class="text-muted">Si no seleccionas categorías, se muestran todas.</small>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label mb-1" for="trendCatProducts">Producto (multiselección)</label>
+                            <select id="trendCatProducts" class="form-select" multiple size="5"></select>
+                            <small class="text-muted">Puedes combinar productos y categorías.</small>
+                        </div>
+                    </div>
+
+                    <div style="position:relative;width:100%;height:320px;">
+                        <canvas id="trendCategoryChart"></canvas>
+                        <p id="noDataTrendCategory" class="text-muted text-center" style="display:none;">
+                            No hay gastos para el rango/categorías seleccionadas.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Flujo + top rankings -->
     <div class="row mb-4">
         <div class="col-lg-6">
@@ -216,9 +257,13 @@
 let pieChart   = null;
 let trendChart = null;
 let weeklyChart = null;
+let trendCategoryChart = null;
+let trendCategoryInitialized = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
+    initTrendCategoryFilters();
     await loadDashboard();
+    await reloadTrendCategoryChart({ keepSelectedCategories: false });
 });
 
 async function loadDashboard() {
@@ -387,6 +432,168 @@ async function loadDashboard() {
         errAlert.style.display = 'block';
         spinner.style.display  = 'none';
     }
+}
+
+function initTrendCategoryFilters() {
+    if (trendCategoryInitialized) {
+        return;
+    }
+
+    const startInput = document.getElementById('trendCatStartDate');
+    const endInput = document.getElementById('trendCatEndDate');
+    const categoriesSelect = document.getElementById('trendCatCategories');
+    const productsSelect = document.getElementById('trendCatProducts');
+
+    if (!startInput.value || !endInput.value) {
+        const today = new Date();
+        const start = new Date(today);
+        start.setMonth(start.getMonth() - 6);
+        startInput.value = toInputDate(start);
+        endInput.value = toInputDate(today);
+    }
+
+    const onFilterChange = async () => {
+        await reloadTrendCategoryChart({ keepSelectedCategories: true });
+    };
+
+    startInput.addEventListener('change', onFilterChange);
+    endInput.addEventListener('change', onFilterChange);
+    categoriesSelect.addEventListener('change', onFilterChange);
+    productsSelect.addEventListener('change', onFilterChange);
+    trendCategoryInitialized = true;
+}
+
+async function reloadTrendCategoryChart({ keepSelectedCategories }) {
+    const startInput = document.getElementById('trendCatStartDate');
+    const endInput = document.getElementById('trendCatEndDate');
+    const categoriesSelect = document.getElementById('trendCatCategories');
+    const productsSelect = document.getElementById('trendCatProducts');
+
+    const selectedValues = keepSelectedCategories
+        ? Array.from(categoriesSelect.selectedOptions).map(opt => opt.value)
+        : [];
+    const selectedProducts = keepSelectedCategories
+        ? Array.from(productsSelect.selectedOptions).map(opt => opt.value)
+        : [];
+
+    const params = {
+        fecha_inicio: startInput.value,
+        fecha_fin: endInput.value,
+    };
+    if (selectedValues.length) {
+        params.categorias = selectedValues.join(',');
+    }
+    if (selectedProducts.length) {
+        params.productos = selectedProducts.join(',');
+    }
+
+    try {
+        const response = await api.getGastosCategoriaTendencia(params);
+        fillTrendCategoryOptions('trendCatCategories', response.available_categories || [], selectedValues);
+        fillTrendCategoryOptions('trendCatProducts', response.available_products || [], selectedProducts);
+        renderTrendCategoryChart(response);
+    } catch (error) {
+        console.error('Trend by category error:', error);
+        const emptyMsg = document.getElementById('noDataTrendCategory');
+        const canvas = document.getElementById('trendCategoryChart');
+        canvas.style.display = 'none';
+        emptyMsg.style.display = 'block';
+        emptyMsg.textContent = 'No fue posible cargar la gráfica. Revisa filtros o intenta recargar.';
+    }
+}
+
+function fillTrendCategoryOptions(selectId, options, selectedValues) {
+    const categoriesSelect = document.getElementById(selectId);
+    const selectedSet = new Set(selectedValues || []);
+    const normalizedOptions = Array.isArray(options) ? options : [];
+
+    categoriesSelect.innerHTML = '';
+    if (!normalizedOptions.length && selectId === 'trendCatProducts') {
+        normalizedOptions.push({ id: 'sin_producto', nombre: 'Sin producto' });
+    }
+
+    for (const item of normalizedOptions) {
+        const option = document.createElement('option');
+        option.value = String(item.id);
+        option.textContent = item.nombre;
+        if (selectedSet.has(option.value)) {
+            option.selected = true;
+        }
+        categoriesSelect.appendChild(option);
+    }
+}
+
+function renderTrendCategoryChart(payload) {
+    const canvas = document.getElementById('trendCategoryChart');
+    const emptyMsg = document.getElementById('noDataTrendCategory');
+
+    const labels = payload.labels || [];
+    const datasets = payload.datasets || [];
+
+    if (!labels.length || !datasets.length) {
+        canvas.style.display = 'none';
+        emptyMsg.style.display = 'block';
+        if (trendCategoryChart) {
+            trendCategoryChart.destroy();
+            trendCategoryChart = null;
+        }
+        return;
+    }
+
+    canvas.style.display = 'block';
+    emptyMsg.style.display = 'none';
+
+    if (trendCategoryChart) {
+        trendCategoryChart.destroy();
+    }
+
+    trendCategoryChart = new Chart(
+        canvas.getContext('2d'),
+        {
+            type: 'line',
+            data: {
+                labels,
+                datasets: datasets.map(ds => ({
+                    label: ds.label,
+                    data: ds.data,
+                    borderColor: ds.borderColor,
+                    backgroundColor: ds.backgroundColor,
+                    borderWidth: 2,
+                    tension: ds.tension ?? 0.25,
+                    fill: false,
+                })),
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ` ${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y || 0)}`,
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: v => formatCurrency(v) }
+                    }
+                }
+            }
+        }
+    );
+}
+
+function toInputDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 function renderAlertas(alertas, transaccionesRecientes) {

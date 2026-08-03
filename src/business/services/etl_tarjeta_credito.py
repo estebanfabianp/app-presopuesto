@@ -142,18 +142,68 @@ class ETLTarjetaCredito:
         self.validation_errors: List[Dict[str, Any]] = []
         self.processed_count = 0
         self.error_count = 0
+        self._tarjeta_columns_cache: Optional[Set[str]] = None
 
-    def _assert_tarjeta_activa(self, id_persona: int, id_tarjeta: int) -> None:
+    def _get_tarjeta_columns(self) -> Set[str]:
+        if self._tarjeta_columns_cache is not None:
+            return self._tarjeta_columns_cache
+
         rows = self.db.execute_query(
             """
-            SELECT tc.id_tarjeta, COALESCE(LOWER(et.nombre), 'activa') AS estado
-            FROM tarjeta_credito tc
-            LEFT JOIN estado_tarjeta et ON tc.id_estado = et.id_estado
-            WHERE tc.id_tarjeta = %s AND tc.id_persona = %s
-            LIMIT 1
-            """,
-            (id_tarjeta, id_persona),
-        )
+            SELECT LOWER(COLUMN_NAME) AS col
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'tarjeta_credito'
+            """
+        ) or []
+        self._tarjeta_columns_cache = {str(r.get('col') or '').strip().lower() for r in rows}
+        return self._tarjeta_columns_cache
+
+    def _assert_tarjeta_activa(self, id_persona: int, id_tarjeta: int) -> None:
+        cols = self._get_tarjeta_columns()
+        rows = None
+
+        if 'estado' in cols:
+            rows = self.db.execute_query(
+                """
+                SELECT tc.id_tarjeta, COALESCE(LOWER(tc.estado), 'activa') AS estado
+                FROM tarjeta_credito tc
+                WHERE tc.id_tarjeta = %s AND tc.id_persona = %s
+                LIMIT 1
+                """,
+                (id_tarjeta, id_persona),
+            )
+        elif 'id_estado' in cols:
+            rows = self.db.execute_query(
+                """
+                SELECT tc.id_tarjeta, COALESCE(LOWER(et.nombre), 'activa') AS estado
+                FROM tarjeta_credito tc
+                LEFT JOIN estado_tarjeta et ON tc.id_estado = et.id_estado
+                WHERE tc.id_tarjeta = %s AND tc.id_persona = %s
+                LIMIT 1
+                """,
+                (id_tarjeta, id_persona),
+            )
+            if rows is None:
+                rows = self.db.execute_query(
+                    """
+                    SELECT tc.id_tarjeta, 'activa' AS estado
+                    FROM tarjeta_credito tc
+                    WHERE tc.id_tarjeta = %s AND tc.id_persona = %s
+                    LIMIT 1
+                    """,
+                    (id_tarjeta, id_persona),
+                )
+        else:
+            rows = self.db.execute_query(
+                """
+                SELECT tc.id_tarjeta, 'activa' AS estado
+                FROM tarjeta_credito tc
+                WHERE tc.id_tarjeta = %s AND tc.id_persona = %s
+                LIMIT 1
+                """,
+                (id_tarjeta, id_persona),
+            )
 
         if not rows:
             raise ValueError('Tarjeta no encontrada o no pertenece al usuario')
@@ -325,6 +375,30 @@ class ETLTarjetaCredito:
                 INDEX idx_td_persona (id_persona),
                 INDEX idx_td_tarjeta (id_tarjeta),
                 INDEX idx_td_estado (estado)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+
+    def _ensure_movimiento_tarjeta_table(self) -> None:
+        self.db.execute_non_query(
+            """
+            CREATE TABLE IF NOT EXISTS movimiento_tarjeta (
+                id_movimiento_tarjeta INT AUTO_INCREMENT PRIMARY KEY,
+                id_tarjeta INT NOT NULL,
+                id_persona INT NOT NULL,
+                fecha DATE NOT NULL,
+                valor DECIMAL(15,2) NOT NULL,
+                estado VARCHAR(30) NOT NULL,
+                nota TEXT NULL,
+                numero_transaccion VARCHAR(60) NULL,
+                id_categoria INT NULL,
+                id_beneficiario INT NULL,
+                saldo DECIMAL(15,2) NULL,
+                cuotas INT NULL,
+                fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_mt_tarjeta (id_tarjeta),
+                INDEX idx_mt_persona (id_persona),
+                INDEX idx_mt_fecha (fecha)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """
         )
@@ -504,6 +578,7 @@ class ETLTarjetaCredito:
         if not pd:
             raise ImportError("pandas es requerido para procesar archivos Excel")
 
+        self._ensure_movimiento_tarjeta_table()
         self._assert_tarjeta_activa(id_persona, id_tarjeta)
         
         try:
@@ -995,7 +1070,11 @@ class ETLTarjetaCredito:
             return {'error': str(exc)}
 
         archivos = sorted(
-            [f for f in folder.iterdir() if f.suffix.lower() in ('.xlsx', '.xls')],
+            [
+                f
+                for f in folder.iterdir()
+                if f.suffix.lower() in ('.xlsx', '.xls') and not f.name.startswith('~$')
+            ],
             key=lambda f: f.name
         )
 

@@ -2,7 +2,10 @@
 Rutas del Dashboard — datos reales desde MySQL.
 """
 
-from flask import Blueprint, jsonify
+from datetime import date, datetime, timedelta
+
+import pandas as pd
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
 import logging
 
@@ -33,6 +36,19 @@ def _safe_float(value) -> float:
         return float(value or 0)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _parse_date_arg(value: str | None, fallback: date) -> date:
+    if not value:
+        return fallback
+    try:
+        return datetime.strptime(value, '%Y-%m-%d').date()
+    except ValueError:
+        return fallback
+
+
+def _color_for_index(idx: int) -> str:
+    return _CHART_COLORS[idx % len(_CHART_COLORS)]
 
 
 @bp.route('/summary', methods=['GET'])
@@ -234,6 +250,208 @@ def get_tendencia():
     except Exception as e:
         logger.error("Tendencia error: %s", e)
         return jsonify({'message': 'Error al obtener tendencia'}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/gastos-categoria-tendencia', methods=['GET'])
+def get_gastos_categoria_tendencia():
+    """
+    GET /api/dashboard/gastos-categoria-tendencia
+    Serie temporal de gastos por categoría con filtros de fecha y categoría.
+    Registros sin categoría se reasignan a "Sin categoría" usando Pandas.
+    """
+    verify_jwt_in_request()
+    db = DatabaseConnector()
+    try:
+        user_id = _get_user_id()
+
+        today = date.today()
+        default_start = today - timedelta(days=180)
+        start_date = _parse_date_arg(request.args.get('fecha_inicio'), default_start)
+        end_date = _parse_date_arg(request.args.get('fecha_fin'), today)
+        if start_date > end_date:
+            start_date, end_date = end_date, start_date
+
+        selected_categories = {
+            c.strip()
+            for c in (request.args.get('categorias') or '').split(',')
+            if c.strip()
+        }
+        selected_products = {
+            p.strip()
+            for p in (request.args.get('productos') or '').split(',')
+            if p.strip()
+        }
+
+        catalog_rows = db.execute_query(
+            """
+            SELECT id_producto, nombre
+            FROM v_producto_unificado
+            WHERE id_persona = %s
+            ORDER BY nombre ASC
+            """,
+            (user_id,),
+        ) or []
+
+        available_products_catalog = [
+            {'id': str(int(r['id_producto'])), 'nombre': str(r['nombre'])}
+            for r in catalog_rows
+            if r.get('id_producto') is not None
+        ]
+
+        rows = db.execute_query(
+            """
+            SELECT
+                DATE(m.fecha_creacion) AS fecha,
+                COALESCE(m.monto, 0) AS monto,
+                cat.id_categoria AS id_categoria,
+                cat.nombre AS categoria,
+                m.id_producto AS id_producto,
+                COALESCE(vpu.nombre, CONCAT('Producto ', m.id_producto)) AS producto
+            FROM movimiento m
+            INNER JOIN cuenta c ON m.id_cuenta = c.id_cuenta
+            INNER JOIN tipo_movimiento tm ON m.id_tipo = tm.id_tipo
+            LEFT JOIN categoria cat ON m.id_categoria = cat.id_categoria
+            LEFT JOIN v_producto_unificado vpu
+              ON vpu.id_persona = c.id_persona
+             AND vpu.id_producto = m.id_producto
+            WHERE c.id_persona = %s
+              AND LOWER(CONVERT(tm.nombre USING utf8mb4)) = 'gasto'
+              AND DATE(m.fecha_creacion) BETWEEN %s AND %s
+            ORDER BY m.fecha_creacion ASC
+            """,
+            (user_id, start_date, end_date),
+        )
+
+        if not rows:
+            return jsonify({
+                'filters': {
+                    'fecha_inicio': str(start_date),
+                    'fecha_fin': str(end_date),
+                    'categories_selected': [],
+                    'products_selected': sorted(selected_products),
+                },
+                'available_categories': [],
+                'available_products': available_products_catalog,
+                'labels': [],
+                'datasets': [],
+                'granularidad': 'mensual',
+            }), 200
+
+        df = pd.DataFrame(rows)
+        df['fecha'] = pd.to_datetime(df['fecha'])
+        df['monto'] = pd.to_numeric(df['monto'], errors='coerce').fillna(0.0)
+
+        # Regla de limpieza: categorías nulas o vacías se renombran a "Sin categoría".
+        df['categoria'] = df['categoria'].fillna('').astype(str).str.strip()
+        df.loc[df['categoria'] == '', 'categoria'] = 'Sin categoría'
+        df['categoria_key'] = df['id_categoria'].apply(
+            lambda x: 'sin_categoria' if pd.isna(x) else str(int(x))
+        )
+        df['producto'] = df['producto'].fillna('').astype(str).str.strip()
+        df.loc[df['producto'] == '', 'producto'] = 'Sin producto'
+        df['producto_key'] = df['id_producto'].apply(
+            lambda x: 'sin_producto' if pd.isna(x) else str(int(x))
+        )
+
+        categories_df = (
+            df[['categoria_key', 'categoria']]
+            .drop_duplicates()
+            .sort_values('categoria')
+        )
+        available_categories = [
+            {'id': row['categoria_key'], 'nombre': row['categoria']}
+            for _, row in categories_df.iterrows()
+        ]
+        products_df = (
+            df[['producto_key', 'producto']]
+            .drop_duplicates()
+            .sort_values('producto')
+        )
+        movement_products = [
+            {'id': row['producto_key'], 'nombre': row['producto']}
+            for _, row in products_df.iterrows()
+        ]
+
+        available_products_by_id = {
+            p['id']: p for p in available_products_catalog
+        }
+        for prod in movement_products:
+            available_products_by_id[prod['id']] = prod
+        available_products = list(available_products_by_id.values())
+        available_products.sort(key=lambda x: (x['nombre'] or '').lower())
+
+        if selected_categories:
+            df = df[df['categoria_key'].isin(selected_categories)]
+        if selected_products:
+            df = df[df['producto_key'].isin(selected_products)]
+
+        if df.empty:
+            return jsonify({
+                'filters': {
+                    'fecha_inicio': str(start_date),
+                    'fecha_fin': str(end_date),
+                    'categories_selected': sorted(selected_categories),
+                    'products_selected': sorted(selected_products),
+                },
+                'available_categories': available_categories,
+                'available_products': available_products,
+                'labels': [],
+                'datasets': [],
+                'granularidad': 'mensual',
+            }), 200
+
+        total_days = (end_date - start_date).days
+        use_daily = total_days <= 62
+        granularidad = 'diaria' if use_daily else 'mensual'
+
+        if use_daily:
+            df['periodo'] = df['fecha'].dt.strftime('%Y-%m-%d')
+        else:
+            df['periodo'] = df['fecha'].dt.to_period('M').dt.to_timestamp().dt.strftime('%Y-%m')
+
+        grouped = (
+            df.groupby(['periodo', 'categoria'], as_index=False)['monto']
+            .sum()
+        )
+
+        pivot = grouped.pivot(index='periodo', columns='categoria', values='monto').fillna(0.0)
+        period_index = pd.to_datetime(pivot.index)
+        pivot = pivot.reindex(pivot.index[period_index.argsort()])
+
+        if use_daily:
+            labels = [pd.to_datetime(p).strftime('%d %b %Y') for p in pivot.index]
+        else:
+            labels = [pd.to_datetime(f'{p}-01').strftime('%b %Y') for p in pivot.index]
+
+        datasets = []
+        for idx, category_name in enumerate(pivot.columns.tolist()):
+            datasets.append({
+                'label': category_name,
+                'data': [float(v) for v in pivot[category_name].tolist()],
+                'borderColor': _color_for_index(idx),
+                'backgroundColor': _color_for_index(idx),
+                'tension': 0.25,
+            })
+
+        return jsonify({
+            'filters': {
+                'fecha_inicio': str(start_date),
+                'fecha_fin': str(end_date),
+                'categories_selected': sorted(selected_categories),
+                'products_selected': sorted(selected_products),
+            },
+            'available_categories': available_categories,
+            'available_products': available_products,
+            'labels': labels,
+            'datasets': datasets,
+            'granularidad': granularidad,
+        }), 200
+
+    except Exception as e:
+        logger.error('Gastos categoria tendencia error: %s', e)
+        return jsonify({'message': 'Error al obtener tendencia de gastos por categoría'}), 500
     finally:
         db.close()
 

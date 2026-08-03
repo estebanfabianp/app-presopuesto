@@ -28,8 +28,9 @@ class PersonaModel:
         db (DatabaseConnector): Instancia del conector de base de datos
     """
     
-    def __init__(self, host: str = "localhost", database: str = "app_presupuesto", 
-                 user: str = "root", clave: str = "") -> None:
+    def __init__(self, host: Optional[str] = None, database: Optional[str] = None,
+                 user: Optional[str] = None, clave: Optional[str] = None,
+                 port: Optional[int] = None) -> None:
         """
         Inicializa el modelo de persona y establece conexión a la base de datos.
         
@@ -39,7 +40,39 @@ class PersonaModel:
             user (str): Usuario de MySQL
             clave (str): Contraseña de MySQL
         """
-        self.db = DatabaseConnector(host=host, database=database, user=user, clave=clave)
+        resolved_host = host or os.getenv('DB_HOST', 'localhost')
+        resolved_database = database or os.getenv('DB_NAME', 'app_presupuesto')
+        resolved_user = user or os.getenv('DB_USER', 'root')
+        resolved_clave = clave if clave is not None else os.getenv('DB_PASSWORD', '')
+        resolved_port = port if port is not None else int(os.getenv('DB_PORT', '3306'))
+
+        self.db = DatabaseConnector(
+            host=resolved_host,
+            database=resolved_database,
+            user=resolved_user,
+            clave=resolved_clave,
+            port=resolved_port,
+        )
+        self._persona_columns_cache = None
+
+    def _get_persona_columns(self) -> set:
+        """Obtiene columnas reales de persona para mantener compatibilidad entre esquemas."""
+        if self._persona_columns_cache is not None:
+            return self._persona_columns_cache
+
+        rows = self.db.execute_query(
+            """
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'persona'
+            """
+        ) or []
+        self._persona_columns_cache = {
+            str(r.get('COLUMN_NAME', '')).strip().lower()
+            for r in rows
+            if r.get('COLUMN_NAME')
+        }
+        return self._persona_columns_cache
 
     def _build_default_constants(self) -> List[Dict[str, Any]]:
         fiscal_year = str(date.today().year)
@@ -346,11 +379,61 @@ class PersonaModel:
         apellido = self._derive_lastname(nombre)
         usuario = self._build_unique_username(nombre, email)
 
-        query = """
-        INSERT INTO persona (nombre, apellido, correo_electronico, usuario, clave, estado, fecha_creacion)
-        VALUES (%s, %s, %s, %s, %s, %s, NOW())
-        """
-        persona_id = self.db.execute_non_query(query, (nombre, apellido, email, usuario, password_hash, estado_id))
+        persona_columns = self._get_persona_columns()
+        has_apellido = 'apellido' in persona_columns
+        has_estado = 'estado' in persona_columns
+        has_fecha_creacion = 'fecha_creacion' in persona_columns
+
+        if has_apellido and has_estado and has_fecha_creacion:
+            query = """
+            INSERT INTO persona (nombre, apellido, correo_electronico, usuario, clave, estado, fecha_creacion)
+            VALUES (%s, %s, %s, %s, %s, %s, NOW())
+            """
+            params = (nombre, apellido, email, usuario, password_hash, estado_id)
+        elif has_apellido and has_estado:
+            query = """
+            INSERT INTO persona (nombre, apellido, correo_electronico, usuario, clave, estado)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """
+            params = (nombre, apellido, email, usuario, password_hash, estado_id)
+        elif has_apellido and has_fecha_creacion:
+            query = """
+            INSERT INTO persona (nombre, apellido, correo_electronico, usuario, clave, fecha_creacion)
+            VALUES (%s, %s, %s, %s, %s, NOW())
+            """
+            params = (nombre, apellido, email, usuario, password_hash)
+        elif has_apellido:
+            query = """
+            INSERT INTO persona (nombre, apellido, correo_electronico, usuario, clave)
+            VALUES (%s, %s, %s, %s, %s)
+            """
+            params = (nombre, apellido, email, usuario, password_hash)
+        elif has_estado and has_fecha_creacion:
+            query = """
+            INSERT INTO persona (nombre, correo_electronico, usuario, clave, estado, fecha_creacion)
+            VALUES (%s, %s, %s, %s, %s, NOW())
+            """
+            params = (nombre, email, usuario, password_hash, estado_id)
+        elif has_estado:
+            query = """
+            INSERT INTO persona (nombre, correo_electronico, usuario, clave, estado)
+            VALUES (%s, %s, %s, %s, %s)
+            """
+            params = (nombre, email, usuario, password_hash, estado_id)
+        elif has_fecha_creacion:
+            query = """
+            INSERT INTO persona (nombre, correo_electronico, usuario, clave, fecha_creacion)
+            VALUES (%s, %s, %s, %s, NOW())
+            """
+            params = (nombre, email, usuario, password_hash)
+        else:
+            query = """
+            INSERT INTO persona (nombre, correo_electronico, usuario, clave)
+            VALUES (%s, %s, %s, %s)
+            """
+            params = (nombre, email, usuario, password_hash)
+
+        persona_id = self.db.execute_non_query(query, params)
         
         if persona_id:
             try:

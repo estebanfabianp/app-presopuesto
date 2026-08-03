@@ -108,6 +108,7 @@ def _normalize_card_number(raw_value, current_value=None):
 
 
 def _ensure_tarjeta_interest_columns(db: DatabaseConnector) -> None:
+    _ensure_tarjeta_credito_table(db)
     """Garantiza columnas para calcular interes en compras a una cuota."""
     cols = db.execute_query(
         """
@@ -135,6 +136,34 @@ def _ensure_tarjeta_interest_columns(db: DatabaseConnector) -> None:
             ADD COLUMN tasa_interes_compra_1_cuota DECIMAL(8,4) NOT NULL DEFAULT 0
             """
         )
+
+
+def _ensure_tarjeta_credito_table(db: DatabaseConnector) -> None:
+    """Garantiza existencia de tarjeta_credito en esquemas incompletos."""
+    db.execute_non_query(
+        """
+        CREATE TABLE IF NOT EXISTS tarjeta_credito (
+            id_tarjeta INT AUTO_INCREMENT PRIMARY KEY,
+            numero_tarjeta VARCHAR(32) NOT NULL,
+            nombre_titular VARCHAR(120) NOT NULL,
+            banco VARCHAR(100) NULL,
+            tipo_tarjeta VARCHAR(20) NOT NULL DEFAULT 'credito',
+            limite_credito DECIMAL(15,2) NOT NULL DEFAULT 0,
+            saldo_inicial DECIMAL(15,2) NOT NULL DEFAULT 0,
+            saldo_actual DECIMAL(15,2) NOT NULL DEFAULT 0,
+            fecha_vencimiento DATE NULL,
+            fecha_corte DATE NULL,
+            fecha_pago DATE NULL,
+            estado VARCHAR(20) NOT NULL DEFAULT 'activa',
+            cobra_interes_compra_1_cuota TINYINT(1) NOT NULL DEFAULT 0,
+            tasa_interes_compra_1_cuota DECIMAL(8,4) NOT NULL DEFAULT 0,
+            id_persona INT NOT NULL,
+            fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_tc_persona (id_persona),
+            INDEX idx_tc_estado (estado)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """
+    )
 
 
 def _ensure_tarjeta_diferido_table(db: DatabaseConnector) -> None:
@@ -170,6 +199,58 @@ def _ensure_tarjeta_diferido_table(db: DatabaseConnector) -> None:
     )
 
 
+def _cuenta_has_estado_column(db: DatabaseConnector) -> bool:
+    rows = db.execute_query(
+        """
+        SELECT 1
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'cuenta'
+          AND COLUMN_NAME = 'estado'
+        LIMIT 1
+        """
+    ) or []
+    return bool(rows)
+
+
+def _ensure_cuenta_estado_column(db: DatabaseConnector) -> bool:
+    """Crea columna estado en cuenta si no existe para habilitar activar/inactivar."""
+    if _cuenta_has_estado_column(db):
+        return True
+
+    result = db.execute_non_query(
+        """
+        ALTER TABLE cuenta
+        ADD COLUMN estado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO'
+        """
+    )
+    if result is None:
+        return False
+
+    db.execute_non_query(
+        """
+        UPDATE cuenta
+        SET estado = 'ACTIVO'
+        WHERE estado IS NULL OR TRIM(estado) = ''
+        """
+    )
+    return True
+
+
+def _table_exists(db: DatabaseConnector, table_name: str) -> bool:
+        rows = db.execute_query(
+                """
+                SELECT 1
+                FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME = %s
+                LIMIT 1
+                """,
+                (table_name,),
+        ) or []
+        return bool(rows)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # GET /api/productos  — resumen unificado
 # ──────────────────────────────────────────────────────────────────────────────
@@ -179,15 +260,25 @@ def list_productos():
     persona_id = _persona_id()
     db = DatabaseConnector()
     try:
+        _ensure_tarjeta_credito_table(db)
         _ensure_tarjeta_interest_columns(db)
         solo_activos = request.args.get('solo_activos', 'false').lower() == 'true'
+        cuenta_has_estado = _cuenta_has_estado_column(db)
 
         # ── Cuentas (desde tabla directa) ─────────────────────────────────────
-        cuentas = db.execute_query(
-            """SELECT id_cuenta AS id, nombre, tipo, saldo_inicial, moneda, estado, fecha_creacion
-               FROM cuenta WHERE id_persona = %s ORDER BY nombre""",
-            (persona_id,),
-        ) or []
+        if cuenta_has_estado:
+            cuentas = db.execute_query(
+                """SELECT id_cuenta AS id, nombre, tipo, saldo_inicial, moneda, estado, fecha_creacion
+                   FROM cuenta WHERE id_persona = %s ORDER BY nombre""",
+                (persona_id,),
+            ) or []
+        else:
+            cuentas = db.execute_query(
+                """SELECT id_cuenta AS id, nombre, tipo, saldo_inicial, moneda,
+                          'ACTIVO' AS estado, fecha_creacion
+                   FROM cuenta WHERE id_persona = %s ORDER BY nombre""",
+                (persona_id,),
+            ) or []
 
         # Nota: el filtro por tipo_producto se hace en Python para evitar
         # conflictos de collation en algunos entornos MySQL.
@@ -208,62 +299,88 @@ def list_productos():
         # Importante: v_producto_unificado infiere id_persona de movimiento_tarjeta
         # para tarjetas; una tarjeta recien creada (sin movimientos) puede no aparecer.
         # Por eso listamos tarjetas directamente por propietario desde tarjeta_credito.
-        tarjetas = db.execute_query(
-            """SELECT
-                    t.id_tarjeta AS id,
-                    CONCAT('Tarjeta ', RIGHT(t.numero_tarjeta, 4)) AS nombre,
-                    t.numero_tarjeta,
-                    t.nombre_titular,
-                    t.banco,
-                    t.tipo_tarjeta,
-                    t.limite_credito,
-                    CASE
-                        WHEN sm.saldo_movimientos IS NULL AND sd.saldo_diferidos IS NULL THEN COALESCE(t.saldo_actual, 0)
-                        ELSE (
-                            GREATEST(0, COALESCE(sm.saldo_movimientos, 0))
-                            + GREATEST(0, COALESCE(sd.saldo_diferidos, 0))
-                        )
-                    END AS saldo_actual,
-                    t.saldo_inicial,
-                    t.fecha_vencimiento,
-                    t.fecha_corte,
-                    t.fecha_pago,
-                    t.cobra_interes_compra_1_cuota,
-                    t.tasa_interes_compra_1_cuota,
-                    t.fecha_creacion,
-                    UPPER(COALESCE(t.estado, 'ACTIVA')) AS estado_tarjeta,
-                    t.id_persona
-               FROM tarjeta_credito t
-               LEFT JOIN (
-                    SELECT
-                        mt.id_tarjeta,
-                        ROUND(SUM(
-                            CASE
-                                WHEN LOWER(COALESCE(mt.estado, '')) IN ('abono', 'aprobado') THEN -ABS(COALESCE(mt.valor, 0))
-                                ELSE ABS(COALESCE(mt.valor, 0))
-                            END
-                        ), 2) AS saldo_movimientos
-                    FROM movimiento_tarjeta mt
-                    WHERE mt.id_persona = %s
-                    GROUP BY mt.id_tarjeta
-               ) sm ON sm.id_tarjeta = t.id_tarjeta
-               LEFT JOIN (
-                    SELECT
-                        td.id_tarjeta,
-                        ROUND(SUM(
-                            CASE
-                                WHEN LOWER(COALESCE(td.estado, '')) = 'activo' THEN COALESCE(td.saldo_pendiente, 0)
-                                ELSE 0
-                            END
-                        ), 2) AS saldo_diferidos
-                    FROM tarjeta_diferido td
-                    WHERE td.id_persona = %s
-                    GROUP BY td.id_tarjeta
-               ) sd ON sd.id_tarjeta = t.id_tarjeta
-               WHERE t.id_persona = %s
-               ORDER BY t.fecha_creacion DESC, t.id_tarjeta DESC""",
-            (persona_id, persona_id, persona_id),
-        ) or []
+        if _table_exists(db, 'movimiento_tarjeta'):
+            tarjetas = db.execute_query(
+                """SELECT
+                        t.id_tarjeta AS id,
+                        CONCAT('Tarjeta ', RIGHT(t.numero_tarjeta, 4)) AS nombre,
+                        t.numero_tarjeta,
+                        t.nombre_titular,
+                        t.banco,
+                        t.tipo_tarjeta,
+                        t.limite_credito,
+                        CASE
+                            WHEN sm.saldo_movimientos IS NULL AND sd.saldo_diferidos IS NULL THEN COALESCE(t.saldo_actual, 0)
+                            ELSE (
+                                GREATEST(0, COALESCE(sm.saldo_movimientos, 0))
+                                + GREATEST(0, COALESCE(sd.saldo_diferidos, 0))
+                            )
+                        END AS saldo_actual,
+                        t.saldo_inicial,
+                        t.fecha_vencimiento,
+                        t.fecha_corte,
+                        t.fecha_pago,
+                        t.cobra_interes_compra_1_cuota,
+                        t.tasa_interes_compra_1_cuota,
+                        t.fecha_creacion,
+                        UPPER(COALESCE(t.estado, 'ACTIVA')) AS estado_tarjeta,
+                        t.id_persona
+                   FROM tarjeta_credito t
+                   LEFT JOIN (
+                        SELECT
+                            mt.id_tarjeta,
+                            ROUND(SUM(
+                                CASE
+                                    WHEN LOWER(COALESCE(mt.estado, '')) IN ('abono', 'aprobado') THEN -ABS(COALESCE(mt.valor, 0))
+                                    ELSE ABS(COALESCE(mt.valor, 0))
+                                END
+                            ), 2) AS saldo_movimientos
+                        FROM movimiento_tarjeta mt
+                        WHERE mt.id_persona = %s
+                        GROUP BY mt.id_tarjeta
+                   ) sm ON sm.id_tarjeta = t.id_tarjeta
+                   LEFT JOIN (
+                        SELECT
+                            td.id_tarjeta,
+                            ROUND(SUM(
+                                CASE
+                                    WHEN LOWER(COALESCE(td.estado, '')) = 'activo' THEN COALESCE(td.saldo_pendiente, 0)
+                                    ELSE 0
+                                END
+                            ), 2) AS saldo_diferidos
+                        FROM tarjeta_diferido td
+                        WHERE td.id_persona = %s
+                        GROUP BY td.id_tarjeta
+                   ) sd ON sd.id_tarjeta = t.id_tarjeta
+                   WHERE t.id_persona = %s
+                   ORDER BY t.fecha_creacion DESC, t.id_tarjeta DESC""",
+                (persona_id, persona_id, persona_id),
+            ) or []
+        else:
+            tarjetas = db.execute_query(
+                """SELECT
+                        t.id_tarjeta AS id,
+                        CONCAT('Tarjeta ', RIGHT(t.numero_tarjeta, 4)) AS nombre,
+                        t.numero_tarjeta,
+                        t.nombre_titular,
+                        t.banco,
+                        t.tipo_tarjeta,
+                        t.limite_credito,
+                        COALESCE(t.saldo_actual, 0) AS saldo_actual,
+                        t.saldo_inicial,
+                        t.fecha_vencimiento,
+                        t.fecha_corte,
+                        t.fecha_pago,
+                        t.cobra_interes_compra_1_cuota,
+                        t.tasa_interes_compra_1_cuota,
+                        t.fecha_creacion,
+                        UPPER(COALESCE(t.estado, 'ACTIVA')) AS estado_tarjeta,
+                        t.id_persona
+                   FROM tarjeta_credito t
+                   WHERE t.id_persona = %s
+                   ORDER BY t.fecha_creacion DESC, t.id_tarjeta DESC""",
+                (persona_id,),
+            ) or []
 
         # ── Acciones / Fondos ─────────────────────────────────────────────────
         acciones = db.execute_query(
@@ -416,10 +533,20 @@ def create_cuenta():
         if tipo not in TIPOS_CUENTA:
             return jsonify({'message': f'tipo debe ser: {", ".join(TIPOS_CUENTA)}'}), 400
 
-        db.execute_non_query(
-            "INSERT INTO cuenta (id_persona, nombre, tipo, saldo_inicial, moneda, estado) VALUES (%s,%s,%s,%s,%s,'ACTIVO')",
-            (persona_id, nombre, tipo, saldo, moneda),
-        )
+        cuenta_has_estado = _cuenta_has_estado_column(db)
+        if cuenta_has_estado:
+            result = db.execute_non_query(
+                "INSERT INTO cuenta (id_persona, nombre, tipo, saldo_inicial, moneda, estado) VALUES (%s,%s,%s,%s,%s,'ACTIVO')",
+                (persona_id, nombre, tipo, saldo, moneda),
+            )
+        else:
+            result = db.execute_non_query(
+                "INSERT INTO cuenta (id_persona, nombre, tipo, saldo_inicial, moneda) VALUES (%s,%s,%s,%s,%s)",
+                (persona_id, nombre, tipo, saldo, moneda),
+            )
+
+        if result is None:
+            return jsonify({'message': 'No fue posible crear la cuenta'}), 500
         return jsonify({'message': 'Cuenta creada'}), 201
     except Exception as e:
         logger.error('Error creando cuenta: %s', e)
@@ -467,18 +594,58 @@ def toggle_cuenta(cuenta_id):
     persona_id = _persona_id()
     db = DatabaseConnector()
     try:
+        if not _ensure_cuenta_estado_column(db):
+            return jsonify({'message': 'No fue posible preparar el esquema para activar/inactivar cuentas'}), 500
+
         row = db.execute_query(
             "SELECT estado FROM cuenta WHERE id_cuenta=%s AND id_persona=%s LIMIT 1",
             (cuenta_id, persona_id),
         )
         if not row:
             return jsonify({'message': 'Cuenta no encontrada'}), 404
-        nuevo = 'INACTIVO' if row[0]['estado'] == 'ACTIVO' else 'ACTIVO'
+        estado_actual = str(row[0].get('estado') or 'ACTIVO').strip().upper()
+        nuevo = 'INACTIVO' if estado_actual in ('ACTIVO', 'ACTIVA') else 'ACTIVO'
         db.execute_non_query("UPDATE cuenta SET estado=%s WHERE id_cuenta=%s", (nuevo, cuenta_id))
         return jsonify({'message': 'Estado actualizado', 'estado': nuevo}), 200
     except Exception as e:
         logger.error('Error toggle cuenta %s: %s', cuenta_id, e)
         return jsonify({'message': 'Error al cambiar estado'}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/cuentas/<int:cuenta_id>', methods=['DELETE'])
+def delete_cuenta(cuenta_id):
+    verify_jwt_in_request()
+    persona_id = _persona_id()
+    db = DatabaseConnector()
+    try:
+        row = db.execute_query(
+            "SELECT id_cuenta FROM cuenta WHERE id_cuenta=%s AND id_persona=%s LIMIT 1",
+            (cuenta_id, persona_id),
+        )
+        if not row:
+            return jsonify({'message': 'Cuenta no encontrada'}), 404
+
+        movs = db.execute_query(
+            "SELECT COUNT(*) AS total FROM movimiento WHERE id_cuenta = %s",
+            (cuenta_id,),
+        )
+        total_movs = int((movs or [{}])[0].get('total') or 0)
+        if total_movs > 0:
+            return jsonify({'message': 'No se puede eliminar la cuenta porque tiene movimientos. Puedes inactivarla.'}), 409
+
+        result = db.execute_non_query(
+            "DELETE FROM cuenta WHERE id_cuenta=%s AND id_persona=%s",
+            (cuenta_id, persona_id),
+        )
+        if result is None:
+            return jsonify({'message': 'No fue posible eliminar la cuenta'}), 500
+
+        return jsonify({'message': 'Cuenta eliminada'}), 200
+    except Exception as e:
+        logger.error('Error eliminando cuenta %s: %s', cuenta_id, e)
+        return jsonify({'message': 'Error al eliminar cuenta'}), 500
     finally:
         db.close()
 
@@ -614,6 +781,7 @@ def create_tarjeta():
     persona_id = _persona_id()
     db = DatabaseConnector()
     try:
+        _ensure_tarjeta_credito_table(db)
         _ensure_tarjeta_interest_columns(db)
         d = request.get_json() or {}
         try:
@@ -644,7 +812,7 @@ def create_tarjeta():
         if not cobra_interes_1_cuota:
             tasa_interes_1_cuota = 0.0
 
-        db.execute_non_query(
+        result = db.execute_non_query(
             """INSERT INTO tarjeta_credito (numero_tarjeta, nombre_titular, banco, tipo_tarjeta,
                     limite_credito, saldo_inicial, saldo_actual, fecha_vencimiento, fecha_corte, fecha_pago,
                     estado, cobra_interes_compra_1_cuota, tasa_interes_compra_1_cuota, id_persona)
@@ -653,6 +821,8 @@ def create_tarjeta():
                  fecha_vencimiento, fecha_corte, fecha_pago, estado,
                  1 if cobra_interes_1_cuota else 0, tasa_interes_1_cuota, persona_id),
         )
+        if result is None:
+            return jsonify({'message': 'No fue posible crear la tarjeta'}), 500
         return jsonify({'message': 'Tarjeta creada', 'status': 'success'}), 201
     except Exception as e:
         logger.error('Error creando tarjeta: %s', e)
@@ -743,6 +913,58 @@ def toggle_tarjeta(tarjeta_id):
     except Exception as e:
         logger.error('Error toggle tarjeta %s: %s', tarjeta_id, e)
         return jsonify({'message': 'Error al cambiar estado'}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/tarjetas/<int:tarjeta_id>', methods=['DELETE'])
+def delete_tarjeta(tarjeta_id):
+    verify_jwt_in_request()
+    persona_id = _persona_id()
+    db = DatabaseConnector()
+    try:
+        row = db.execute_query(
+            "SELECT id_tarjeta FROM tarjeta_credito WHERE id_tarjeta=%s AND id_persona=%s LIMIT 1",
+            (tarjeta_id, persona_id),
+        )
+        if not row:
+            return jsonify({'message': 'Tarjeta no encontrada'}), 404
+
+        if _table_exists(db, 'movimiento_tarjeta'):
+            movs = db.execute_query(
+                "SELECT COUNT(*) AS total FROM movimiento_tarjeta WHERE id_tarjeta = %s AND id_persona = %s",
+                (tarjeta_id, persona_id),
+            )
+            total_movs = int((movs or [{}])[0].get('total') or 0)
+            if total_movs > 0:
+                return jsonify({'message': 'No se puede eliminar la tarjeta porque tiene movimientos asociados. Puedes inactivarla.'}), 409
+
+        if _table_exists(db, 'tarjeta_diferido'):
+            difs = db.execute_query(
+                """
+                SELECT COUNT(*) AS total
+                FROM tarjeta_diferido
+                WHERE id_tarjeta = %s
+                  AND id_persona = %s
+                  AND LOWER(COALESCE(estado, '')) = 'activo'
+                """,
+                (tarjeta_id, persona_id),
+            )
+            total_difs = int((difs or [{}])[0].get('total') or 0)
+            if total_difs > 0:
+                return jsonify({'message': 'No se puede eliminar la tarjeta porque tiene diferidos activos. Usa paso de deuda o inactívala.'}), 409
+
+        result = db.execute_non_query(
+            "DELETE FROM tarjeta_credito WHERE id_tarjeta=%s AND id_persona=%s",
+            (tarjeta_id, persona_id),
+        )
+        if result is None:
+            return jsonify({'message': 'No fue posible eliminar la tarjeta'}), 500
+
+        return jsonify({'message': 'Tarjeta eliminada', 'status': 'success'}), 200
+    except Exception as e:
+        logger.error('Error eliminando tarjeta %s: %s', tarjeta_id, e)
+        return jsonify({'message': 'Error al eliminar tarjeta'}), 500
     finally:
         db.close()
 

@@ -773,6 +773,8 @@ function cardCuenta(c) {
             <button class="btn btn-sm ${['ACTIVO','ACTIVA'].includes((c.estado||'').toUpperCase())?'btn-outline-warning':'btn-outline-success'}"
                 title="Cambiar estado" onclick="toggleEstado('cuentas',${c.id},this)">
                 <i class="fas fa-${['ACTIVO','ACTIVA'].includes((c.estado||'').toUpperCase())?'eye-slash':'eye'}"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Eliminar" onclick="eliminarCuenta(${c.id}, ${JSON.stringify(c.nombre || '').replace(/"/g,'&quot;')})">
+                <i class="fas fa-trash"></i></button>
           </div>
         </div>
       </div>
@@ -828,6 +830,9 @@ function cardTarjeta(t) {
             </button>
             <button class="btn btn-sm ${estadoActivo?'btn-outline-warning':'btn-outline-success'}" title="Cambiar estado" onclick="toggleEstado('tarjetas',${t.id},this)">
               <i class="fas fa-${estadoActivo?'eye-slash':'eye'}"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger" title="Eliminar" onclick="eliminarTarjeta(${t.id}, ${JSON.stringify(t.nombre || '').replace(/"/g,'&quot;')})">
+              <i class="fas fa-trash"></i>
             </button>
             <button class="btn btn-sm btn-outline-dark" title="Paso de deuda" onclick="abrirModalPasoDeuda(${t.id}, ${JSON.stringify(t.nombre || '').replace(/"/g,'&quot;')})">
               <i class="fas fa-right-left"></i>
@@ -1301,6 +1306,50 @@ async function toggleEstado(tipo, id, btn) {
         btn.disabled = false;
     }
 }
+
+  async function eliminarCuenta(id, nombre) {
+    const confirmar = window.confirm(`Se eliminara la cuenta "${nombre || ('#' + id)}". Esta accion no se puede deshacer.`);
+    if (!confirmar) return;
+
+    const token = localStorage.getItem('authToken');
+    try {
+      const res = await fetch(`/api/productos/cuentas/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || 'No fue posible eliminar la cuenta');
+        return;
+      }
+      toast(data.message || 'Cuenta eliminada', 'success');
+      cargarProductos();
+    } catch (_) {
+      alert('Error de red al eliminar la cuenta');
+    }
+  }
+
+  async function eliminarTarjeta(id, nombre) {
+    const confirmar = window.confirm(`Se eliminara la tarjeta "${nombre || ('#' + id)}". Esta accion no se puede deshacer.`);
+    if (!confirmar) return;
+
+    const token = localStorage.getItem('authToken');
+    try {
+      const res = await fetch(`/api/productos/tarjetas/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || 'No fue posible eliminar la tarjeta');
+        return;
+      }
+      toast(data.message || 'Tarjeta eliminada', 'success');
+      cargarProductos();
+    } catch (_) {
+      alert('Error de red al eliminar la tarjeta');
+    }
+  }
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Utilidades

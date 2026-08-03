@@ -7,6 +7,7 @@ class APIClient {
     constructor(baseURL = '/api') {
         this.baseURL = baseURL;
         this.token = this.getToken();
+        this.timeoutMs = 10000;
     }
 
     /**
@@ -38,6 +39,8 @@ class APIClient {
      */
     async request(method, endpoint, data = null, options = {}) {
         const url = `${this.baseURL}${endpoint}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
         
         const config = {
             method,
@@ -45,6 +48,7 @@ class APIClient {
                 'Content-Type': 'application/json',
                 ...options.headers
             },
+            signal: controller.signal,
             ...options
         };
 
@@ -60,6 +64,7 @@ class APIClient {
 
         try {
             const response = await fetch(url, config);
+            clearTimeout(timeoutId);
 
             // Manejo de respuesta no autorizada
             if (response.status === 401 && endpoint !== '/auth/login') {
@@ -88,6 +93,14 @@ class APIClient {
             return responseData;
 
         } catch (error) {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                const timeoutError = new Error(
+                    'El servidor tardó demasiado en responder. Revisa la conexión a la base de datos y vuelve a intentar.'
+                );
+                timeoutError.code = 'REQUEST_TIMEOUT';
+                throw timeoutError;
+            }
             console.error(`API Error [${method} ${endpoint}]:`, error);
             throw error;
         }
@@ -159,6 +172,17 @@ class APIClient {
      */
     async getGastosPorCategoria() {
         return this.request('GET', '/dashboard/gastos-por-categoria');
+    }
+
+    /**
+     * Obtener tendencia temporal de gastos por categoría con filtros.
+     */
+    async getGastosCategoriaTendencia(params = {}) {
+        const queryString = new URLSearchParams(params).toString();
+        return this.request(
+            'GET',
+            `/dashboard/gastos-categoria-tendencia${queryString ? '?' + queryString : ''}`
+        );
     }
 
     // ==================== PRESUPUESTO ====================

@@ -18,7 +18,8 @@ class DatabaseConnector:
     """
     
     def __init__(self, host: str = "localhost", database: str = "app_presupuesto",
-                 user: str = "root", clave: str = "") -> None:
+                 user: str = "root", clave: str = "", port: int = 3306,
+                 connection_timeout: int = 5) -> None:
         """
         Inicializa la conexión a la base de datos MySQL.
         
@@ -30,9 +31,11 @@ class DatabaseConnector:
         """
         self._connection_params = {
             'host': host,
+            'port': port,
             'database': database,
             'user': user,
-            'password': clave  # Cambiado de 'clave' a 'password'
+            'password': clave,
+            'connection_timeout': connection_timeout,
         }
         self.conn = None
         self._connect_mysql()
