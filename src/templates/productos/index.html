@@ -837,6 +837,9 @@ function cardTarjeta(t) {
             <button class="btn btn-sm btn-outline-dark" title="Paso de deuda" onclick="abrirModalPasoDeuda(${t.id}, ${JSON.stringify(t.nombre || '').replace(/"/g,'&quot;')})">
               <i class="fas fa-right-left"></i>
             </button>
+            <button class="btn btn-sm btn-outline-info" title="Recetar tarjeta" onclick="recetarTarjeta(${t.id}, ${JSON.stringify(t.nombre || '').replace(/"/g,'&quot;')})">
+              <i class="fas fa-rotate-left"></i>
+            </button>
             <a class="btn btn-sm btn-outline-primary" href="/tarjetas" title="Historial"><i class="fas fa-clock-rotate-left"></i></a>
           </div>
         </div>
@@ -1348,6 +1351,30 @@ async function toggleEstado(tipo, id, btn) {
       cargarProductos();
     } catch (_) {
       alert('Error de red al eliminar la tarjeta');
+    }
+  }
+
+  async function recetarTarjeta(id, nombre) {
+    const confirmar = window.confirm(`Se eliminarán los movimientos de la tarjeta "${nombre || ('#' + id)}" y se dejará su saldo en 0. ¿Deseas continuar?`);
+    if (!confirmar) return;
+
+    try {
+      const res = await apiCall('POST', `/api/productos/tarjetas/${id}/reset`, {});
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.message || 'No fue posible recetar la tarjeta');
+        return;
+      }
+      toast(data.message || 'Tarjeta recetada', 'success');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('productos:refresh'));
+      }
+      await cargarProductos();
+      if (typeof window !== 'undefined') {
+        setTimeout(() => window.location.reload(), 250);
+      }
+    } catch (_) {
+      alert('Error de red al recetar la tarjeta');
     }
   }
 

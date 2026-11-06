@@ -1,72 +1,98 @@
 # App Presupuesto
 
-Aplicación de gestión de finanzas personales con capa web Flask + Jinja y base de datos MySQL/MariaDB.
+Aplicación web para gestión financiera personal y análisis de flujo de efectivo, construida con Flask, Jinja2 y MySQL/MariaDB.
 
-## Estado actual
+## Visión general
 
-- Capa web Flask como interfaz principal, con entrada en `app.py`.
-- Interfaz de escritorio Flet heredada disponible en `main.py` (en proceso de deprecación).
-- APIs REST completas para autenticación, dashboard, presupuesto, transacciones, reportes, tarjetas, inversiones, metas, categorías, beneficiarios, constantes, transacciones programadas y análisis de consumo.
-- Base de datos real en MySQL/MariaDB con script de inicialización y modo de mantenimiento seguro.
-- Módulos de ETL y utilidades de verificación activos en el proyecto.
+App Presupuesto centraliza la operación financiera personal en una sola herramienta:
 
-## Modos de ejecución
+- registro de cuentas bancarias y movimientos,
+- seguimiento de tarjetas de crédito y diferidos,
+- gestión de presupuesto por categoría,
+- análisis de consumo y tendencias,
+- automatización de clasificación de movimientos,
+- análisis de patrimonio, saldos y metas.
 
-### Escritorio Flet
+El proyecto está orientado a la versión web como interfaz principal, aunque conserva una capa desktop Flet heredada que no es el eje actual del desarrollo.
 
-```powershell
-python main.py
-```
+## Estado actual del proyecto
 
-### Web Flask
+- La aplicación web Flask es la interfaz principal y se ejecuta desde `app.py`.
+- La UI Flet de `main.py` sigue disponible como compatibilidad, pero el desarrollo activo se concentra en la web.
+- La lógica continúa separada por capas: rutas, servicios de negocio, acceso a datos y plantillas.
+- El rendimiento operativo depende de una base de datos MySQL/MariaDB real con inicialización y mantenimiento seguro.
+- Existen módulos de ETL, validación, análisis y optimización de clasificación incorporados al flujo productivo.
 
-```powershell
-python app.py
-```
+## Stack tecnológico
 
-La aplicación web usa templates en `src/templates`, assets en `src/static` y blueprints en `src/routes`.
+- Python 3.10+
+- Flask
+- Jinja2
+- MySQL 8 / MariaDB
+- SQLAlchemy-like style via custom DB connector patterns
+- JavaScript y Chart.js para dashboards y análisis
+- Flask JWT para autenticación
 
-## Requisitos
+## Requisitos previos
 
 - Python 3.10 o superior.
 - MySQL 8.0+ o MariaDB 10.6+.
+- XAMPP o instalación equivalente de MySQL.
 - Entorno virtual activo.
-- Dependencias instaladas desde `requirements.txt`.
+- Dependencias del proyecto instaladas desde `requirements.txt`.
 
 ## Inicio rápido
 
 ```powershell
 python -m venv venv
 .\venv\Scripts\Activate.ps1
-pip install --upgrade pip
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Inicializa o verifica la base de datos:
+### Inicializar la base de datos
 
 ```powershell
 $env:Path = "C:\xampp\mysql\bin;" + $env:Path
 .\base_de_datos\db\init_db.bat
 ```
 
-Notas:
+### Ejecutar la aplicación web
 
-- Si la base está vacía, `init_db.bat` intenta una instalación completa.
-- Si la base ya tiene tablas, entra en modo `maintenance` y ejecuta solo tareas seguras.
-- La migración de contraseñas legacy a SHA-256 está integrada al flujo del batch.
+```powershell
+python app.py
+```
 
-## Estructura relevante
+Luego abrir:
+
+- http://127.0.0.1:5000/
+- http://127.0.0.1:5000/login
+
+## Flujo funcional principal
+
+1. Login con JWT.
+2. Dashboard con KPIs financieros principales.
+3. Gestión de cuentas y movimientos bancarios.
+4. Registro y categorización de tarjetas de crédito.
+5. Presupuesto y análisis por categorías.
+6. Revisión de saldos, metas e inversiones.
+7. Uso de la optimización de clasificación para agrupar movimientos repetidos.
+
+## Estructura relevante del repositorio
 
 ```text
 app-presopuesto/
-├── app.py                     # Entrada web Flask (principal)
-├── main.py                    # Entrada escritorio Flet (heredado)
+├── app.py                           # Entrada principal de la app web Flask
+├── main.py                          # Entrada legacy Flet
+├── config.yaml                     # Configuración global de entorno
+├── requirements.txt                # Dependencias Python
 ├── src/
-│   ├── business/services/     # ETL y servicios de negocio
-│   ├── controllers/           # Lógica usada por la UI de escritorio
-│   ├── database/              # Conector y configuración de BD
-│   ├── models/                # Modelos de dominio
-│   ├── routes/                # Blueprints Flask
+│   ├── business/
+│   │   └── services/               # Servicios de negocio y ETL
+│   ├── controllers/                # Lógica legacy soportada por escritorio
+│   ├── database/                   # Conector y utilidades de acceso a BD
+│   ├── models/                     # Modelos y dominio de la app
+│   ├── routes/                     # Blueprints Flask
 │   │   ├── auth.py
 │   │   ├── dashboard.py
 │   │   ├── transacciones.py
@@ -80,92 +106,122 @@ app-presopuesto/
 │   │   ├── categorias.py
 │   │   ├── beneficiarios.py
 │   │   ├── constantes.py
-│   │   ├── programadas.py              # Transacciones programadas (recurrentes)
-│   │   ├── analisis.py                 # Análisis de consumo
-│   │   └── optimizacion_categorias.py  # Optimización de categorías y beneficiarios
-│   ├── static/                # CSS y JS de la versión web
-│   ├── templates/             # Templates Jinja
-│   │   ├── dashboard/
-│   │   ├── transacciones/
-│   │   ├── presupuesto/
-│   │   ├── reportes/
-│   │   ├── tarjetas/
-│   │   ├── inversiones/
-│   │   ├── metas/
-│   │   ├── productos/
-│   │   ├── cuentas_bancarias/
-│   │   ├── categorias/
-│   │   ├── beneficiarios/
-│   │   ├── constantes/
-│   │   ├── programadas/       # Interfaz transacciones programadas
-│   │   ├── analisis/                    # Interfaz análisis de consumo
-│   │   ├── optimizacion_categorias/     # Interfaz optimización de clasificación
-│   │   └── components/
-│   └── views/                 # Vistas Flet existentes (heredadas)
-├── base_de_datos/db/          # Scripts SQL y batch de inicialización
-├── docs/                      # Documentación vigente
-├── scripts/verify/            # Verificaciones manuales
-└── tests/                     # Tests y pruebas manuales
+│   │   ├── programadas.py
+│   │   ├── analisis.py
+│   │   └── optimizacion_categorias.py
+│   ├── static/                    # Assets CSS/JS web
+│   ├── templates/                 # Vistas Jinja2
+│   ├── utils/                     # Utilidades varias
+│   ├── views/                     # Vistas heredadas Flet
+│   └── __init__.py
+├── base_de_datos/
+│   └── db/                        # Scripts de inicialización y mantenimiento
+├── data/                          # Datos de apoyo y persistencia local
+├── docs/                          # Documentación del proyecto
+├── logs/                          # Logs de ejecución
+├── scripts/
+│   ├── migrations/                # Migraciones SQL/Python del esquema
+│   ├── seed/                      # Semillas y datos de prueba
+│   ├── verify/                   # Verificaciones manuales
+│   └── ...
+├── tests/                         # Pruebas automáticas y manuales
+├── README.md                      # Documento principal
+├── app-presopuesto.code-workspace # Workspace VS Code
+└── main.py                        # Punto de entrada heredado
 ```
 
-## Documentación recomendada
+## Módulos funcionales principales
 
-- `docs/INSTALLATION.md`: instalación y arranque.
-- `docs/ARCHITECTURE.md`: arquitectura actual.
-- `docs/DATABASE_SETUP.md`: inicialización y mantenimiento de BD.
-- `docs/API_REFERENCE.md`: endpoints web disponibles.
-- `docs/USER_GUIDE.md`: guía de uso de módulos web.
-- `docs/ETL_TARJETA_CREDITO.md`: ETL de tarjetas de crédito.
-- `docs/ETL_CUENTA_BANCARIA.md`: ETL de extractos de cuenta bancaria.
+### Dashboard y resumen financiero
+
+- KPIs de patrimonio, flujo del mes y cuentas.
+- Visualización consolidada del estado económico personal.
+- Integración con saldos reales por persona y por producto.
+
+### Cuentas y movimientos
+
+- Gestión de cuentas bancarias.
+- Registro y detalle de movimientos.
+- Categorización de entradas y egresos.
+
+### Tarjetas y diferidos
+
+- Administración de tarjetas de crédito.
+- Seguimiento de movimientos, cuotas y saldo.
+- Carga de información desde ETL y cálculo de pagos diferidos.
+
+### Presupuesto y categorías
+
+- Definición de presupuestos por categoría.
+- Catalogación de gastos e ingresos.
+- Alineación con la optimización de clasificación.
+
+### Análisis y reportes
+
+- Tendency and distribution by month.
+- Comparatives and consumption indicators.
+- Visualization with Chart.js and custom summaries.
+
+### Optimización de clasificación
+
+- Identificación de conceptos repetidos sin categoría.
+- Reglas automáticas basadas en historial.
+- Resolución de conflictos y confirmación manual de reglas.
+- Aplicación masiva a movimientos pendientes.
+
+### ETL y carga de datos
+
+- ETL de cuenta bancaria.
+- ETL de tarjeta de crédito.
+- Procesado de registros históricos y migración de archivos.
+
+## Documentación disponible
+
 - `docs/README.md`: índice maestro de documentación.
+- `docs/ARCHITECTURE.md`: arquitectura actual del sistema.
+- `docs/DATABASE_SETUP.md`: preparación y mantenimiento de la base de datos.
+- `docs/API_REFERENCE.md`: referencia de endpoints.
+- `docs/USER_GUIDE.md`: guía operativa para usuarios.
+- `docs/INSTALLATION.md`: instalación y configuración del entorno.
+- `docs/DEVELOPMENT.md`: flujo de trabajo para desarrollo.
+- `docs/TROUBLESHOOTING.md`: resolución de problemas comunes.
+- `docs/status/`: reportes y resúmenes de evolución del proyecto.
 
-## Módulos web disponibles
+## Buenas prácticas del proyecto
 
-| Ruta                 | Descripción                                    |
-|----------------------|------------------------------------------------|
-| `/dashboard`         | Resumen principal de finanzas                 |
-| `/transacciones`     | Historial y CRUD de movimientos               |
-| `/presupuesto`       | Gestión de presupuestos por categoría         |
-| `/reportes`          | Reportes mensuales y por categoría            |
-| `/tarjetas`          | Tarjetas de crédito y compras diferidas       |
-| `/inversiones`       | Seguimiento de inversiones                    |
-| `/metas`             | Metas de ahorro                               |
-| `/productos`         | Resumen de productos financieros              |
-| `/cuentas-bancarias` | Gestión de cuentas bancarias                  |
-| `/categorias`        | Catálogo de categorías                        |
-| `/beneficiarios`     | Catálogo de beneficiarios                     |
-| `/constantes`        | Constantes del sistema                        |
-| `/programadas`       | Transacciones programadas y recurrentes       |
-| `/analisis`                | Análisis de consumo con gráficos interactivos                  |
-| `/optimizacion-categorias` | Optimización automática de categorías y beneficiarios          |
+- Mantener la base de datos como fuente única de verdad.
+- Preferir cambios en servicios empresariales antes de tocar la capa visual.
+- Validar los cambios con la propia base de datos y con la UI de escenarios reales.
+- No dejar scripts de prueba en la raíz del repositorio.
+- Usar `use_reloader=False` si se trabaja con ETL y carga de archivos para evitar reinicios innecesarios del servidor.
 
 ## Limitaciones conocidas
 
-- La UI Flet (`main.py`) convive con la web pero ya no es el foco principal de desarrollo.
-- Para importaciones ETL desde Excel se recomienda lanzar Flask con `use_reloader=False` para evitar que el watchdog reinicie el servidor al cargar módulos XML.
-- La instalación `full` desde cero sobre algunos entornos MariaDB aún requiere saneamiento adicional de scripts históricos.
-
-## Organización del repositorio
-
-- Los documentos de estado y resúmenes técnicos viven en `docs/status/`.
-- Las pruebas manuales y de exploración deben guardarse en `tests/manual/`.
-- Evita dejar scripts de prueba en la raíz del proyecto.
+- La parte desktop Flet está desfasada respecto a la web y no es prioridad de desarrollo.
+- Algunos scripts históricos requieren saneamiento para instalaciones nuevas o limpias.
+- El proyecto combina módulos modernos con código heredado en distintos puntos del repositorio.
 
 ## Verificación rápida
-
-Aplicación web:
 
 ```powershell
 python app.py
 ```
 
-Luego abre:
+Validaciones recomendadas:
 
-- `http://127.0.0.1:5000/`
-- `http://127.0.0.1:5000/health`
+- Abrir http://127.0.0.1:5000/login
+- Revisar que el dashboard se cargue correctamente
+- Confirmar que las rutas de módulos principales responden sin errores
+- Validar que la base de datos esté disponible en MySQL/MariaDB
 
-Aplicación de escritorio:
+## Contribución
 
-```powershell
-python main.py
-```
+Para trabajar sobre el proyecto:
+
+1. Crear un entorno virtual.
+2. Instalar dependencias con `pip install -r requirements.txt`.
+3. Revisar la BD y scripts de migración.
+4. Ejecutar la app en modo local.
+5. Probar los cambios con la ruta afectada y la lógica relevante.
+
+Si se modifica la estructura de datos, revisar antes los scripts bajo `scripts/migrations/` y la documentación de `docs/DATABASE_SETUP.md`.

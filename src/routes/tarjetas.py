@@ -33,6 +33,35 @@ def _get_user_id() -> int:
     return 1
 
 
+def _table_exists(db: DatabaseConnector, table_name: str) -> bool:
+        rows = db.execute_query(
+                """
+                SELECT 1
+                FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME = %s
+                LIMIT 1
+                """,
+                (table_name,),
+        ) or []
+        return bool(rows)
+
+
+def _has_column(db: DatabaseConnector, table_name: str, column_name: str) -> bool:
+        rows = db.execute_query(
+                """
+                SELECT 1
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME = %s
+                    AND COLUMN_NAME = %s
+                LIMIT 1
+                """,
+                (table_name, column_name),
+        ) or []
+        return bool(rows)
+
+
 def _add_months(d: date, months: int = 1) -> date:
     y = d.year + (d.month - 1 + months) // 12
     m = (d.month - 1 + months) % 12 + 1
@@ -157,25 +186,33 @@ def get_catalogos():
         _ensure_tarjeta_interest_columns(db)
         user_id = _get_user_id()
 
-        tarjetas = db.execute_query(
-            """
+        has_tarjeta_estado = _has_column(db, 'tarjeta_credito', 'estado')
+        has_categoria_persona = _has_column(db, 'categoria', 'id_persona')
+        has_categoria_estado = _has_column(db, 'categoria', 'estado')
+        has_beneficiario_persona = _has_column(db, 'beneficiario', 'id_persona')
+        has_beneficiario_estado = _has_column(db, 'beneficiario', 'estado')
+
+        estado_expr = "COALESCE(tc.estado, 'activa')" if has_tarjeta_estado else "'activa'"
+        estado_order = "CASE WHEN LOWER(COALESCE(tc.estado, 'activa')) = 'activa' THEN 0 ELSE 1 END, " if has_tarjeta_estado else ""
+
+        tarjetas_sql = """
             SELECT tc.id_tarjeta,
                    CONCAT('****', RIGHT(tc.numero_tarjeta, 4)) AS nombre,
                    tc.numero_tarjeta,
                    tc.limite_credito,
                    tc.saldo_inicial,
                    CASE
-                       WHEN sm.saldo_movimientos IS NULL AND sd.saldo_diferidos IS NULL THEN COALESCE(tc.saldo_actual, 0)
-                       ELSE (
+                       WHEN COALESCE(sm.saldo_movimientos, 0) <> 0 OR COALESCE(sd.saldo_diferidos, 0) <> 0 THEN (
                            GREATEST(0, COALESCE(sm.saldo_movimientos, 0))
                            + GREATEST(0, COALESCE(sd.saldo_diferidos, 0))
                        )
+                       ELSE COALESCE(tc.saldo_actual, 0)
                    END AS saldo_actual,
                    tc.cobra_interes_compra_1_cuota,
                    tc.tasa_interes_compra_1_cuota,
                    tc.fecha_corte,
                    tc.fecha_pago,
-                   COALESCE(et.nombre, 'activa') AS estado
+                   {estado_expr} AS estado
             FROM tarjeta_credito tc
             LEFT JOIN (
                 SELECT
@@ -198,23 +235,36 @@ def get_catalogos():
                 WHERE td.id_persona = %s
                 GROUP BY td.id_tarjeta
             ) sd ON sd.id_tarjeta = tc.id_tarjeta
-            LEFT JOIN estado_tarjeta et ON tc.id_estado = et.id_estado
-            WHERE tc.id_tarjeta IN (
-                SELECT DISTINCT id_tarjeta FROM movimiento_tarjeta WHERE id_persona = %s
-            )
-            ORDER BY tc.id_tarjeta
-            """,
-            (user_id, user_id, user_id),
-        )
+            WHERE tc.id_persona = %s
+            ORDER BY {estado_order} tc.id_tarjeta
+            """.format(estado_expr=estado_expr, estado_order=estado_order)
+        tarjetas = db.execute_query(tarjetas_sql, (user_id, user_id, user_id))
 
-        categorias = db.execute_query(
-            "SELECT id_categoria, nombre FROM categoria WHERE id_persona = %s AND estado = 1 ORDER BY nombre",
-            (user_id,),
-        )
-        beneficiarios = db.execute_query(
-            "SELECT id_beneficiario, nombre FROM beneficiario WHERE id_persona = %s AND estado = 1 ORDER BY nombre",
-            (user_id,),
-        )
+        categoria_where = []
+        categoria_params = []
+        if has_categoria_persona:
+            categoria_where.append("id_persona = %s")
+            categoria_params.append(user_id)
+        if has_categoria_estado:
+            categoria_where.append("estado = 1")
+        categoria_sql = "SELECT id_categoria, nombre FROM categoria"
+        if categoria_where:
+            categoria_sql += " WHERE " + " AND ".join(categoria_where)
+        categoria_sql += " ORDER BY nombre"
+        categorias = db.execute_query(categoria_sql, tuple(categoria_params))
+
+        beneficiario_where = []
+        beneficiario_params = []
+        if has_beneficiario_persona:
+            beneficiario_where.append("id_persona = %s")
+            beneficiario_params.append(user_id)
+        if has_beneficiario_estado:
+            beneficiario_where.append("estado = 1")
+        beneficiario_sql = "SELECT id_beneficiario, nombre FROM beneficiario"
+        if beneficiario_where:
+            beneficiario_sql += " WHERE " + " AND ".join(beneficiario_where)
+        beneficiario_sql += " ORDER BY nombre"
+        beneficiarios = db.execute_query(beneficiario_sql, tuple(beneficiario_params))
 
         for t in tarjetas:
             for k in ('fecha_corte', 'fecha_pago'):

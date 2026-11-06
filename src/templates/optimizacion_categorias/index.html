@@ -667,6 +667,10 @@ async function cargarPendientes() {
     renderPendientesCategoria();
 }
 
+async function cargarPendientesCategoria() {
+    return cargarPendientes();
+}
+
 function renderPendientesCategoria() {
     const movimientos = [...pendientesCategoriaRaw]
         .sort((a, b) => Number(b.valor || 0) - Number(a.valor || 0));
@@ -759,7 +763,11 @@ async function asignarCategoriaMasiva() {
     }
 
     mostrarAlerta(`Asignación masiva completada: ${ok}/${seleccionados.length} movimiento(s).`, ok ? 'success' : 'warning');
-    await cargarTodo();
+    await Promise.all([
+        cargarReglas(),
+        cargarPendientesCategoria(),
+        cargarResumen(),
+    ]);
 }
 
 async function asignarBeneficiarioMasivo() {
@@ -863,7 +871,11 @@ async function asignarMovimiento(idx, origen, idMovimiento) {
             id_categoria: Number(idCategoria),
         });
         mostrarAlerta('Categoría asignada correctamente.', 'success');
-        await cargarTodo();
+        await Promise.all([
+            cargarReglas(),
+            cargarPendientesCategoria(),
+            cargarResumen(),
+        ]);
     } catch (err) {
         mostrarAlerta(err.message || 'No se pudo asignar la categoría.');
     }

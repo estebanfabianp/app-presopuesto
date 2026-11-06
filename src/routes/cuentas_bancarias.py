@@ -337,8 +337,9 @@ def create_movimiento():
         if not owner:
             return jsonify({'message': 'Cuenta no válida para este usuario'}), 400
 
-        descripcion = (payload.get('descripcion') or '').strip() or 'Sin descripción'
+        descripcion = (payload.get('descripcion') or '').strip()
         observacion = (payload.get('observacion') or '').strip() or None
+        nota = descripcion or observacion or 'Sin descripción'
         tipo = (payload.get('tipo') or 'gasto').strip().lower()
         detalles_raw = payload.get('detalles') or []
 
@@ -374,7 +375,7 @@ def create_movimiento():
             )
             """,
             (
-                (payload.get('codigo') or descripcion)[:45],
+                (payload.get('codigo') or f"CB-{user_id}-{int(datetime.now().timestamp())}")[:45],
                 monto,
                 id_tipo,
                 id_estado,
@@ -382,7 +383,7 @@ def create_movimiento():
                 id_categoria,
                 id_beneficiario,
                 payload.get('numero_transaccion') or f"CB-{user_id}-{int(datetime.now().timestamp())}",
-                observacion,
+                nota,
                 fecha,
                 id_cuenta,
             ),
@@ -461,6 +462,10 @@ def update_movimiento(movimiento_id):
         monto = payload.get('monto')
         monto = abs(float(monto)) if monto is not None else None
 
+        descripcion_update = payload.get('descripcion')
+        observacion_update = payload.get('observacion')
+        nota_update = descripcion_update if descripcion_update is not None else observacion_update
+
         db.execute_non_query(
             """
             UPDATE movimiento
@@ -478,8 +483,8 @@ def update_movimiento(movimiento_id):
             """,
             (
                 id_cuenta,
-                payload.get('descripcion'),
-                payload.get('observacion'),
+                payload.get('codigo'),
+                nota_update,
                 monto,
                 payload.get('fecha'),
                 payload.get('id_categoria'),
@@ -612,9 +617,9 @@ def _create_transferencia(db: DatabaseConnector, user_id: int, payload: dict, id
                                     id_beneficiario, numero_transaccion, nota, fecha_creacion, id_cuenta)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,COALESCE(%s, NOW()),%s)
             """,
-            (f"{descripcion} (Salida)", monto, tipo_gasto, id_estado, None,
+            (f"TRF-{user_id}-{int(datetime.now().timestamp())}-OUT", monto, tipo_gasto, id_estado, None,
              payload.get('id_categoria'), payload.get('id_beneficiario'), tx_ref,
-             observacion, fecha, id_origen),
+             descripcion or observacion or 'Transferencia', fecha, id_origen),
         )
         id_in = db.execute_non_query(
             """
@@ -622,9 +627,9 @@ def _create_transferencia(db: DatabaseConnector, user_id: int, payload: dict, id
                                     id_beneficiario, numero_transaccion, nota, fecha_creacion, id_cuenta)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,COALESCE(%s, NOW()),%s)
             """,
-            (f"{descripcion} (Entrada)", monto, tipo_ingreso, id_estado, None,
+            (f"TRF-{user_id}-{int(datetime.now().timestamp())}-IN", monto, tipo_ingreso, id_estado, None,
              payload.get('id_categoria'), payload.get('id_beneficiario'), tx_ref,
-             observacion, fecha, id_destino_cuenta),
+             descripcion or observacion or 'Transferencia', fecha, id_destino_cuenta),
         )
         return jsonify({'message': 'Transferencia entre cuentas registrada', 'ids': [id_out, id_in]}), 201
 
@@ -638,9 +643,9 @@ def _create_transferencia(db: DatabaseConnector, user_id: int, payload: dict, id
                                     id_beneficiario, numero_transaccion, nota, fecha_creacion, id_cuenta)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,COALESCE(%s, NOW()),%s)
             """,
-            (f"{descripcion} (Producto)", monto, tipo_gasto, id_estado, destino_producto,
+            (f"TRF-{user_id}-{int(datetime.now().timestamp())}-PRD", monto, tipo_gasto, id_estado, destino_producto,
              payload.get('id_categoria'), payload.get('id_beneficiario'), tx_ref,
-             observacion, fecha, id_origen),
+             descripcion or observacion or 'Transferencia', fecha, id_origen),
         )
         return jsonify({'message': 'Transferencia a producto registrada', 'id': id_mov}), 201
 

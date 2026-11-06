@@ -13,6 +13,13 @@
 .cat-inactiva td:not(:last-child) { opacity: .38; }
 .cat-dot { display:inline-block; width:10px; height:10px; border-radius:50%; vertical-align:middle; margin-right:5px; }
 .uso-badge { min-width:28px; }
+.cat-row-title { display:flex; align-items:flex-start; gap:.6rem; }
+.cat-row-text { min-width:0; }
+.cat-row-text .small { line-height:1.35; }
+.cat-pills { display:inline-flex; flex-wrap:wrap; gap:.35rem; }
+.cat-pill { display:inline-flex; align-items:center; gap:.3rem; padding:.2rem .55rem; border-radius:999px; font-size:.75rem; border:1px solid transparent; }
+.cat-pill-primary { background:#e7f1ff; color:#0d6efd; border-color:#cfe2ff; }
+.cat-pill-secondary { background:#f1f3f5; color:#495057; border-color:#dee2e6; }
 </style>
 {% endblock %}
 
@@ -30,19 +37,61 @@
     </div>
 
     <!-- Barra de herramientas -->
-    <div class="card mb-3">
-        <div class="card-body py-2 d-flex flex-wrap gap-3 align-items-center">
-            <div class="input-group" style="max-width:280px;">
-                <span class="input-group-text"><i class="fas fa-search"></i></span>
-                <input type="text" class="form-control" id="inputBusqueda" placeholder="Buscar categoría…">
-                <button class="btn btn-outline-secondary" id="btnLimpiarBusqueda" type="button">
-                    <i class="fas fa-times"></i>
-                </button>
+    <div class="card mb-3 shadow-sm border-0">
+        <div class="card-body py-2 d-flex flex-wrap gap-3 align-items-center justify-content-between">
+            <div class="d-flex flex-wrap gap-3 align-items-center">
+                <div class="input-group" style="max-width:320px;">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="inputBusqueda" placeholder="Buscar categoría…">
+                    <button class="btn btn-outline-secondary" id="btnLimpiarBusqueda" type="button">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="toggleSoloActivas">
+                    <label class="form-check-label small" for="toggleSoloActivas">Solo activas</label>
+                </div>
             </div>
-            <!-- Toggle solo activas -->
-            <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" id="toggleSoloActivas">
-                <label class="form-check-label small" for="toggleSoloActivas">Solo activas</label>
+            <div class="btn-group" role="group" aria-label="Filtros de categorías">
+                <button type="button" class="btn btn-sm btn-primary filtro-cat active" data-filter="all">Todas</button>
+                <button type="button" class="btn btn-sm btn-outline-primary filtro-cat" data-filter="principales">Principales</button>
+                <button type="button" class="btn btn-sm btn-outline-primary filtro-cat" data-filter="subcategorias">Subcategorías</button>
+                <button type="button" class="btn btn-sm btn-outline-primary filtro-cat" data-filter="inactivas">Inactivas</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-muted small text-uppercase">Total</div>
+                    <div class="display-6 fw-bold mt-2" id="statTotalCategorias">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-muted small text-uppercase">Principales</div>
+                    <div class="display-6 fw-bold mt-2" id="statPrincipales">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-muted small text-uppercase">Subcategorías</div>
+                    <div class="display-6 fw-bold mt-2" id="statSubcategorias">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-muted small text-uppercase">Activas</div>
+                    <div class="display-6 fw-bold mt-2" id="statActivas">0</div>
+                </div>
             </div>
         </div>
     </div>
@@ -65,7 +114,7 @@
                 <thead class="table-light">
                     <tr>
                         <th>Nombre</th>
-                        <th>Nivel</th>
+                        <th>Jerarquía</th>
                         <th class="text-center" style="width:80px">Uso</th>
                         <th class="text-center" style="width:90px">Estado</th>
                         <th class="text-center" style="width:190px">Acciones</th>
@@ -180,6 +229,7 @@ let _flat = [];
 let _idEliminar = null;
 let _modoBusqueda = false;
 let _soloActivas = false;
+let _filtroTipo = 'all';
 
 /* ── Utilidades ───────────────────────────────────────────── */
 function mostrarAlerta(msg, tipo = 'danger', c = 'alertaGlobal') {
@@ -233,35 +283,83 @@ function badgeUso(uso) {
 function iconoCategoria(c) {
     return `<span class="cat-dot" style="background:${escHtml(c.color)};"></span><i class="fas ${escHtml(c.icono)}" style="color:${escHtml(c.color)};"></i>`;
 }
+function etiquetaJerarquia(c) {
+    if (c.parent_id) {
+        return '<span class="cat-pill cat-pill-secondary">Subcategoría</span>';
+    }
+    return '<span class="cat-pill cat-pill-primary">Categoría principal</span>';
+}
+function textoResumen(c) {
+    if (c.parent_id) {
+        return c.nombre_padre ? `Subcategoría de ${escHtml(c.nombre_padre)}` : 'Subcategoría';
+    }
+    const hijos = Number(c.hijos || 0);
+    return hijos > 0 ? `${hijos} subcategoría${hijos !== 1 ? 's' : ''}` : 'Sin subcategorías';
+}
+function textoRuta(c) {
+    if (c.ruta) {
+        return `Ruta: ${escHtml(c.ruta)}`;
+    }
+    return c.parent_id ? 'Jerarquía: subcategoría' : 'Jerarquía: categoría principal';
+}
+
+function actualizarResumen() {
+    const total = _flat.length;
+    const principales = _flat.filter(c => !c.parent_id).length;
+    const subcategorias = _flat.filter(c => c.parent_id).length;
+    const activas = _flat.filter(c => c.estado).length;
+    document.getElementById('statTotalCategorias').textContent = total;
+    document.getElementById('statPrincipales').textContent = principales;
+    document.getElementById('statSubcategorias').textContent = subcategorias;
+    document.getElementById('statActivas').textContent = activas;
+}
+
+function renderFlatList(items, titulo) {
+    const footer = document.getElementById('footerTotal');
+    const body = document.getElementById('tbodyCategorias');
+    body.innerHTML = items.map(c => `
+        <tr class="${c.estado ? '' : 'cat-inactiva'}">
+            <td>
+                <div class="cat-row-title">
+                    <span class="mt-1">${iconoCategoria(c)}</span>
+                    <div class="cat-row-text">
+                        <div class="fw-semibold">${escHtml(c.nombre)}</div>
+                        <div class="small text-muted">${escHtml(textoResumen(c))}</div>
+                        <div class="small text-muted mt-1">${escHtml(textoRuta(c))}</div>
+                    </div>
+                </div>
+            </td>
+            <td>${etiquetaJerarquia(c)}</td>
+            <td class="text-center">${badgeUso(c.uso)}</td>
+            <td class="text-center">${badgeEstado(c.estado)}</td>
+            <td class="text-center">${botonesAcciones(c)}</td>
+        </tr>`).join('');
+
+    document.getElementById('tablaCategorias').style.display = 'table';
+    footer.style.display = 'block';
+    footer.textContent = titulo;
+}
 
 function renderTabla() {
     document.getElementById('loadingCategorias').style.display = 'none';
     const footer = document.getElementById('footerTotal');
+    actualizarResumen();
 
     if (_modoBusqueda) {
-        if (_flat.length === 0) {
+        const items = _flat.filter(c => _filtroTipo === 'all'
+            || (_filtroTipo === 'principales' && !c.parent_id)
+            || (_filtroTipo === 'subcategorias' && c.parent_id)
+            || (_filtroTipo === 'inactivas' && !c.estado));
+
+        if (items.length === 0) {
             document.getElementById('emptyCategorias').style.display = 'block';
             footer.style.display = 'none';
             return;
         }
         document.getElementById('tablaCategorias').style.display = 'table';
         footer.style.display = 'block';
-        footer.textContent = `${_flat.length} resultado${_flat.length !== 1 ? 's' : ''}`;
-
-        document.getElementById('tbodyCategorias').innerHTML = _flat.map(c => `
-            <tr class="${c.estado ? '' : 'cat-inactiva'}">
-                <td>
-                    ${c.parent_id
-                        ? `<span class="text-muted small me-1"><i class="fas fa-level-up-alt fa-rotate-90"></i></span>`
-                        : iconoCategoria(c) + ' '}
-                    ${escHtml(c.nombre)}
-                    ${c.nombre_padre ? `<span class="badge bg-light text-dark border ms-1 small">${escHtml(c.nombre_padre)}</span>` : ''}
-                </td>
-                <td>${c.parent_id ? '<span class="badge bg-secondary">Subcategoría</span>' : '<span class="badge bg-primary">Categoría</span>'}</td>
-                <td class="text-center">${badgeUso(c.uso)}</td>
-                <td class="text-center">${badgeEstado(c.estado)}</td>
-                <td class="text-center">${botonesAcciones(c)}</td>
-            </tr>`).join('');
+        footer.textContent = `${items.length} resultado${items.length !== 1 ? 's' : ''}`;
+        renderFlatList(items, `${items.length} resultado${items.length !== 1 ? 's' : ''}`);
         return;
     }
 
@@ -276,10 +374,29 @@ function renderTabla() {
     const totalHijos = _flat.filter(c => c.parent_id).length;
     const totalUso = _flat.reduce((s, c) => s + c.uso, 0);
     footer.style.display = 'block';
-    footer.textContent = `${totalPadres} categoría${totalPadres !== 1 ? 's' : ''} · ${totalHijos} subcategoría${totalHijos !== 1 ? 's' : ''} · ${totalUso} movimiento${totalUso !== 1 ? 's' : ''} clasificados`;
+    footer.textContent = `${totalPadres} categoría${totalPadres !== 1 ? 's' : ''} raíz · ${totalHijos} subcategoría${totalHijos !== 1 ? 's' : ''} · ${totalUso} uso${totalUso !== 1 ? 's' : ''} registrado${totalUso !== 1 ? 's' : ''}`;
+
+    if (_filtroTipo === 'subcategorias') {
+        const items = _flat.filter(c => c.parent_id && (!_soloActivas || c.estado));
+        renderFlatList(items, `${items.length} subcategoría${items.length !== 1 ? 's' : ''}`);
+        return;
+    }
+
+    if (_filtroTipo === 'inactivas') {
+        const items = _flat.filter(c => !c.estado);
+        renderFlatList(items, `${items.length} inactiva${items.length !== 1 ? 's' : ''}`);
+        return;
+    }
 
     let html = '';
-    _arbol.forEach(padre => {
+    const arbolFiltrado = _arbol
+        .map(padre => ({
+            ...padre,
+            subcategorias: (padre.subcategorias || []).filter(hijo => _filtroTipo !== 'principales' || true)
+        }))
+        .filter(padre => _filtroTipo !== 'principales' || !padre.parent_id);
+
+    arbolFiltrado.forEach(padre => {
         const tieneHijos = padre.subcategorias && padre.subcategorias.length > 0;
         const toggleId = `toggle-${padre.id}`;
         const subId = `sub-${padre.id}`;
@@ -287,16 +404,21 @@ function renderTabla() {
         html += `
         <tr class="cat-row-padre ${padre.estado ? '' : 'cat-inactiva'}">
             <td>
-                ${tieneHijos
-                    ? `<span class="cat-toggle me-1" id="${toggleId}" onclick="toggleSubcats(${padre.id})" title="Expandir/Colapsar">
-                           <i class="fas fa-chevron-down text-muted small"></i>
-                       </span>`
-                    : `<span class="me-1" style="display:inline-block;width:18px;"></span>`}
-                ${iconoCategoria(padre)}
-                <span class="ms-1">${escHtml(padre.nombre)}</span>
-                ${tieneHijos ? `<span class="badge bg-secondary ms-1">${padre.subcategorias.length}</span>` : ''}
+                <div class="cat-row-title">
+                    ${tieneHijos
+                        ? `<span class="cat-toggle me-1 mt-1" id="${toggleId}" onclick="toggleSubcats(${padre.id})" title="Expandir/Colapsar">
+                               <i class="fas fa-chevron-down text-muted small"></i>
+                           </span>`
+                        : `<span class="me-1 mt-1" style="display:inline-block;width:18px;"></span>`}
+                    <span class="me-2 mt-1">${iconoCategoria(padre)}</span>
+                    <div class="cat-row-text">
+                        <div class="fw-semibold">${escHtml(padre.nombre)}</div>
+                        <div class="small text-muted">${tieneHijos ? `${padre.subcategorias.length} subcategoría${padre.subcategorias.length !== 1 ? 's' : ''} vinculadas` : 'Sin subcategorías'}</div>
+                        <div class="small text-muted mt-1">${escHtml(textoRuta(padre))}</div>
+                    </div>
+                </div>
             </td>
-            <td><span class="badge bg-primary">Categoría</span></td>
+            <td>${etiquetaJerarquia(padre)}</td>
             <td class="text-center">${badgeUso(padre.uso)}</td>
             <td class="text-center">${badgeEstado(padre.estado)}</td>
             <td class="text-center">
@@ -318,11 +440,17 @@ function renderTabla() {
                 html += `
                     <tr class="cat-row-hijo ${hijo.estado ? '' : 'cat-inactiva'}">
                         <td>
-                            <span class="text-muted me-1"><i class="fas fa-level-up-alt fa-rotate-90"></i></span>
-                            <i class="fas ${escHtml(hijo.icono)}" style="color:${escHtml(hijo.color)};"></i>
-                            <span class="ms-1">${escHtml(hijo.nombre)}</span>
+                            <div class="cat-row-title">
+                                <span class="text-muted mt-1"><i class="fas fa-level-up-alt fa-rotate-90"></i></span>
+                                <span class="mt-1">${iconoCategoria(hijo)}</span>
+                                <div class="cat-row-text">
+                                    <div class="fw-semibold">${escHtml(hijo.nombre)}</div>
+                                    <div class="small text-muted">${escHtml(textoResumen(hijo))}</div>
+                                    <div class="small text-muted mt-1">${escHtml(textoRuta(hijo))}</div>
+                                </div>
+                            </div>
                         </td>
-                        <td style="width:110px;"><span class="badge bg-secondary">Subcategoría</span></td>
+                        <td style="width:110px;">${etiquetaJerarquia(hijo)}</td>
                         <td class="text-center" style="width:80px;">${badgeUso(hijo.uso)}</td>
                         <td class="text-center" style="width:90px;">${badgeEstado(hijo.estado)}</td>
                         <td class="text-center" style="width:190px;">${botonesAcciones(hijo)}</td>
@@ -521,6 +649,18 @@ document.getElementById('btnLimpiarBusqueda').addEventListener('click', () => {
 document.getElementById('toggleSoloActivas').addEventListener('change', (e) => {
     _soloActivas = e.target.checked;
     cargarCategorias(document.getElementById('inputBusqueda').value.trim());
+});
+
+document.querySelectorAll('.filtro-cat').forEach(btn => {
+    btn.addEventListener('click', () => {
+        _filtroTipo = btn.dataset.filter || 'all';
+        document.querySelectorAll('.filtro-cat').forEach(b => {
+            b.classList.toggle('active', b === btn);
+            b.classList.toggle('btn-primary', b === btn);
+            b.classList.toggle('btn-outline-primary', b !== btn);
+        });
+        renderTabla();
+    });
 });
 
 // Sincronizar color picker ↔ hex input

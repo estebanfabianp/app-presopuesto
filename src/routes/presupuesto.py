@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Tuple
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 
+from src.business.services.libre_mes import calcular_dinero_libre_mes
 from src.database.db_connector import DatabaseConnector
 
 bp = Blueprint('presupuesto', __name__, url_prefix='/api/presupuesto')
@@ -41,6 +42,207 @@ def _get_user_id() -> int:
     if str(identity).isdigit():
         return int(identity)
     return 1
+
+
+def _table_exists(db: DatabaseConnector, table_name: str) -> bool:
+    rows = db.execute_query(
+        """
+        SELECT COUNT(*) AS total
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = %s
+        """,
+        (table_name,),
+    )
+    return bool(rows and int(rows[0].get('total') or 0) > 0)
+
+
+def _column_exists(db: DatabaseConnector, table_name: str, column_name: str) -> bool:
+    rows = db.execute_query(
+        """
+        SELECT COUNT(*) AS total
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = %s
+          AND COLUMN_NAME = %s
+        """,
+        (table_name, column_name),
+    )
+    return bool(rows and int(rows[0].get('total') or 0) > 0)
+
+
+def _infer_tipo_categoria(cat_nombre: Optional[str], parent_id: Optional[int] = None) -> str:
+    """Infiere si una categoría corresponde a Ingreso o Egreso basándose en su jerarquía o nombre."""
+    if parent_id == 75:  # Categoría principal Ingresos
+        return 'ingreso'
+    nombre_lower = (cat_nombre or '').strip().lower()
+    incomes_keywords = (
+        'salario', 'sueldo', 'bonificación', 'bonificacion', 'bonificaciones',
+        'freelance', 'independiente', 'inversiones', 'dividendos', 'intereses bancarios',
+        'alquiler de propiedades', 'ventas', 'subsidios', 'pensión', 'pension',
+        'otros ingresos', 'honorarios'
+    )
+    if nombre_lower == 'ingresos' or any(k in nombre_lower for k in incomes_keywords):
+        return 'ingreso'
+    return 'egreso'
+
+
+def _fetch_monthly_income(db: DatabaseConnector, user_id: int) -> float:
+    rows = db.execute_query(
+        """
+        SELECT COALESCE(SUM(m.monto), 0) AS total
+        FROM movimiento m
+        INNER JOIN cuenta c ON c.id_cuenta = m.id_cuenta
+        INNER JOIN tipo_movimiento tm ON tm.id_tipo = m.id_tipo
+        WHERE c.id_persona = %s
+          AND LOWER(COALESCE(tm.nombre, '')) = 'ingreso'
+          AND MONTH(m.fecha_creacion) = MONTH(CURDATE())
+          AND YEAR(m.fecha_creacion) = YEAR(CURDATE())
+        """,
+        (user_id,),
+    )
+    return float(rows[0]['total']) if rows else 0.0
+
+
+def _fetch_monthly_fixed_budget(db: DatabaseConnector, user_id: int) -> Tuple[float, List[dict]]:
+    """Obtiene el total y detalle de gastos fijos presupuestados para el mes actual o más reciente."""
+    _ensure_presupuesto_detalle_schema(db)
+    hoy = date.today()
+    start_date, end_date = _period_bounds(hoy.year, 'mensual', hoy.month)
+
+    pres = _find_presupuesto_by_period(db, user_id, start_date, end_date)
+    if not pres:
+        rows_ult = db.execute_query(
+            """
+            SELECT id_presupuesto FROM presupuesto
+            WHERE id_persona = %s
+            ORDER BY fecha_inicio DESC, id_presupuesto DESC
+            LIMIT 1
+            """,
+            (user_id,),
+        )
+        if rows_ult:
+            pres = _fetch_presupuesto_row(db, user_id, rows_ult[0]['id_presupuesto'])
+
+    if not pres:
+        return 0.0, []
+
+    rows = db.execute_query(
+        """
+        SELECT 
+            COALESCE(c.nombre, pd.categoria_nombre, 'Gasto fijo') AS categoria,
+            pd.monto_estimado,
+            pd.monto_importe,
+            pd.frecuencia,
+            pd.tipo,
+            pd.es_fijo
+        FROM presupuesto_detalle pd
+        LEFT JOIN categoria c ON c.id_categoria = pd.id_categoria
+        WHERE pd.id_presupuesto = %s
+          AND (pd.tipo = 'egreso' OR pd.tipo IS NULL)
+          AND (pd.es_fijo = 1 OR pd.monto_estimado > 0)
+        ORDER BY pd.es_fijo DESC, pd.orden ASC
+        """,
+        (pres['id_presupuesto'],),
+    )
+
+    fijos_marcados = [r for r in (rows or []) if bool(r.get('es_fijo'))]
+    target_rows = fijos_marcados if fijos_marcados else (rows or [])
+
+    detalle = []
+    total = 0.0
+    for r in target_rows:
+        val = float(r.get('monto_estimado') or r.get('monto_importe') or 0.0)
+        if val > 0:
+            total += val
+            detalle.append({
+                'categoria': r['categoria'],
+                'monto': round(val, 2),
+                'frecuencia': r.get('frecuencia', 'Mensualmente'),
+                'tipo': r.get('tipo', 'egreso'),
+                'es_fijo': bool(r.get('es_fijo', False)),
+            })
+
+    return round(total, 2), detalle
+
+
+def _fetch_monthly_budget_lines_total(db: DatabaseConnector, user_id: int) -> float:
+    total_fijos, _ = _fetch_monthly_fixed_budget(db, user_id)
+    if total_fijos > 0:
+        return total_fijos
+
+    if _table_exists(db, 'presupuesto_detalle'):
+        rows = db.execute_query(
+            """
+            SELECT COALESCE(SUM(pd.monto_estimado), 0) AS total
+            FROM presupuesto_detalle pd
+            INNER JOIN presupuesto p ON p.id_presupuesto = pd.id_presupuesto
+            WHERE p.id_persona = %s
+              AND (pd.tipo = 'egreso' OR pd.tipo IS NULL)
+            """,
+            (user_id,),
+        )
+        if rows and float(rows[0].get('total') or 0) > 0:
+            return float(rows[0].get('total') or 0)
+    if _table_exists(db, 'presupuesto'):
+        rows = db.execute_query(
+            """
+            SELECT COALESCE(SUM(p.monto_total), 0) AS total
+            FROM presupuesto p
+            WHERE p.id_persona = %s
+            """,
+            (user_id,),
+        )
+        if rows:
+            return float(rows[0].get('total') or 0)
+    return 0.0
+    if _table_exists(db, 'presupuesto'):
+        rows = db.execute_query(
+            """
+            SELECT COALESCE(SUM(p.monto_total), 0) AS total
+            FROM presupuesto p
+            WHERE p.id_persona = %s
+            """,
+            (user_id,),
+        )
+        if rows:
+            return float(rows[0].get('total') or 0)
+    return 0.0
+
+
+def _fetch_monthly_diferidos_total(db: DatabaseConnector, user_id: int) -> float:
+    if _table_exists(db, 'tarjeta_diferido') and _column_exists(db, 'tarjeta_diferido', 'cuota_mensual'):
+        rows = db.execute_query(
+            """
+            SELECT COALESCE(SUM(tcuota.cuota_mensual), 0) AS total
+            FROM (
+                SELECT cuota_mensual
+                FROM tarjeta_diferido
+                WHERE id_persona = %s
+                  AND LOWER(COALESCE(estado, '')) IN ('activo', 'pendiente', 'vigente')
+            ) AS tcuota
+            """,
+            (user_id,),
+        )
+        if rows:
+            return float(rows[0].get('total') or 0)
+    return 0.0
+
+
+def _fetch_monthly_prestamos_total(db: DatabaseConnector, user_id: int) -> float:
+    if _table_exists(db, 'prestamo') and _column_exists(db, 'prestamo', 'cuota_mensual'):
+        rows = db.execute_query(
+            """
+            SELECT COALESCE(SUM(cuota_mensual), 0) AS total
+            FROM prestamo
+            WHERE id_persona = %s
+              AND LOWER(COALESCE(estado, '')) IN ('activo', 'vigente', 'pendiente')
+            """,
+            (user_id,),
+        )
+        if rows:
+            return float(rows[0].get('total') or 0)
+    return 0.0
 
 
 def _normalize_periodo(periodo: Optional[str]) -> str:
@@ -93,12 +295,41 @@ def _default_budget_name(periodo: str, year: int, month: Optional[int] = None) -
 def _ensure_presupuesto_detalle_schema(db: DatabaseConnector) -> None:
     db.execute_non_query(
         """
+        CREATE TABLE IF NOT EXISTS presupuesto (
+            id_presupuesto INT AUTO_INCREMENT PRIMARY KEY,
+            id_persona INT NOT NULL,
+            nombre VARCHAR(150) NOT NULL,
+            descripcion TEXT NULL,
+            monto_total DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+            fecha_inicio DATE NOT NULL,
+            fecha_fin DATE NOT NULL,
+            fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_presupuesto_persona (id_persona),
+            CONSTRAINT fk_presupuesto_persona FOREIGN KEY (id_persona) REFERENCES persona(id_persona) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        """
+    )
+    db.execute_non_query(
+        """
+        CREATE TABLE IF NOT EXISTS presupuesto_categoria (
+            id_presupuesto INT NOT NULL,
+            id_categoria INT NOT NULL,
+            PRIMARY KEY (id_presupuesto, id_categoria),
+            CONSTRAINT fk_pc_presupuesto FOREIGN KEY (id_presupuesto) REFERENCES presupuesto(id_presupuesto) ON DELETE CASCADE,
+            CONSTRAINT fk_pc_categoria FOREIGN KEY (id_categoria) REFERENCES categoria(id_categoria) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        """
+    )
+    db.execute_non_query(
+        """
         CREATE TABLE IF NOT EXISTS presupuesto_detalle (
             id_detalle INT NOT NULL AUTO_INCREMENT,
             id_presupuesto INT NOT NULL,
             id_categoria INT NULL,
             categoria_nombre VARCHAR(150) NULL,
             frecuencia VARCHAR(30) NOT NULL DEFAULT 'Ninguno',
+            tipo VARCHAR(20) NOT NULL DEFAULT 'egreso',
+            es_fijo TINYINT(1) NOT NULL DEFAULT 0,
             tolerancia_pct DECIMAL(6,2) NOT NULL DEFAULT 10.00,
             monto_importe DECIMAL(15,2) NOT NULL DEFAULT 0.00,
             monto_estimado DECIMAL(15,2) NOT NULL DEFAULT 0.00,
@@ -130,6 +361,32 @@ def _ensure_presupuesto_detalle_schema(db: DatabaseConnector) -> None:
     if not cols or int(cols[0].get('total') or 0) == 0:
         db.execute_non_query(
             "ALTER TABLE presupuesto_detalle ADD COLUMN tolerancia_pct DECIMAL(6,2) NOT NULL DEFAULT 10.00 AFTER frecuencia"
+        )
+    cols_tipo = db.execute_query(
+        """
+        SELECT COUNT(*) AS total
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'presupuesto_detalle'
+          AND COLUMN_NAME = 'tipo'
+        """
+    )
+    if not cols_tipo or int(cols_tipo[0].get('total') or 0) == 0:
+        db.execute_non_query(
+            "ALTER TABLE presupuesto_detalle ADD COLUMN tipo VARCHAR(20) NOT NULL DEFAULT 'egreso' AFTER frecuencia"
+        )
+    cols_fijo = db.execute_query(
+        """
+        SELECT COUNT(*) AS total
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'presupuesto_detalle'
+          AND COLUMN_NAME = 'es_fijo'
+        """
+    )
+    if not cols_fijo or int(cols_fijo[0].get('total') or 0) == 0:
+        db.execute_non_query(
+            "ALTER TABLE presupuesto_detalle ADD COLUMN es_fijo TINYINT(1) NOT NULL DEFAULT 0 AFTER tipo"
         )
 
 
@@ -216,9 +473,23 @@ def _normalize_lines(lines: Optional[List[dict]]) -> List[dict]:
         if frecuencia.lower() not in FRECUENCIAS_VALIDAS:
             frecuencia = 'Ninguno'
 
+        tipo = (line.get('tipo') or '').strip().lower()
+        if tipo not in ('ingreso', 'egreso'):
+            tipo = _infer_tipo_categoria(categoria, line.get('parent_id'))
+
         importe = float(line.get('importe', line.get('monto_importe', 0)) or 0)
         estimado = float(line.get('estimado', line.get('monto_estimado', importe)) or 0)
         notas = (line.get('notas') or '').strip() or None
+
+        if tipo == 'ingreso':
+            es_fijo = False
+        else:
+            es_fijo_val = line.get('es_fijo')
+            if es_fijo_val is not None:
+                es_fijo = bool(es_fijo_val) if not isinstance(es_fijo_val, str) else es_fijo_val.lower() in ('true', '1', 'si', 'sí')
+            else:
+                cat_lower = categoria.lower()
+                es_fijo = any(k in cat_lower for k in ('luz', 'agua', 'gas', 'triple', 'servicio', 'arriendo', 'hipoteca', 'internet', 'seguro', 'pensión', 'pension'))
 
         if not categoria and not importe and not estimado and not notas:
             continue
@@ -227,6 +498,8 @@ def _normalize_lines(lines: Optional[List[dict]]) -> List[dict]:
             {
                 'categoria': categoria or 'Sin categoría',
                 'frecuencia': frecuencia.capitalize() if frecuencia.lower() != 'mensualmente' else 'Mensualmente',
+                'tipo': tipo,
+                'es_fijo': es_fijo,
                 'tolerancia': round(float(line.get('tolerancia', line.get('tolerancia_pct', 10)) or 10), 2),
                 'importe': round(importe, 2),
                 'estimado': round(estimado, 2),
@@ -235,6 +508,33 @@ def _normalize_lines(lines: Optional[List[dict]]) -> List[dict]:
             }
         )
     return normalized
+
+
+def _derivar_lineas_desde_anual(lines: List[dict], divisor: int = 12) -> List[dict]:
+    """Divide el presupuesto anual entre 12 para generar la vista mensual."""
+    if divisor <= 0:
+        raise ValueError('El divisor debe ser mayor que cero')
+
+    derivadas = []
+    for idx, line in enumerate(lines or []):
+        categoria = (line.get('categoria') or line.get('categoria_nombre') or 'Sin categoría').strip() or 'Sin categoría'
+        importe_anual = float(line.get('importe', line.get('monto_importe', 0)) or 0)
+        estimado_anual = float(line.get('estimado', line.get('monto_estimado', importe_anual)) or 0)
+        tipo = line.get('tipo') or _infer_tipo_categoria(categoria, line.get('parent_id'))
+        derivadas.append(
+            {
+                'categoria': categoria,
+                'frecuencia': (line.get('frecuencia') or 'Mensualmente').strip() or 'Mensualmente',
+                'tipo': tipo,
+                'es_fijo': bool(line.get('es_fijo', False)) if tipo != 'ingreso' else False,
+                'importe': round(importe_anual / divisor, 2),
+                'estimado': round(estimado_anual / divisor, 2),
+                'tolerancia': round(float(line.get('tolerancia', line.get('tolerancia_pct', 10)) or 10), 2),
+                'notas': line.get('notas') or '',
+                'orden': int(line.get('orden', idx)),
+            }
+        )
+    return derivadas
 
 
 def _sync_budget_categories(db: DatabaseConnector, presupuesto_id: int, lines: List[dict]) -> None:
@@ -257,29 +557,37 @@ def _save_budget_lines(db: DatabaseConnector, presupuesto_id: int, lines: List[d
     _ensure_presupuesto_detalle_schema(db)
     db.execute_non_query("DELETE FROM presupuesto_detalle WHERE id_presupuesto = %s", (presupuesto_id,))
 
-    total_estimado = 0.0
+    total_estimado_egresos = 0.0
+    total_estimado_general = 0.0
     for idx, line in enumerate(lines):
         categoria_id = None
         categoria = line.get('categoria') or 'Sin categoría'
         if categoria.lower() != 'sin categoría':
             categoria_id = _resolve_categoria_id(db, categoria)
 
+        tipo = line.get('tipo') or _infer_tipo_categoria(categoria)
         importe = float(line.get('importe') or 0)
         estimado = float(line.get('estimado', importe) or 0)
-        total_estimado += estimado
+        total_estimado_general += estimado
+        if tipo != 'ingreso':
+            total_estimado_egresos += estimado
+
+        es_fijo_val = 1 if (line.get('es_fijo') and tipo != 'ingreso') else 0
 
         db.execute_non_query(
             """
             INSERT INTO presupuesto_detalle (
-                id_presupuesto, id_categoria, categoria_nombre, frecuencia,
+                id_presupuesto, id_categoria, categoria_nombre, frecuencia, tipo, es_fijo,
                 tolerancia_pct, monto_importe, monto_estimado, notas, orden
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 presupuesto_id,
                 categoria_id,
                 categoria,
                 line.get('frecuencia') or 'Ninguno',
+                tipo,
+                es_fijo_val,
                 float(line.get('tolerancia', 10) or 10),
                 importe,
                 estimado,
@@ -289,10 +597,11 @@ def _save_budget_lines(db: DatabaseConnector, presupuesto_id: int, lines: List[d
         )
 
     _sync_budget_categories(db, presupuesto_id, lines)
-    return round(total_estimado, 2)
+    return round(total_estimado_egresos if total_estimado_egresos > 0 else total_estimado_general, 2)
 
 
 def _fetch_real_totals(db: DatabaseConnector, user_id: int, start_date: date, end_date: date) -> Dict[str, float]:
+    """Obtiene el gasto real ejecutado por categoría (egresos)."""
     totals: Dict[str, float] = {}
 
     movimiento_rows = db.execute_query(
@@ -331,6 +640,31 @@ def _fetch_real_totals(db: DatabaseConnector, user_id: int, start_date: date, en
     return totals
 
 
+def _fetch_real_income_totals(db: DatabaseConnector, user_id: int, start_date: date, end_date: date) -> Dict[str, float]:
+    """Obtiene el ingreso real registrado por categoría."""
+    totals: Dict[str, float] = {}
+
+    movimiento_rows = db.execute_query(
+        """
+        SELECT COALESCE(c.nombre, 'Sin categoría') AS categoria, COALESCE(SUM(m.monto), 0) AS total
+        FROM movimiento m
+        INNER JOIN cuenta cu ON cu.id_cuenta = m.id_cuenta
+        INNER JOIN tipo_movimiento tm ON tm.id_tipo = m.id_tipo
+        LEFT JOIN categoria c ON c.id_categoria = m.id_categoria
+        WHERE cu.id_persona = %s
+          AND LOWER(tm.nombre) = 'ingreso'
+          AND DATE(m.fecha_creacion) BETWEEN %s AND %s
+        GROUP BY COALESCE(c.nombre, 'Sin categoría')
+        """,
+        (user_id, start_date.isoformat(), end_date.isoformat()),
+    )
+    for row in movimiento_rows or []:
+        key = (row.get('categoria') or 'Sin categoría').strip().lower()
+        totals[key] = totals.get(key, 0.0) + float(row.get('total') or 0)
+
+    return totals
+
+
 def _fetch_budget_lines(
     db: DatabaseConnector,
     presupuesto_id: int,
@@ -346,12 +680,15 @@ def _fetch_budget_lines(
             pd.id_categoria,
             pd.categoria_nombre,
             pd.frecuencia,
+            pd.tipo,
+            pd.es_fijo,
             pd.tolerancia_pct,
             pd.monto_importe,
             pd.monto_estimado,
             pd.notas,
             pd.orden,
-            c.nombre AS categoria_catalogo
+            c.nombre AS categoria_catalogo,
+            c.parent_id
         FROM presupuesto_detalle pd
         LEFT JOIN categoria c ON c.id_categoria = pd.id_categoria
         WHERE pd.id_presupuesto = %s
@@ -359,29 +696,172 @@ def _fetch_budget_lines(
         """,
         (presupuesto_id,),
     )
-    reales = _fetch_real_totals(db, user_id, start_date, end_date)
+    reales_gastos = _fetch_real_totals(db, user_id, start_date, end_date)
+    reales_ingresos = _fetch_real_income_totals(db, user_id, start_date, end_date)
 
     lines = []
     for row in rows or []:
         categoria = row.get('categoria_catalogo') or row.get('categoria_nombre') or 'Sin categoría'
-        real = round(reales.get(categoria.strip().lower(), 0.0), 2)
+        tipo = (row.get('tipo') or '').strip().lower()
+        if tipo not in ('ingreso', 'egreso'):
+            tipo = _infer_tipo_categoria(categoria, row.get('parent_id'))
+
         estimado = float(row.get('monto_estimado') or 0)
+        if tipo == 'ingreso':
+            real = round(reales_ingresos.get(categoria.strip().lower(), 0.0), 2)
+            diferencia = round(real - estimado, 2)
+            es_fijo = False
+        else:
+            real = round(reales_gastos.get(categoria.strip().lower(), 0.0), 2)
+            diferencia = round(estimado - real, 2)
+            es_fijo = bool(row.get('es_fijo', 0))
+
         lines.append(
             {
                 'id_detalle': row['id_detalle'],
                 'id_categoria': row.get('id_categoria'),
                 'categoria': categoria,
+                'parent_id': row.get('parent_id'),
                 'frecuencia': row.get('frecuencia') or 'Ninguno',
+                'tipo': tipo,
+                'es_fijo': es_fijo,
                 'tolerancia': float(row.get('tolerancia_pct') or 10),
                 'importe': float(row.get('monto_importe') or 0),
                 'estimado': estimado,
                 'real': real,
-                'diferencia': round(estimado - real, 2),
+                'diferencia': diferencia,
                 'notas': row.get('notas') or '',
                 'orden': int(row.get('orden') or 0),
             }
         )
     return lines
+
+
+def _fetch_all_catalog_categories(db: DatabaseConnector, user_id: int) -> List[dict]:
+    """Obtiene todas las categorías activas del catálogo disponibles para el usuario."""
+    try:
+        cols = db.execute_query(
+            """
+            SELECT COLUMN_NAME
+            FROM information_schema.columns
+            WHERE table_schema = DATABASE()
+              AND table_name = 'categoria'
+            """
+        )
+        col_set = {str(c.get('COLUMN_NAME', '')).lower() for c in (cols or [])}
+        has_parent = 'parent_id' in col_set
+        has_persona = 'id_persona' in col_set
+        has_estado = 'estado' in col_set
+
+        if has_parent:
+            if has_persona and has_estado:
+                sql = "SELECT id_categoria, nombre, parent_id FROM categoria WHERE (id_persona = %s OR id_persona IS NULL) AND estado = 1 ORDER BY nombre ASC"
+                return db.execute_query(sql, (user_id,)) or []
+            if has_persona:
+                sql = "SELECT id_categoria, nombre, parent_id FROM categoria WHERE (id_persona = %s OR id_persona IS NULL) ORDER BY nombre ASC"
+                return db.execute_query(sql, (user_id,)) or []
+            if has_estado:
+                sql = "SELECT id_categoria, nombre, parent_id FROM categoria WHERE estado = 1 ORDER BY nombre ASC"
+                return db.execute_query(sql) or []
+            sql = "SELECT id_categoria, nombre, parent_id FROM categoria ORDER BY nombre ASC"
+            return db.execute_query(sql) or []
+
+        if has_persona and has_estado:
+            sql = "SELECT id_categoria, nombre FROM categoria WHERE (id_persona = %s OR id_persona IS NULL) AND estado = 1 ORDER BY nombre ASC"
+            return db.execute_query(sql, (user_id,)) or []
+        if has_persona:
+            sql = "SELECT id_categoria, nombre FROM categoria WHERE (id_persona = %s OR id_persona IS NULL) ORDER BY nombre ASC"
+            return db.execute_query(sql, (user_id,)) or []
+        if has_estado:
+            sql = "SELECT id_categoria, nombre FROM categoria WHERE estado = 1 ORDER BY nombre ASC"
+            return db.execute_query(sql) or []
+        sql = "SELECT id_categoria, nombre FROM categoria ORDER BY nombre ASC"
+        return db.execute_query(sql) or []
+    except Exception as exc:
+        logger.warning("No se pudieron cargar categorías del catálogo: %s", exc)
+        return []
+
+
+def _merge_catalog_categories_into_lines(
+    lines: List[dict],
+    catalog_categories: List[dict],
+    reales_gastos: Dict[str, float],
+    reales_ingresos: Dict[str, float],
+    periodo: str,
+) -> Tuple[List[dict], int, int]:
+    """Combina las líneas del presupuesto con todas las categorías activas del catálogo."""
+    frecuencia_defecto = 'Mensualmente' if periodo == 'mensual' else 'Anual'
+    existing_by_norm = {}
+    for line in lines:
+        cat_name = (line.get('categoria') or '').strip().lower()
+        if cat_name:
+            existing_by_norm[cat_name] = line
+            line['en_catalogo'] = False
+            line['presupuestada'] = float(line.get('estimado') or 0) > 0 or float(line.get('importe') or 0) > 0
+
+    merged = list(lines)
+    for cat in catalog_categories:
+        cat_nombre = (cat.get('nombre') or '').strip()
+        if not cat_nombre:
+            continue
+        norm_key = cat_nombre.lower()
+        if norm_key in existing_by_norm:
+            ex_line = existing_by_norm[norm_key]
+            ex_line['en_catalogo'] = True
+            if not ex_line.get('id_categoria'):
+                ex_line['id_categoria'] = cat.get('id_categoria')
+            if cat.get('parent_id') and not ex_line.get('parent_id'):
+                ex_line['parent_id'] = cat.get('parent_id')
+            if not ex_line.get('tipo'):
+                ex_line['tipo'] = _infer_tipo_categoria(cat_nombre, cat.get('parent_id'))
+            if cat.get('icono') and not ex_line.get('icono'):
+                ex_line['icono'] = cat.get('icono')
+            if cat.get('color') and not ex_line.get('color'):
+                ex_line['color'] = cat.get('color')
+        else:
+            tipo = _infer_tipo_categoria(cat_nombre, cat.get('parent_id'))
+            if tipo == 'ingreso':
+                real_val = round(reales_ingresos.get(norm_key, 0.0), 2)
+                sug_fijo = False
+                diferencia = round(real_val - 0.0, 2)
+            else:
+                real_val = round(reales_gastos.get(norm_key, 0.0), 2)
+                sug_fijo = any(k in norm_key for k in ('luz', 'agua', 'gas', 'triple', 'servicio', 'arriendo', 'hipoteca', 'internet', 'seguro', 'pensión', 'pension'))
+                diferencia = round(0.0 - real_val, 2)
+
+            nueva = {
+                'id_detalle': None,
+                'id_categoria': cat.get('id_categoria'),
+                'categoria': cat_nombre,
+                'parent_id': cat.get('parent_id'),
+                'icono': cat.get('icono') or ('fa-arrow-trend-up' if tipo == 'ingreso' else 'fa-tag'),
+                'color': cat.get('color') or ('#10b981' if tipo == 'ingreso' else '#6c757d'),
+                'frecuencia': frecuencia_defecto,
+                'tipo': tipo,
+                'es_fijo': sug_fijo,
+                'tolerancia': 10.0,
+                'importe': 0.0,
+                'estimado': 0.0,
+                'real': real_val,
+                'diferencia': diferencia,
+                'notas': '',
+                'orden': 1000 + len(merged),
+                'en_catalogo': True,
+                'presupuestada': False,
+            }
+            merged.append(nueva)
+            existing_by_norm[norm_key] = nueva
+
+    # Ordenar: primero los que tienen presupuesto o gasto real, luego por tipo (ingresos agrupados), luego alfabéticamente
+    merged.sort(key=lambda item: (
+        0 if float(item.get('estimado') or 0) > 0 or float(item.get('importe') or 0) > 0 or float(item.get('real') or 0) > 0 else 1,
+        0 if item.get('tipo') == 'ingreso' else 1,
+        (item.get('categoria') or '').lower()
+    ))
+
+    catalog_count = len(catalog_categories)
+    presupuestadas_count = sum(1 for l in merged if float(l.get('estimado') or 0) > 0 or float(l.get('importe') or 0) > 0)
+    return merged, catalog_count, presupuestadas_count
 
 
 def _sheet_response(
@@ -392,30 +872,42 @@ def _sheet_response(
     periodo: str,
     month: Optional[int] = None,
     derived_from: Optional[dict] = None,
+    incluir_todas_categorias: bool = True,
 ) -> dict:
     start_date, end_date = _period_bounds(year, periodo, month)
     serialized = _serialize_presupuesto_row(row)
+    reales_gastos = _fetch_real_totals(db, user_id, start_date, end_date)
+    reales_ingresos = _fetch_real_income_totals(db, user_id, start_date, end_date)
+
     if row:
         lines = _fetch_budget_lines(db, row['id_presupuesto'], user_id, start_date, end_date)
     elif derived_from:
         annual_lines = _fetch_budget_lines(db, derived_from['id_presupuesto'], user_id, date(year, 1, 1), date(year, 12, 31))
-        real_totals = _fetch_real_totals(db, user_id, start_date, end_date)
         lines = []
-        for idx, line in enumerate(annual_lines):
-            estimado = round(float(line['estimado']) / 12, 2)
-            importe = round(float(line['importe']) / 12, 2)
+        for idx, line in enumerate(_derivar_lineas_desde_anual(annual_lines, divisor=12)):
             categoria = line['categoria']
-            real = round(real_totals.get(categoria.strip().lower(), 0.0), 2)
+            tipo = line.get('tipo', 'egreso')
+            estimado = float(line['estimado'] or 0)
+            importe = float(line['importe'] or 0)
+            if tipo == 'ingreso':
+                real = round(reales_ingresos.get(categoria.strip().lower(), 0.0), 2)
+                diferencia = round(real - estimado, 2)
+            else:
+                real = round(reales_gastos.get(categoria.strip().lower(), 0.0), 2)
+                diferencia = round(estimado - real, 2)
             lines.append(
                 {
                     'id_detalle': None,
                     'id_categoria': line.get('id_categoria'),
                     'categoria': categoria,
+                    'parent_id': line.get('parent_id'),
                     'frecuencia': line.get('frecuencia') or 'Mensualmente',
+                    'tipo': tipo,
+                    'es_fijo': bool(line.get('es_fijo', False)),
                     'importe': importe,
                     'estimado': estimado,
                     'real': real,
-                    'diferencia': round(estimado - real, 2),
+                    'diferencia': diferencia,
                     'notas': line.get('notas') or '',
                     'orden': idx,
                 }
@@ -423,12 +915,50 @@ def _sheet_response(
     else:
         lines = []
 
+    catalog_count = 0
+    presupuestadas_count = 0
+
+    if incluir_todas_categorias:
+        catalog_cats = _fetch_all_catalog_categories(db, user_id)
+        lines, catalog_count, presupuestadas_count = _merge_catalog_categories_into_lines(
+            lines, catalog_cats, reales_gastos, reales_ingresos, periodo
+        )
+    else:
+        presupuestadas_count = len([l for l in lines if float(l.get('estimado') or 0) > 0 or float(l.get('importe') or 0) > 0])
+        catalog_count = presupuestadas_count
+
+    ingresos_lineas = [l for l in lines if l.get('tipo') == 'ingreso']
+    egresos_lineas = [l for l in lines if l.get('tipo') != 'ingreso']
+
+    ingresos_estimado = round(sum(float(line.get('estimado') or 0) for line in ingresos_lineas), 2)
+    ingresos_real = round(sum(float(line.get('real') or 0) for line in ingresos_lineas), 2)
+    ingresos_diferencia = round(sum(float(line.get('diferencia') or 0) for line in ingresos_lineas), 2)
+
+    egresos_estimado = round(sum(float(line.get('estimado') or 0) for line in egresos_lineas), 2)
+    fijos_total = round(sum(float(line.get('estimado') or 0) for line in egresos_lineas if line.get('es_fijo')), 2)
+    variables_total = round(sum(float(line.get('estimado') or 0) for line in egresos_lineas if not line.get('es_fijo')), 2)
+    egresos_real = round(sum(float(line.get('real') or 0) for line in egresos_lineas), 2)
+    egresos_diferencia = round(sum(float(line.get('diferencia') or 0) for line in egresos_lineas), 2)
+
+    flujo_neto_estimado = round(ingresos_estimado - egresos_estimado, 2)
+    flujo_neto_real = round(ingresos_real - egresos_real, 2)
+
     resumen = {
-        'importe_total': round(sum(float(line.get('importe') or 0) for line in lines), 2),
-        'estimado_total': round(sum(float(line.get('estimado') or 0) for line in lines), 2),
-        'real_total': round(sum(float(line.get('real') or 0) for line in lines), 2),
+        'ingresos_estimado': ingresos_estimado,
+        'ingresos_real': ingresos_real,
+        'ingresos_diferencia': ingresos_diferencia,
+        'egresos_estimado': egresos_estimado,
+        'fijos_total': fijos_total,
+        'variables_total': variables_total,
+        'egresos_real': egresos_real,
+        'egresos_diferencia': egresos_diferencia,
+        'flujo_neto_estimado': flujo_neto_estimado,
+        'flujo_neto_real': flujo_neto_real,
+        'importe_total': round(sum(float(line.get('importe') or 0) for line in egresos_lineas), 2),
+        'estimado_total': egresos_estimado,
+        'real_total': egresos_real,
+        'diferencia_total': egresos_diferencia,
     }
-    resumen['diferencia_total'] = round(resumen['estimado_total'] - resumen['real_total'], 2)
 
     return {
         'presupuesto': serialized,
@@ -441,7 +971,53 @@ def _sheet_response(
         'lineas': lines,
         'resumen': resumen,
         'derivado_desde_anual': _serialize_presupuesto_row(derived_from) if derived_from else None,
+        'catalogo_total': catalog_count,
+        'categorias_presupuestadas': presupuestadas_count,
     }
+
+
+@bp.route('/libre-mes', methods=['GET'])
+def libre_mes_disponible():
+    """Retorna el dinero libre del mes, basado en ingresos, gastos fijos, diferidos y préstamos."""
+    verify_jwt_in_request()
+    db = DatabaseConnector()
+    try:
+        user_id = _get_user_id()
+
+        ingresos = float(request.args.get('ingresos_mensuales', _fetch_monthly_income(db, user_id)) or 0)
+        diferidos = float(request.args.get('diferidos_mensuales', _fetch_monthly_diferidos_total(db, user_id)) or 0)
+        prestamos = float(request.args.get('prestamos_mensuales', _fetch_monthly_prestamos_total(db, user_id)) or 0)
+        deudas_mes = round(diferidos + prestamos, 2)
+
+        gastos_fijos_calc, fijos_detalle = _fetch_monthly_fixed_budget(db, user_id)
+        if request.args.get('gastos_fijos_mensuales') is not None:
+            gastos_fijos = float(request.args.get('gastos_fijos_mensuales') or 0)
+        else:
+            gastos_fijos = float(gastos_fijos_calc or _fetch_monthly_budget_lines_total(db, user_id) or 0)
+
+        otros = float(request.args.get('otros_compromisos', 0) or 0)
+
+        resultado = calcular_dinero_libre_mes(
+            ingresos_mensuales=ingresos,
+            gastos_fijos_mensuales=gastos_fijos,
+            diferidos_mensuales=diferidos,
+            prestamos_mensuales=prestamos,
+            otros_compromisos=otros,
+        )
+
+        resultado['deudas_mensuales'] = deudas_mes
+        resultado['gastos_fijos_detalle'] = fijos_detalle
+        resultado['formula_detallada'] = f"${ingresos:,.2f} (Ingresos) - ${gastos_fijos:,.2f} (Gastos fijos) - ${deudas_mes:,.2f} (Deudas: Diferidos + Préstamos)"
+        if otros > 0:
+            resultado['formula_detallada'] += f" - ${otros:,.2f} (Otros)"
+        resultado['formula_detallada'] += f" = ${resultado['dinero_libre_mes']:,.2f}"
+
+        return jsonify(resultado), 200
+    except Exception as e:
+        logger.error('Error calculando dinero libre del mes: %s', e)
+        return jsonify({'message': 'Error al calcular el dinero libre del mes'}), 500
+    finally:
+        db.close()
 
 
 @bp.route('', methods=['GET'])
@@ -486,13 +1062,14 @@ def get_presupuesto_sheet():
         year = int(request.args.get('year', date.today().year))
         periodo = _normalize_periodo(request.args.get('periodo', 'anual'))
         month = request.args.get('month', type=int)
+        incluir_todas = request.args.get('todas', 'true').lower() in ('true', '1')
 
         start_date, end_date = _period_bounds(year, periodo, month)
         row = _find_presupuesto_by_period(db, user_id, start_date, end_date)
         derived_from = None
         if not row and periodo == 'mensual':
             derived_from = _find_presupuesto_by_period(db, user_id, date(year, 1, 1), date(year, 12, 31))
-        return jsonify(_sheet_response(db, user_id, row, year, periodo, month, derived_from)), 200
+        return jsonify(_sheet_response(db, user_id, row, year, periodo, month, derived_from, incluir_todas_categorias=incluir_todas)), 200
     except Exception as e:
         logger.error("Error obteniendo hoja de presupuesto: %s", e)
         return jsonify({'message': 'Error al obtener hoja de presupuesto'}), 500
@@ -514,6 +1091,20 @@ def save_presupuesto_sheet():
         start_date, end_date = _period_bounds(year, periodo, month)
         normalized_lines = _normalize_lines(payload.get('lineas'))
 
+        guardar_todas = bool(payload.get('guardar_todas', False))
+        if not guardar_todas:
+            lineas_a_guardar = [
+                line for line in normalized_lines
+                if float(line.get('estimado') or 0) > 0
+                or float(line.get('importe') or 0) > 0
+                or (line.get('notas') and line.get('notas').strip())
+            ]
+            if not lineas_a_guardar and normalized_lines:
+                # Si todas están en cero, conservar al menos las que tengan notas o la primera para no dejarlo huérfano
+                lineas_a_guardar = normalized_lines
+        else:
+            lineas_a_guardar = normalized_lines
+
         presupuesto_id = payload.get('presupuesto_id')
         existing = None
         if presupuesto_id:
@@ -523,7 +1114,8 @@ def save_presupuesto_sheet():
 
         nombre = (payload.get('nombre') or '').strip() or _default_budget_name(periodo, year, month)
         descripcion = (payload.get('descripcion') or '').strip() or None
-        total_estimado = round(sum(float(line.get('estimado') or 0) for line in normalized_lines), 2)
+        total_estimado_egresos = round(sum(float(line.get('estimado') or 0) for line in lineas_a_guardar if line.get('tipo') != 'ingreso'), 2)
+        total_estimado = total_estimado_egresos if total_estimado_egresos > 0 else round(sum(float(line.get('estimado') or 0) for line in lineas_a_guardar), 2)
 
         if existing:
             presupuesto_id = existing['id_presupuesto']
@@ -550,7 +1142,7 @@ def save_presupuesto_sheet():
             if not presupuesto_id:
                 return jsonify({'message': 'No se pudo guardar la hoja de presupuesto'}), 500
 
-        total_guardado = _save_budget_lines(db, presupuesto_id, normalized_lines)
+        total_guardado = _save_budget_lines(db, presupuesto_id, lineas_a_guardar)
         db.execute_non_query(
             "UPDATE presupuesto SET monto_total = %s WHERE id_presupuesto = %s AND id_persona = %s",
             (total_guardado, presupuesto_id, user_id),
@@ -589,18 +1181,7 @@ def derive_monthly_sheet():
         if monthly_row and not overwrite:
             return jsonify({'message': 'El presupuesto mensual ya existe para ese periodo'}), 409
 
-        derived_lines = []
-        for idx, line in enumerate(annual_lines):
-            derived_lines.append(
-                {
-                    'categoria': line['categoria'],
-                    'frecuencia': line.get('frecuencia') or 'Mensualmente',
-                    'importe': round(float(line['importe']) / 12, 2),
-                    'estimado': round(float(line['estimado']) / 12, 2),
-                    'notas': line.get('notas') or '',
-                    'orden': idx,
-                }
-            )
+        derived_lines = _derivar_lineas_desde_anual(annual_lines, divisor=12)
 
         nombre = payload.get('nombre') or _default_budget_name('mensual', year, month)
         descripcion = payload.get('descripcion') or f"Derivado de {_serialize_presupuesto_row(annual_row)['nombre']}"

@@ -17,6 +17,29 @@
         </div>
     </div>
 
+    <div class="row mb-4">
+        <div class="col-12">
+            <section class="card" aria-labelledby="mesesMovimientosTitulo">
+                <div class="card-header">
+                    <h5 class="mb-0" id="mesesMovimientosTitulo"><i class="fas fa-calendar-check"></i> Meses con movimientos</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-2">Últimos 12 meses, incluido el actual. Se muestran movimientos hasta hoy, no la fecha de carga del extracto. Tener movimientos no garantiza que todos los extractos estén completos.</p>
+                    <div id="mesesMovimientosEstado" role="status">Cargando meses con movimientos...</div>
+                    <div id="mesesMovimientosContenido" hidden>
+                        <p id="ultimosMesesMovimientos" class="small mb-2"></p>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead><tr><th scope="col">Mes</th><th scope="col">Cuentas bancarias</th><th scope="col">Tarjetas de crédito</th></tr></thead>
+                                <tbody id="mesesMovimientosBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
     <!-- KPI cards -->
     <div class="row mb-4">
         <div class="col-md-3">
@@ -262,9 +285,53 @@ let trendCategoryInitialized = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
     initTrendCategoryFilters();
+    loadMesesMovimientos();
     await loadDashboard();
     await reloadTrendCategoryChart({ keepSelectedCategories: false });
 });
+
+function nombreMes(value) {
+    const [year, month] = value.split('-').map(Number);
+    return new Intl.DateTimeFormat('es-CO', { month: 'long', year: 'numeric' })
+        .format(new Date(year, month - 1, 1));
+}
+
+async function loadMesesMovimientos() {
+    const estado = document.getElementById('mesesMovimientosEstado');
+    const contenido = document.getElementById('mesesMovimientosContenido');
+    try {
+        const data = await api.request('GET', '/dashboard/meses-con-movimientos');
+        const ultimo = data.ultimo_mes;
+        const ultimoTexto = tipo => ultimo[tipo] ? nombreMes(ultimo[tipo]) : 'sin movimientos';
+        document.getElementById('ultimosMesesMovimientos').textContent =
+            `Último mes con movimientos: cuentas: ${ultimoTexto('cuentas')} · tarjetas: ${ultimoTexto('tarjetas')}.`;
+
+        const body = document.getElementById('mesesMovimientosBody');
+        body.replaceChildren();
+        for (const mes of data.meses) {
+            const row = document.createElement('tr');
+            const label = document.createElement('th');
+            label.scope = 'row';
+            label.textContent = nombreMes(mes.mes);
+            row.appendChild(label);
+            for (const tipo of ['cuentas', 'tarjetas']) {
+                const cell = document.createElement('td');
+                const badge = document.createElement('span');
+                badge.className = mes[tipo] > 0 ? 'badge bg-success' : 'badge bg-secondary';
+                badge.textContent = mes[tipo] > 0 ? `Con datos (${mes[tipo]})` : 'Sin datos';
+                cell.appendChild(badge);
+                row.appendChild(cell);
+            }
+            body.appendChild(row);
+        }
+        estado.hidden = true;
+        contenido.hidden = false;
+    } catch (error) {
+        console.error('Error al cargar meses con movimientos:', error);
+        estado.className = 'alert alert-danger mb-0';
+        estado.textContent = 'No fue posible cargar los meses con movimientos. Recarga la página para intentarlo de nuevo.';
+    }
+}
 
 async function loadDashboard() {
     const spinner  = document.getElementById('loadingSpinner');

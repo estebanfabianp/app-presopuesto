@@ -325,7 +325,11 @@ class ETLTarjetaCredito:
         # Evitar usar IDs sintéticos internos como código de autorización.
         if raw.startswith('TRX-'):
             return False
-        return bool(re.fullmatch(r'[A-Z0-9]{4,30}', raw))
+        # Algunos extractos usan referencias numéricas cortas (ej. 1, 2, 3).
+        # Deben aceptarse como códigos válidos para consolidar diferidos.
+        if re.fullmatch(r'\d+', raw):
+            return int(raw) > 0
+        return bool(re.fullmatch(r'[A-Z0-9]{1,30}', raw))
 
     @classmethod
     def _is_tracking_exception_ampliacion_plazo(cls, tracking_code: Any, description: Any) -> bool:
@@ -345,6 +349,10 @@ class ETLTarjetaCredito:
         normalized = raw.replace(' ', '')
         if re.fullmatch(r'\d+\.0+', normalized):
             normalized = normalized.split('.', 1)[0]
+
+        # Mantener referencias numéricas simples sin agregar prefijos artificiales.
+        if re.fullmatch(r'\d+', normalized):
+            return normalized
 
         return normalized.upper()
 

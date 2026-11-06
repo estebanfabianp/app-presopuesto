@@ -47,6 +47,35 @@ def _get_meses(default: int, max_meses: int = 120) -> int:
     return max(1, min(meses, max_meses))
 
 
+def _has_column(db: DatabaseConnector, table_name: str, column_name: str) -> bool:
+        rows = db.execute_query(
+                """
+                SELECT 1
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME = %s
+                    AND COLUMN_NAME = %s
+                LIMIT 1
+                """,
+                (table_name, column_name),
+        ) or []
+        return bool(rows)
+
+
+def _table_exists(db: DatabaseConnector, table_name: str) -> bool:
+        rows = db.execute_query(
+                """
+                SELECT 1
+                FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME = %s
+                LIMIT 1
+                """,
+                (table_name,),
+        ) or []
+        return bool(rows)
+
+
 # ──────────────────────────────────────────────────────────────
 # GET /api/analisis/resumen?meses=6
 # KPIs principales: ingresos, gastos, ahorro, % ejecución presupuesto
@@ -272,6 +301,20 @@ def get_analisis_tarjetas():
     user_id = _get_user_id()
     db = DatabaseConnector()
     try:
+        has_estado_col = _has_column(db, 'tarjeta_credito', 'estado')
+        has_id_estado_col = _has_column(db, 'tarjeta_credito', 'id_estado')
+        has_estado_tarjeta_table = _table_exists(db, 'estado_tarjeta')
+
+        if has_estado_col:
+            estado_expr = "COALESCE(tc.estado, 'Activa')"
+            estado_join = ""
+        elif has_id_estado_col and has_estado_tarjeta_table:
+            estado_expr = "COALESCE(et.nombre, 'Activa')"
+            estado_join = "LEFT JOIN estado_tarjeta et ON et.id_estado = tc.id_estado"
+        else:
+            estado_expr = "'Activa'"
+            estado_join = ""
+
         rows = db.execute_query(
             """
             SELECT
@@ -279,7 +322,7 @@ def get_analisis_tarjetas():
                 tc.numero_tarjeta,
                 tc.limite_credito,
                 tc.saldo_actual,
-                COALESCE(et.nombre, 'Activa') AS estado,
+                {estado_expr} AS estado,
                 COALESCE(
                     (SELECT COUNT(*) FROM tarjeta_diferido td WHERE td.id_tarjeta = tc.id_tarjeta),
                     0
@@ -293,10 +336,10 @@ def get_analisis_tarjetas():
                     0
                 ) AS gasto_mes
             FROM tarjeta_credito tc
-            LEFT JOIN estado_tarjeta et ON et.id_estado = tc.id_estado
+            {estado_join}
             WHERE tc.id_persona = %s
             ORDER BY tc.saldo_actual DESC
-            """,
+            """.format(estado_expr=estado_expr, estado_join=estado_join),
             (user_id,),
         )
         return jsonify([

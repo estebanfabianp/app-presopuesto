@@ -1,111 +1,150 @@
-# Arquitectura del Sistema
+# Arquitectura del sistema
 
-El sistema está consolidado como aplicación web Flask + Jinja con base de datos MySQL/MariaDB. La interfaz de escritorio Flet sigue disponible pero ya no es el foco de desarrollo activo.
+El proyecto está estructurado como una aplicación financiera web basada en Flask, con MySQL/MariaDB como sistema de persistencia y plantillas Jinja2 para la capa de presentación. El foco de desarrollo actual es la versión web, aunque sigue existiendo una capa desktop legacy basada en Flet.
 
 ## Vista general
 
 ```text
-Flask + Jinja Web UI          Flet Desktop UI (heredado)
-        |                              |
-        |                              |
-        +--------------+---------------+
-                       |
-               Blueprints Flask / Controllers
-                       |
-               DatabaseConnector
-                       |
-                 MySQL / MariaDB
+Cliente web (Navegador)
+        |
+        v
+Flask + Jinja2
+        |
+        +--> src/routes/      -> endpoints y páginas
+        +--> src/templates/   -> UI web
+        +--> src/static/      -> CSS/JS
+        |
+        v
+Servicios y lógica de negocio
+        |
+        +--> src/business/services/
+        +--> src/models/
+        +--> src/controllers/ (legacy)
+        |
+        v
+MySQL / MariaDB
+        |
+        +--> base_de_datos/db/
+        +--> scripts/migrations/
 ```
 
 ## Capas principales
 
-### Presentación
+### 1. Capa de presentación
 
-- `app.py`, `src/templates/`, `src/static/`: capa web principal en Flask.
-- `src/routes/`: blueprints Flask con todos los endpoints y páginas.
-- `main.py` y `src/views/`: interfaz de escritorio Flet (heredada, en proceso de deprecación).
+- `app.py`: punto de entrada principal de la web.
+- `src/routes/`: blueprints Flask con la lógica de endpoints y vistas.
+- `src/templates/`: templates Jinja2 de la aplicación web.
+- `src/static/`: estilos, scripts y recursos frontend.
+- `main.py` y `src/views/`: capa heredada para la versión desktop.
 
-### Lógica de negocio
+### 2. Capa de lógica de negocio
 
-- `src/controllers/`: lógica heredada, usada principalmente por Flet.
-- `src/business/services/`: servicios específicos, incluido el ETL de tarjeta de crédito.
-- `src/models/`: acceso a entidades y autenticación de usuario.
+- `src/business/services/`: servicios de negocio, ETL, análisis y automatización.
+- `src/models/`: entidades del dominio y lógica asociada.
+- `src/controllers/`: código heredado utilizado principalmente por Flet.
 
-### Persistencia
+### 3. Capa de persistencia
 
-- `src/database/db_connector.py`: acceso común a MySQL/MariaDB.
-- `base_de_datos/db/`: scripts SQL, seeds y mantenimiento.
+- Conector de base de datos centralizado en la carpeta `src/database/`.
+- Scripts SQL y mantenimiento en `base_de_datos/db/`.
+- Migraciones específicas en `scripts/migrations/`.
 
-## Blueprints Flask registrados
-
-| Blueprint              | Prefijo                 | Descripción                                  |
-|------------------------|-------------------------|----------------------------------------------|
-| `auth`                 | `/api/auth`             | Login JWT, logout, perfil                   |
-| `dashboard`            | `/api/dashboard`        | Resumen financiero, gráficos                |
-| `transacciones`        | `/api/transacciones`    | CRUD de movimientos                         |
-| `presupuesto`          | `/api/presupuesto`      | CRUD de presupuestos y categorías           |
-| `reportes`             | `/api/reportes`         | Agregaciones mensuales y por categoría      |
-| `tarjetas`             | `/api/tarjetas`         | Tarjetas de crédito y compras diferidas     |
-| `inversiones`          | `/api/inversiones`      | Seguimiento de inversiones                  |
-| `metas`                | `/api/metas`            | Metas de ahorro                             |
-| `productos`            | `/api/productos`        | Productos financieros consolidados          |
-| `cuentas_bancarias`    | `/api/cuentas-bancarias`| Cuentas bancarias                           |
-| `categorias`           | `/api/categorias`       | Catálogo de categorías                      |
-| `beneficiarios`        | `/api/beneficiarios`    | Catálogo de beneficiarios                   |
-| `constantes`           | `/api/constantes`       | Constantes del sistema                      |
-| `programadas`          | `/api/programadas`      | Transacciones programadas (recurrentes)     |
-| `analisis`             | `/api/analisis`         | Análisis de consumo e indicadores           |
-
-## Componentes clave
+## Módulos principales
 
 ### Autenticación
 
-- `src/models/persona_model.py`: validación de credenciales y migración automática de contraseñas legacy.
-- `src/routes/auth.py`: login JWT, logout y endpoint `/api/auth/me`.
+- `src/routes/auth.py`
+- Usuario autenticado mediante JWT.
+- Maneja login, sesión, perfil y validación de accesos.
 
-### Tarjetas y compras diferidas
+### Dashboard y KPIs
 
-- `src/routes/tarjetas.py`: gestión completa de tarjetas de crédito, movimientos y compras diferidas por cuotas (amortización, historial, simulador, pago anticipado).
+- `src/routes/dashboard.py`
+- Resumen financiero general y consolidado.
+- Indicadores de patrimonio, flujo del mes, cuentas y productos.
 
-### Transacciones Programadas
+### Cuentas y movimientos
 
-- `src/routes/programadas.py`: CRUD de `transaccion_programada`, catálogos auxiliares (tipos, categorías, beneficiarios).
-- `src/templates/programadas/index.html`: interfaz con KPIs, tabla con alertas de vencimiento y modal de edición.
+- `src/routes/cuentas_bancarias.py`
+- `src/routes/transacciones.py`
+- Registro y clasificación de movimientos bancarios y transacciones.
 
-### Análisis de Consumo
+### Tarjetas de crédito y diferidos
 
-- `src/routes/analisis.py`: endpoints de resumen KPI, gasto por categoría, tendencia mensual, top gastos, comparativa mes a mes y uso de tarjetas.
-- Helper `_get_meses(default, max_meses=120)` centraliza la conversión y validación del parámetro `meses` (rango 1–120).
-- `src/templates/analisis/index.html`: dashboard analítico con Chart.js (donuts, líneas) y selector de periodo dinámico (1, 3, 6, 12, 24, 36 meses y opción `desde_2024`).
+- `src/routes/tarjetas.py`
+- Administración de tarjetas, cuotas, pagos y extractos.
+- Soporta flujo de compras diferidas y cálculo asociado.
 
-### Optimización de Clasificación
+### Presupuesto y categorías
 
-- `src/routes/optimizacion_categorias.py`: motor de reglas automáticas para categorías y beneficiarios, gestión de conflictos y asignación individual/masiva.
-- `src/business/services/` (servicio subyacente): `get_categorias`, `get_beneficiarios`, `asignar_categoria_movimiento(origen, id_movimiento, id_categoria, user_id)`, equivalentes para beneficiario y reglas.
-- Soporta dos orígenes de movimientos: `tarjeta` y `cuenta`.
+- `src/routes/presupuesto.py`
+- `src/routes/categorias.py`
+- Manejo del catálogo de categorías y presupuestos por concepto.
 
-### Saldos y Auditoría de Cuentas
+### Análisis y reportes
 
-- Vista `v_cuenta_saldos`: saldo real por cuenta calculado sobre `movimiento` (saldo_inicial + ingresos - gastos).
-- Vista `v_resumen_saldos_persona`: totales consolidados por persona.
-- Vista `v_producto_unificado`: unión de cuentas, tarjetas y préstamos.
-- Tabla `auditoria_saldo_cuenta`: log de cambios de saldo con tipo de cambio y diferencia.
-- Procedimiento `calc_saldo_cuenta`: cálculo estándar de saldo.
-- El dashboard principal muestra `saldo_total_cuentas` (desde `v_cuenta_saldos`) como KPI de patrimonio real, separado del flujo del mes (`saldo_mes`).
+- `src/routes/analisis.py`
+- `src/routes/reportes.py`
+- Visualización de consumo, tendencias, comparativas y KPIs de operación.
 
-- `src/business/services/etl_tarjeta_credito.py`: carga masiva desde Excel a `movimiento` y `movimiento_tarjeta`.
-- `src/business/services/etl_cuenta_bancaria.py`: carga masiva de extractos bancarios a `movimiento`.
+### Optimización de clasificación
 
-**Nota operativa**: al lanzar Flask en modo desarrollo el watchdog puede reiniciar el servidor mientras `openpyxl` carga módulos XML, interrumpiendo la importación. Usar `use_reloader=False` para evitarlo.
+- `src/routes/optimizacion_categorias.py`
+- `src/business/services/optimizacion_categorias.py`
+- Motor para detectar conceptos repetidos, generar reglas y aplicar clasificación automática.
+- La lógica soporta origen de movimiento en cuenta o tarjeta.
 
-## Decisiones de diseño
+### ETL y carga masiva
 
-- La capa web es ahora la interfaz principal; Flet queda como legado.
-- Todos los endpoints de API requieren JWT excepto `/api/auth/login` y `/health`.
-- La base de datos es la única fuente de verdad; no hay estado en memoria entre peticiones.
-- La inicialización de BD prioriza seguridad operativa en reejecuciones sobre bases existentes.
+- `src/business/services/etl_tarjeta_credito.py`
+- `src/business/services/etl_cuenta_bancaria.py`
+- Procesamiento de datos importados desde archivos o extractos.
 
-## Limitaciones abiertas
+## Principios de diseño
 
-- Scripts SQL históricos todavía requieren saneamiento para una instalación `full` completamente idempotente en algunos entornos MariaDB.
-- Parte del código heredado sigue en `src/views/` y `src/controllers/` para uso de Flet.
+- La base de datos es la fuente de verdad del sistema.
+- La capa web es la interfaz principal y preferida del producto.
+- Flet queda como una compatibilidad heredada, pero no como eje de desarrollo.
+- La autenticación y los permisos se gestionan con JWT y validación por persona.
+- Los servicios business encapsulan la lógica no trivial y evitan acoplar la UI con la BD.
+
+## Flujo de ejecución típico
+
+```text
+usuario -> login -> dashboard -> cuentas/movimientos -> presupuestos -> reportes -> análisis
+                               \-> tarjetas
+                               \-> optimizacion_categorias
+```
+
+## Consideraciones operativas
+
+### MySQL/MariaDB
+
+- El proyecto asume una instancia local o remota de MySQL/MariaDB.
+- Los scripts de base de datos y migración deben ejecutarse en el orden correcto.
+- La estructura de tablas y relaciones es crítica para la operación del sistema.
+
+### ETL y reloader
+
+Durante carga automática de archivos Excel o procesos ETL, debe evitarse reinicios innecesarios del servidor. Para ello se recomienda usar:
+
+```powershell
+python app.py
+```
+
+con `use_reloader=False` cuando se usa desarrollo con archivos pesados o imports de librerías que disparan watchers.
+
+### Modo de mantenimiento
+
+Algunos scripts de inicialización revisan si la base ya existe para entrar en mantenimiento y no recrear objetos de forma destructiva.
+
+## Limitaciones actuales
+
+- Parte del proyecto sigue basado en código heredado de Flet y de estructuras antiguas.
+- La documentación debe mantenerse alineada con la realidad de modelos y migraciones.
+- No todos los scripts de inicialización son totalmente idempotentes en entornos distintos.
+
+## Conclusión
+
+La arquitectura del proyecto está pensada para ser una solución financiera personal con enfoque operativo y analítico. La combinación de Flask, templates, servicios de negocio y base de datos relacional permite un flujo claro desde la captura de datos hasta la clasificación, el análisis y la toma de decisiones.

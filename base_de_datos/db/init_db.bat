@@ -1,3 +1,4 @@
+-- Active: 1756931757388@@127.0.0.1@3306@app_presupuesto
 @echo off
 REM ============================================================================
 REM 🚀 SCRIPT DE INICIALIZACIÓN COMPLETA DE LA BASE DE DATOS

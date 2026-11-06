@@ -60,6 +60,7 @@ def create_app(env='development'):
         tarjetas,
         inversiones,
         metas,
+        prestamos,
         optimizacion_categorias,
         programadas,
         analisis,
@@ -77,6 +78,7 @@ def create_app(env='development'):
     app.register_blueprint(tarjetas.bp)
     app.register_blueprint(inversiones.bp)
     app.register_blueprint(metas.bp)
+    app.register_blueprint(prestamos.bp)
     app.register_blueprint(optimizacion_categorias.bp)
     app.register_blueprint(productos.bp)
     app.register_blueprint(programadas.bp)
@@ -114,6 +116,12 @@ def create_app(env='development'):
         """Página de presupuestos"""
         return render_template('presupuesto/index.html')
 
+    @app.route('/presupuesto/libre-mes')
+    @app.route('/presupuesto/libre')
+    def presupuesto_libre_mes_page():
+        """Página para ver el dinero libre del mes"""
+        return render_template('presupuesto/libre_mes.html')
+
     @app.route('/transacciones')
     @app.route('/transacciones/historial')
     def transacciones_page():
@@ -136,6 +144,10 @@ def create_app(env='development'):
     @app.route('/metas')
     def metas_page():
         return render_template('metas/index.html')
+
+    @app.route('/prestamos')
+    def prestamos_page():
+        return render_template('prestamos/index.html')
 
     @app.route('/productos')
     def productos_page():

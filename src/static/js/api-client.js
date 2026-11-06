@@ -69,7 +69,21 @@ class APIClient {
             // Manejo de respuesta no autorizada
             if (response.status === 401 && endpoint !== '/auth/login') {
                 this.clearToken();
-                window.location.href = '/login';
+                if (typeof window !== 'undefined') {
+                    const banner = document.getElementById('alertaGlobal');
+                    if (banner) {
+                        banner.className = 'alert alert-warning';
+                        banner.innerHTML = 'Tu sesión ha expirado. Vuelve a iniciar sesión para continuar.';
+                        banner.style.display = 'block';
+                    } else {
+                        window.alert('Tu sesión ha expirado. Vuelve a iniciar sesión para continuar.');
+                    }
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 500);
+                } else {
+                    window.location.href = '/login';
+                }
                 throw new Error('Sesión expirada. Por favor inicia sesión nuevamente.');
             }
 
@@ -251,6 +265,13 @@ class APIClient {
     async getCategoriasFlat(params = {}) {
         const queryString = new URLSearchParams({ plana: 'true', ...params }).toString();
         return this.request('GET', `/categorias?${queryString}`);
+    }
+
+    /**
+     * Crear una nueva categoría rápida.
+     */
+    async createCategoria(data) {
+        return this.request('POST', '/categorias', data);
     }
 
     // ==================== TRANSACCIONES ====================

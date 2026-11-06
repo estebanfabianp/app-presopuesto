@@ -106,30 +106,77 @@ class OptimizacionCategoriasService:
     # Lectura de datos
     # ------------------------------------------------------------------
 
+    def _get_table_columns(self, table_name: str) -> set:
+        """Devuelve las columnas reales disponibles para una tabla."""
+        try:
+            rows = self.db.execute_query(
+                """
+                SELECT COLUMN_NAME
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = %s
+                ORDER BY ORDINAL_POSITION
+                """,
+                (table_name,),
+            ) or []
+            return {str(r.get('COLUMN_NAME', '')).lower() for r in rows}
+        except Exception:
+            return set()
+
     def get_categorias(self, id_persona: int) -> List[Dict]:
-        """Retorna todas las categorías activas del usuario."""
-        rows = self.db.execute_query(
-            """
-            SELECT id_categoria, nombre, icono, color
-            FROM categoria
-            WHERE id_persona = %s AND estado = 1
-            ORDER BY nombre
-            """,
-            (id_persona,),
-        )
-        return rows or []
+        """Retorna categorías activas del usuario, compatible con distintos esquemas."""
+        columns = self._get_table_columns('categoria')
+        select_parts = ['id_categoria', 'nombre']
+        if 'icono' in columns:
+            select_parts.append('icono')
+        if 'color' in columns:
+            select_parts.append('color')
+
+        query = f"SELECT {', '.join(select_parts)} FROM categoria"
+        params: List[object] = []
+        conditions: List[str] = []
+
+        if 'id_persona' in columns:
+            conditions.append('id_persona = %s')
+            params.append(id_persona)
+        if 'estado' in columns:
+            conditions.append('estado = 1')
+
+        if conditions:
+            query += ' WHERE ' + ' AND '.join(conditions)
+
+        query += ' ORDER BY nombre'
+        rows = self.db.execute_query(query, tuple(params)) or []
+
+        return [
+            {
+                'id_categoria': r.get('id_categoria'),
+                'nombre': r.get('nombre'),
+                'icono': r.get('icono') or 'fa-tag',
+                'color': r.get('color') or '#6c757d',
+            }
+            for r in rows
+        ]
 
     def get_beneficiarios(self, id_persona: int) -> List[Dict]:
-        """Retorna beneficiarios activos del usuario."""
-        rows = self.db.execute_query(
-            """
-            SELECT id_beneficiario, nombre
-            FROM beneficiario
-            WHERE id_persona = %s AND estado = 1
-            ORDER BY nombre
-            """,
-            (id_persona,),
-        )
+        """Retorna beneficiarios activos del usuario, compatible con distintos esquemas."""
+        columns = self._get_table_columns('beneficiario')
+        query = 'SELECT id_beneficiario, nombre FROM beneficiario'
+        params: List[object] = []
+        conditions: List[str] = []
+
+        if 'id_persona' in columns:
+            conditions.append('id_persona = %s')
+            params.append(id_persona)
+        if 'estado' in columns:
+            conditions.append('estado = 1')
+
+        if conditions:
+            query += ' WHERE ' + ' AND '.join(conditions)
+
+        query += ' ORDER BY nombre'
+        rows = self.db.execute_query(query, tuple(params)) or []
+
         return rows or []
 
     def get_reglas(self, id_persona: int) -> List[Dict]:
@@ -164,12 +211,12 @@ class OptimizacionCategoriasService:
 
                         UNION ALL
 
-                        SELECT COALESCE(NULLIF(TRIM(m2.codigo), ''), NULLIF(TRIM(m2.nota), '')) AS concepto
+                        SELECT COALESCE(NULLIF(TRIM(m2.nota), ''), NULLIF(TRIM(m2.codigo), '')) AS concepto
                         FROM movimiento m2
                         INNER JOIN cuenta c2 ON c2.id_cuenta = m2.id_cuenta
                         WHERE c2.id_persona = %s
                     ) z
-                    WHERE z.concepto = cr.concepto
+                    WHERE CAST(TRIM(z.concepto) AS BINARY) = CAST(TRIM(cr.concepto) AS BINARY)
                 ) AS total_movimientos,
                 (
                     SELECT COUNT(*)
@@ -180,12 +227,12 @@ class OptimizacionCategoriasService:
 
                         UNION ALL
 
-                        SELECT COALESCE(NULLIF(TRIM(m3.codigo), ''), NULLIF(TRIM(m3.nota), '')) AS concepto, m3.id_categoria
+                        SELECT COALESCE(NULLIF(TRIM(m3.nota), ''), NULLIF(TRIM(m3.codigo), '')) AS concepto, m3.id_categoria
                         FROM movimiento m3
                         INNER JOIN cuenta c3 ON c3.id_cuenta = m3.id_cuenta
                         WHERE c3.id_persona = %s
                     ) p
-                    WHERE p.concepto = cr.concepto
+                    WHERE CAST(TRIM(p.concepto) AS BINARY) = CAST(TRIM(cr.concepto) AS BINARY)
                       AND p.id_categoria IS NULL
                 ) AS pendientes,
                 'confirmada' AS fuente
@@ -218,7 +265,7 @@ class OptimizacionCategoriasService:
 
                 UNION ALL
 
-                SELECT COALESCE(NULLIF(TRIM(m.codigo), ''), NULLIF(TRIM(m.nota), '')) AS concepto, m.id_categoria
+                SELECT COALESCE(NULLIF(TRIM(m.nota), ''), NULLIF(TRIM(m.codigo), '')) AS concepto, m.id_categoria
                 FROM movimiento m
                 INNER JOIN cuenta c ON c.id_cuenta = m.id_cuenta
                 WHERE c.id_persona = %s
@@ -232,8 +279,12 @@ class OptimizacionCategoriasService:
             (id_persona, id_persona),
         ) or []
 
-        # Mostrar reglas confirmadas solo si tienen pendientes por categorizar.
-        confirmadas = [r for r in confirmadas if int(r.get("pendientes") or 0) > 0]
+        # Mostrar reglas confirmadas aunque ya no tengan pendientes por categorizar,
+        # para que la pestaña de reglas siga mostrando lo que el usuario aplicó.
+        confirmadas = [
+            r for r in confirmadas
+            if int(r.get("pendientes") or 0) > 0 or str(r.get("fuente") or "").lower() == "confirmada"
+        ]
 
         # Enriquecer con nombre de categoría y excluir ya regladas (confirmadas o ignoradas)
         automaticas: List[Dict] = []
@@ -265,6 +316,12 @@ class OptimizacionCategoriasService:
                 concepto, num_categorias, categorias=[{id_categoria, nombre, total}]
         """
         # Conceptos problemáticos (>1 categoría, sin regla)
+        reglas_existentes = self.db.execute_query(
+            "SELECT concepto FROM categoria_regla WHERE id_persona = %s",
+            (id_persona,),
+        ) or []
+        conceptos_reglados = {str(r.get('concepto') or '').strip() for r in reglas_existentes if str(r.get('concepto') or '').strip()}
+
         raw = self.db.execute_query(
             """
             SELECT mt.nota AS concepto, COUNT(DISTINCT mt.id_categoria) AS num_categorias
@@ -272,33 +329,35 @@ class OptimizacionCategoriasService:
             WHERE mt.id_persona = %s
               AND mt.id_categoria IS NOT NULL
               AND mt.nota IS NOT NULL AND mt.nota <> ''
-              AND mt.nota NOT IN (
-                  SELECT cr.concepto FROM categoria_regla cr WHERE cr.id_persona = %s
-              )
             GROUP BY mt.nota
             HAVING COUNT(DISTINCT mt.id_categoria) > 1
             ORDER BY num_categorias DESC, mt.nota
             """,
-            (id_persona, id_persona),
+            (id_persona,),
         ) or []
 
         resultado: List[Dict] = []
         for row in raw:
+            concepto = str(row.get('concepto') or '').strip()
+            if not concepto:
+                continue
+            if concepto in conceptos_reglados:
+                continue
             cats = self.db.execute_query(
                 """
                 SELECT mt.id_categoria, c.nombre, COUNT(*) AS total
                 FROM movimiento_tarjeta mt
                 JOIN categoria c ON c.id_categoria = mt.id_categoria
                 WHERE mt.id_persona = %s
-                  AND mt.nota = %s
+                  AND CAST(TRIM(mt.nota) AS BINARY) = CAST(TRIM(%s) AS BINARY)
                   AND mt.id_categoria IS NOT NULL
                 GROUP BY mt.id_categoria, c.nombre
                 ORDER BY total DESC
                 """,
-                (id_persona, row["concepto"]),
+                (id_persona, concepto),
             ) or []
             resultado.append({
-                "concepto": row["concepto"],
+                "concepto": concepto,
                 "num_categorias": row["num_categorias"],
                 "categorias": cats,
             })
@@ -334,7 +393,11 @@ class OptimizacionCategoriasService:
                 SELECT
                     'cuenta' AS origen,
                     m.id_movimiento AS id_movimiento,
-                    COALESCE(NULLIF(m.codigo, ''), m.nota, 'Sin descripción') AS concepto,
+                    COALESCE(
+                        NULLIF(TRIM(m.nota), ''),
+                        NULLIF(TRIM(m.codigo), ''),
+                        'Sin descripción'
+                    ) AS concepto,
                     DATE(m.fecha_creacion) AS fecha,
                     m.monto AS valor
                 FROM movimiento m
@@ -484,10 +547,39 @@ class OptimizacionCategoriasService:
             logger.error("ignorar_concepto error: %s", exc)
             return False
 
+    def _get_concepto_movimiento(self, origen: str, id_movimiento: int, id_persona: int) -> Optional[str]:
+        """Devuelve el concepto/descrición asociado a un movimiento pendiente."""
+        if origen == 'cuenta':
+            rows = self.db.execute_query(
+                """
+                SELECT COALESCE(NULLIF(TRIM(m.nota), ''), NULLIF(TRIM(m.codigo), '')) AS concepto
+                FROM movimiento m
+                INNER JOIN cuenta c ON c.id_cuenta = m.id_cuenta
+                WHERE m.id_movimiento = %s AND c.id_persona = %s
+                LIMIT 1
+                """,
+                (id_movimiento, id_persona),
+            ) or []
+        else:
+            rows = self.db.execute_query(
+                """
+                SELECT NULLIF(TRIM(mt.nota), '') AS concepto
+                FROM movimiento_tarjeta mt
+                WHERE mt.id_movimiento_tarjeta = %s AND mt.id_persona = %s
+                LIMIT 1
+                """,
+                (id_movimiento, id_persona),
+            ) or []
+
+        if not rows:
+            return None
+        concepto = str(rows[0].get('concepto') or '').strip()
+        return concepto or None
+
     def asignar_categoria_movimiento(
         self, origen: str, id_movimiento: int, id_categoria: int, id_persona: int
     ) -> bool:
-        """Asigna categoría a un movimiento específico de tarjeta o cuenta."""
+        """Asigna categoría a un movimiento específico de tarjeta o cuenta y guarda una regla."""
         if origen == 'cuenta':
             owner = self.db.execute_query(
                 """
@@ -510,17 +602,24 @@ class OptimizacionCategoriasService:
                 """,
                 (id_categoria, id_movimiento),
             )
-            return result is not None
+        else:
+            result = self.db.execute_non_query(
+                """
+                UPDATE movimiento_tarjeta
+                SET id_categoria = %s
+                WHERE id_movimiento_tarjeta = %s AND id_persona = %s
+                """,
+                (id_categoria, id_movimiento, id_persona),
+            )
 
-        result = self.db.execute_non_query(
-            """
-            UPDATE movimiento_tarjeta
-            SET id_categoria = %s
-            WHERE id_movimiento_tarjeta = %s AND id_persona = %s
-            """,
-            (id_categoria, id_movimiento, id_persona),
-        )
-        return result is not None
+        if result is None:
+            return False
+
+        concepto = self._get_concepto_movimiento(origen, id_movimiento, id_persona)
+        if not concepto:
+            return True
+
+        return self.confirmar_regla(concepto, id_categoria, id_persona)
 
     def get_reglas_beneficiario(self, id_persona: int) -> List[Dict]:
         """Retorna reglas de beneficiario confirmadas y automáticas."""
@@ -539,12 +638,12 @@ class OptimizacionCategoriasService:
 
                         UNION ALL
 
-                        SELECT COALESCE(NULLIF(TRIM(m2.codigo), ''), NULLIF(TRIM(m2.nota), '')) AS concepto
+                        SELECT COALESCE(NULLIF(TRIM(m2.nota), ''), NULLIF(TRIM(m2.codigo), '')) AS concepto
                         FROM movimiento m2
                         INNER JOIN cuenta c2 ON c2.id_cuenta = m2.id_cuenta
                         WHERE c2.id_persona = %s
                     ) z
-                    WHERE z.concepto = br.concepto
+                    WHERE CAST(TRIM(z.concepto) AS BINARY) = CAST(TRIM(br.concepto) AS BINARY)
                 ) AS total_movimientos,
                 (
                     SELECT COUNT(*)
@@ -555,12 +654,12 @@ class OptimizacionCategoriasService:
 
                         UNION ALL
 
-                        SELECT COALESCE(NULLIF(TRIM(m3.codigo), ''), NULLIF(TRIM(m3.nota), '')) AS concepto, m3.id_beneficiario
+                        SELECT COALESCE(NULLIF(TRIM(m3.nota), ''), NULLIF(TRIM(m3.codigo), '')) AS concepto, m3.id_beneficiario
                         FROM movimiento m3
                         INNER JOIN cuenta c3 ON c3.id_cuenta = m3.id_cuenta
                         WHERE c3.id_persona = %s
                     ) p
-                    WHERE p.concepto = br.concepto
+                    WHERE CAST(TRIM(p.concepto) AS BINARY) = CAST(TRIM(br.concepto) AS BINARY)
                       AND p.id_beneficiario IS NULL
                 ) AS pendientes,
                 'confirmada' AS fuente
@@ -592,7 +691,7 @@ class OptimizacionCategoriasService:
 
                 UNION ALL
 
-                SELECT COALESCE(NULLIF(TRIM(m.codigo), ''), NULLIF(TRIM(m.nota), '')) AS concepto, m.id_beneficiario
+                SELECT COALESCE(NULLIF(TRIM(m.nota), ''), NULLIF(TRIM(m.codigo), '')) AS concepto, m.id_beneficiario
                 FROM movimiento m
                 INNER JOIN cuenta c ON c.id_cuenta = m.id_cuenta
                 WHERE c.id_persona = %s
@@ -629,6 +728,12 @@ class OptimizacionCategoriasService:
 
     def get_conflictos_beneficiario(self, id_persona: int) -> List[Dict]:
         """Retorna descripciones con más de un beneficiario histórico."""
+        reglas_existentes = self.db.execute_query(
+            "SELECT concepto FROM beneficiario_regla WHERE id_persona = %s",
+            (id_persona,),
+        ) or []
+        conceptos_reglados = {str(r.get('concepto') or '').strip() for r in reglas_existentes if str(r.get('concepto') or '').strip()}
+
         raw = self.db.execute_query(
             """
             SELECT x.concepto, COUNT(DISTINCT x.id_beneficiario) AS num_beneficiarios
@@ -639,7 +744,7 @@ class OptimizacionCategoriasService:
 
                 UNION ALL
 
-                SELECT COALESCE(NULLIF(TRIM(m.codigo), ''), NULLIF(TRIM(m.nota), '')) AS concepto, m.id_beneficiario
+                SELECT COALESCE(NULLIF(TRIM(m.nota), ''), NULLIF(TRIM(m.codigo), '')) AS concepto, m.id_beneficiario
                 FROM movimiento m
                 INNER JOIN cuenta c ON c.id_cuenta = m.id_cuenta
                 WHERE c.id_persona = %s
@@ -647,18 +752,18 @@ class OptimizacionCategoriasService:
             WHERE x.id_beneficiario IS NOT NULL
               AND x.concepto IS NOT NULL
               AND x.concepto <> ''
-              AND x.concepto NOT IN (
-                  SELECT br.concepto FROM beneficiario_regla br WHERE br.id_persona = %s
-              )
             GROUP BY x.concepto
             HAVING COUNT(DISTINCT x.id_beneficiario) > 1
             ORDER BY num_beneficiarios DESC, x.concepto
             """,
-            (id_persona, id_persona, id_persona),
+            (id_persona, id_persona),
         ) or []
 
         salida: List[Dict] = []
         for row in raw:
+            concepto = str(row.get('concepto') or '').strip()
+            if not concepto or concepto in conceptos_reglados:
+                continue
             detalle = self.db.execute_query(
                 """
                 SELECT y.id_beneficiario, b.nombre, COUNT(*) AS total
@@ -669,21 +774,21 @@ class OptimizacionCategoriasService:
 
                     UNION ALL
 
-                    SELECT COALESCE(NULLIF(TRIM(m.codigo), ''), NULLIF(TRIM(m.nota), '')) AS concepto, m.id_beneficiario
+                    SELECT COALESCE(NULLIF(TRIM(m.nota), ''), NULLIF(TRIM(m.codigo), '')) AS concepto, m.id_beneficiario
                     FROM movimiento m
                     INNER JOIN cuenta c ON c.id_cuenta = m.id_cuenta
                     WHERE c.id_persona = %s
                 ) y
                 JOIN beneficiario b ON b.id_beneficiario = y.id_beneficiario
-                WHERE y.concepto = %s
+                WHERE CAST(TRIM(y.concepto) AS BINARY) = CAST(TRIM(%s) AS BINARY)
                   AND y.id_beneficiario IS NOT NULL
                 GROUP BY y.id_beneficiario, b.nombre
                 ORDER BY total DESC
                 """,
-                (id_persona, id_persona, row["concepto"]),
+                (id_persona, id_persona, concepto),
             ) or []
             salida.append({
-                "concepto": row["concepto"],
+                "concepto": concepto,
                 "num_beneficiarios": row["num_beneficiarios"],
                 "beneficiarios": detalle,
             })
@@ -710,7 +815,7 @@ class OptimizacionCategoriasService:
                 SELECT
                     'cuenta' AS origen,
                     m.id_movimiento AS id_movimiento,
-                    COALESCE(NULLIF(m.codigo, ''), m.nota, 'Sin descripción') AS concepto,
+                    COALESCE(NULLIF(m.nota, ''), NULLIF(m.codigo, ''), 'Sin descripción') AS concepto,
                     DATE(m.fecha_creacion) AS fecha,
                     m.monto AS valor
                 FROM movimiento m
@@ -859,7 +964,7 @@ class OptimizacionCategoriasService:
                     "SET id_categoria = %s "
                     "WHERE id_categoria IS NULL "
                     f"AND id_cuenta IN ({placeholders}) "  # nosec B608 - sólo marcadores %s generados por longitud de lista
-                    "AND COALESCE(NULLIF(TRIM(codigo), ''), NULLIF(TRIM(nota), '')) = %s"
+                    "AND COALESCE(NULLIF(TRIM(nota), ''), NULLIF(TRIM(codigo), '')) = %s"
                 )
                 params = [id_categoria] + ids_cuenta + [concepto]
                 cursor.execute(sql, tuple(params))
@@ -912,7 +1017,7 @@ class OptimizacionCategoriasService:
                     "SET id_beneficiario = %s "
                     "WHERE id_beneficiario IS NULL "
                     f"AND id_cuenta IN ({placeholders}) "  # nosec B608 - sólo marcadores %s generados por longitud de lista
-                    "AND COALESCE(NULLIF(TRIM(codigo), ''), NULLIF(TRIM(nota), '')) = %s"
+                    "AND COALESCE(NULLIF(TRIM(nota), ''), NULLIF(TRIM(codigo), '')) = %s"
                 )
                 params = [id_beneficiario] + ids_cuenta + [concepto]
                 cursor.execute(sql, tuple(params))

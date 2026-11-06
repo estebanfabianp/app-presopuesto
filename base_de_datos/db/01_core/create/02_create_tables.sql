@@ -103,7 +103,11 @@ CREATE TABLE `beneficiario` (
 DROP TABLE IF EXISTS `categoria`;
 CREATE TABLE `categoria` (
   `id_categoria` int(11) NOT NULL,
-  `nombre` varchar(100) DEFAULT NULL
+  `nombre` varchar(100) DEFAULT NULL,
+  `parent_id` int(11) DEFAULT NULL,
+  `estado` tinyint(1) NOT NULL DEFAULT 1,
+  `icono` varchar(50) DEFAULT 'fa-tag',
+  `color` varchar(20) DEFAULT '#6c757d'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 -- =================================================================

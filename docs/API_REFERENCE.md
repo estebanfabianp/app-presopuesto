@@ -80,6 +80,15 @@ Dashboard extendido con:
 
 Nota: `saldo_total_cuentas` refleja el patrimonio real en cuentas bancarias; `saldo_mes` es solo el flujo (ingresos - gastos) del mes en curso.
 
+#### `GET /api/dashboard/meses-con-movimientos`
+
+Requiere autenticación. Devuelve `meses`, una lista de los últimos 12 meses
+(incluido el actual) en orden descendente, con `mes` (`AAAA-MM`) y los
+conteos `cuentas` y `tarjetas`. `ultimo_mes` contiene el último mes con
+movimientos de cada tipo o `null`, incluso si es anterior al periodo mostrado.
+Se usan las fechas de los movimientos hasta hoy, no la fecha de carga del
+extracto; su presencia no garantiza que todos los extractos estén completos.
+
 #### `GET /api/dashboard/summary`
 
 Resumen: ingresos, gastos, saldo, presupuestos activos, transacciones recientes y datos para gráfico dona.
@@ -125,13 +134,13 @@ Actualiza presupuesto existente.
 
 Elimina presupuesto y su relación en `presupuesto_categoria`.
 
-#### `GET /api/presupuesto/hoja?year=2026&periodo=anual`
+#### `GET /api/presupuesto/hoja?year=2026&periodo=anual&todas=true`
 
-Obtiene una hoja de presupuesto anual o mensual con líneas de detalle, totales y valor real calculado por categoría.
+Obtiene una hoja de presupuesto anual o mensual con líneas de detalle, totales y valor real calculado por categoría. Soporta el parámetro `todas=true` (activo por defecto) que combina automáticamente todas las categorías del catálogo activo del usuario con sus importes reales ejecutados, permitiendo presupuestar directamente en formato grilla. Las líneas diferencian `tipo` (`ingreso` | `egreso`), `es_fijo` (booleano para egresos) y el resumen desglosa `ingresos_estimado`, `ingresos_real`, `egresos_estimado`, `egresos_real`, `fijos_total`, `variables_total`, `flujo_neto_estimado` y `flujo_neto_real`.
 
 #### `POST /api/presupuesto/hoja`
 
-Guarda una hoja de presupuesto con múltiples líneas.
+Guarda una hoja de presupuesto con múltiples líneas, diferenciando ingresos y egresos, frecuencia y bandera de gasto fijo.
 
 ```json
 {
@@ -142,15 +151,31 @@ Guarda una hoja de presupuesto con múltiples líneas.
   "descripcion": "Presupuesto mensual derivado",
   "lineas": [
     {
-      "categoria": "Alimentación",
+      "categoria": "Salario",
+      "tipo": "ingreso",
       "frecuencia": "Mensualmente",
-      "importe": 1,
-      "estimado": 1,
-      "notas": "Base anual dividida en 12"
+      "importe": 3500000,
+      "estimado": 3500000,
+      "notas": "Nómina mensual"
+    },
+    {
+      "categoria": "Luz",
+      "tipo": "egreso",
+      "frecuencia": "Mensualmente",
+      "es_fijo": true,
+      "importe": 150000,
+      "estimado": 150000,
+      "notas": "Factura ENEL"
     }
   ]
 }
 ```
+
+#### `GET /api/presupuesto/libre-mes`
+
+Calcula el dinero libre del mes:
+`dinero_libre = ingresos_mensuales - gastos_fijos_mensuales - deudas_mensuales (diferidos + préstamos) - otros`.
+Toma automáticamente los gastos fijos marcados (`es_fijo = 1`) en el presupuesto mensual del usuario y devuelve el desglose de conceptos (`gastos_fijos_detalle`), deudas del mes y la fórmula detallada.
 
 #### `POST /api/presupuesto/hoja/derivar`
 

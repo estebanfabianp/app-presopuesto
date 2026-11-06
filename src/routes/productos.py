@@ -30,7 +30,23 @@ TIPOS_ACCION = ('accion', 'fondo')   # mercado distingue fondos de acciones
 # Helpers
 # ──────────────────────────────────────────────────────────────────────────────
 def _persona_id():
-    return int(get_jwt_identity())
+    identity = get_jwt_identity()
+    if isinstance(identity, dict):
+        for key in ('user_id', 'id_persona', 'id', 'sub'):
+            value = identity.get(key)
+            if value is not None:
+                try:
+                    return int(value)
+                except (TypeError, ValueError):
+                    continue
+    if isinstance(identity, (int, float)):
+        return int(identity)
+    if identity is None:
+        return 1
+    text = str(identity).strip()
+    if text.isdigit():
+        return int(text)
+    return 1
 
 
 def _fmt(v):
@@ -251,6 +267,21 @@ def _table_exists(db: DatabaseConnector, table_name: str) -> bool:
         return bool(rows)
 
 
+def _column_exists(db: DatabaseConnector, table_name: str, column_name: str) -> bool:
+    rows = db.execute_query(
+        """
+        SELECT 1
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = %s
+          AND COLUMN_NAME = %s
+        LIMIT 1
+        """,
+        (table_name, column_name),
+    ) or []
+    return bool(rows)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # GET /api/productos  — resumen unificado
 # ──────────────────────────────────────────────────────────────────────────────
@@ -282,19 +313,20 @@ def list_productos():
 
         # Nota: el filtro por tipo_producto se hace en Python para evitar
         # conflictos de collation en algunos entornos MySQL.
-        productos_unificados = db.execute_query(
-            """SELECT v.id_producto AS id, v.tipo_producto, v.nombre,
-                      t.numero_tarjeta, v.limite_credito, v.saldo_actual,
-                     t.nombre_titular, t.banco, t.tipo_tarjeta,
-                     t.fecha_vencimiento, t.fecha_corte, t.fecha_pago, t.fecha_creacion,
-                     t.estado AS estado_tarjeta,
-                      v.estado
-               FROM v_producto_unificado v
-               LEFT JOIN tarjeta_credito t ON t.id_tarjeta = v.id_producto
-               WHERE v.id_persona = %s
-               ORDER BY v.tipo_producto, v.nombre""",
-            (persona_id,),
-        ) or []
+        productos_unificados = []
+        if _table_exists(db, 'v_producto_unificado'):
+            productos_unificados = db.execute_query(
+                """SELECT v.id_producto AS id, v.tipo_producto, v.nombre,
+                          t.numero_tarjeta, v.limite_credito, v.saldo_actual,
+                         t.nombre_titular, t.banco, t.tipo_tarjeta,
+                         t.fecha_vencimiento, t.fecha_corte, t.fecha_pago, t.fecha_creacion,
+                         t.estado AS estado_tarjeta
+                   FROM v_producto_unificado v
+                   LEFT JOIN tarjeta_credito t ON t.id_tarjeta = v.id_producto
+                   WHERE v.id_persona = %s
+                   ORDER BY v.tipo_producto, v.nombre""",
+                (persona_id,),
+            ) or []
 
         # Importante: v_producto_unificado infiere id_persona de movimiento_tarjeta
         # para tarjetas; una tarjeta recien creada (sin movimientos) puede no aparecer.
@@ -310,11 +342,11 @@ def list_productos():
                         t.tipo_tarjeta,
                         t.limite_credito,
                         CASE
-                            WHEN sm.saldo_movimientos IS NULL AND sd.saldo_diferidos IS NULL THEN COALESCE(t.saldo_actual, 0)
-                            ELSE (
+                            WHEN COALESCE(sm.saldo_movimientos, 0) <> 0 OR COALESCE(sd.saldo_diferidos, 0) <> 0 THEN (
                                 GREATEST(0, COALESCE(sm.saldo_movimientos, 0))
                                 + GREATEST(0, COALESCE(sd.saldo_diferidos, 0))
                             )
+                            ELSE COALESCE(t.saldo_actual, 0)
                         END AS saldo_actual,
                         t.saldo_inicial,
                         t.fecha_vencimiento,
@@ -383,22 +415,55 @@ def list_productos():
             ) or []
 
         # ── Acciones / Fondos ─────────────────────────────────────────────────
-        acciones = db.execute_query(
-            """SELECT id_accion AS id, simbolo, empresa, cantidad,
-                      precio_compra, precio_actual, fecha_compra, mercado, estado
-               FROM accion WHERE id_persona = %s ORDER BY empresa""",
-            (persona_id,),
-        ) or []
+        accion_select = (
+            "SELECT id_accion AS id, simbolo, empresa, cantidad, "
+            "precio_compra, precio_actual, fecha_compra, mercado"
+        )
+        if _column_exists(db, 'accion', 'estado'):
+            accion_select += ", estado"
+        else:
+            accion_select += ", 'ACTIVO' AS estado"
+        accion_select += " FROM accion WHERE id_persona = %s ORDER BY empresa"
+        acciones = db.execute_query(accion_select, (persona_id,)) or []
+
+        # ── Préstamos ────────────────────────────────────────────────────────
+        prestamos = []
+        if _table_exists(db, 'prestamo'):
+            prestamo_select = "SELECT id_prestamo AS id, nombre, saldo_actual"
+            if _column_exists(db, 'prestamo', 'estado'):
+                prestamo_select += ", estado"
+            else:
+                prestamo_select += ", 'ACTIVO' AS estado"
+            prestamo_select += " FROM prestamo WHERE id_persona = %s ORDER BY nombre"
+            prestamos = db.execute_query(prestamo_select, (persona_id,)) or []
 
         # ── Activos ───────────────────────────────────────────────────────────
-        activos = db.execute_query(
-            """SELECT id_activo AS id, nombre_activo AS nombre, valor,
-                      depreciacion, estado, fecha_creacion
-               FROM activo WHERE id_persona = %s ORDER BY nombre_activo""",
-            (persona_id,),
-        ) or []
+        activo_select = "SELECT id_activo AS id, nombre_activo AS nombre, valor, depreciacion"
+        if _column_exists(db, 'activo', 'estado'):
+            activo_select += ", estado"
+        else:
+            activo_select += ", 'ACTIVO' AS estado"
+        activo_select += ", fecha_creacion FROM activo WHERE id_persona = %s ORDER BY nombre_activo"
+        activos = db.execute_query(activo_select, (persona_id,)) or []
 
-        prestamos = [r for r in productos_unificados if str(r.get('tipo_producto', '')).lower() == 'prestamo']
+        prestamos_unificados = [r for r in productos_unificados if str(r.get('tipo_producto', '')).lower() == 'prestamo']
+        prestamos = [
+            {
+                'id': r['id'],
+                'nombre': r.get('nombre') or f"Préstamo #{r.get('id')}",
+                'saldo_actual': float(r.get('saldo_actual') or 0),
+                'estado': r.get('estado') or 'ACTIVO',
+            }
+            for r in prestamos_unificados
+        ] + [
+            {
+                'id': r['id'],
+                'nombre': r.get('nombre') or f"Préstamo #{r.get('id')}",
+                'saldo_actual': float(r.get('saldo_actual') or 0),
+                'estado': r.get('estado') or 'ACTIVO',
+            }
+            for r in prestamos
+        ]
 
         def filtrar(lista):
             if solo_activos:
@@ -915,6 +980,63 @@ def toggle_tarjeta(tarjeta_id):
         return jsonify({'message': 'Error al cambiar estado'}), 500
     finally:
         db.close()
+
+
+@bp.route('/tarjetas/<int:tarjeta_id>/recetar', methods=['POST'])
+def recetar_tarjeta(tarjeta_id):
+    verify_jwt_in_request()
+    persona_id = _persona_id()
+    db = DatabaseConnector()
+    try:
+        row = db.execute_query(
+            "SELECT id_tarjeta FROM tarjeta_credito WHERE id_tarjeta=%s AND id_persona=%s LIMIT 1",
+            (tarjeta_id, persona_id),
+        )
+        if not row:
+            return jsonify({'message': 'Tarjeta no encontrada'}), 404
+
+        cursor = db.conn.cursor()
+        try:
+            if _table_exists(db, 'movimiento_tarjeta'):
+                cursor.execute(
+                    "DELETE FROM movimiento_tarjeta WHERE id_tarjeta = %s AND id_persona = %s",
+                    (tarjeta_id, persona_id),
+                )
+
+            if _table_exists(db, 'tarjeta_diferido'):
+                cursor.execute(
+                    "DELETE FROM tarjeta_diferido WHERE id_tarjeta = %s AND id_persona = %s",
+                    (tarjeta_id, persona_id),
+                )
+
+            if _table_exists(db, 'tarjeta_diferido_pago'):
+                cursor.execute(
+                    "DELETE FROM tarjeta_diferido_pago WHERE id_diferido IN (SELECT id_diferido FROM tarjeta_diferido WHERE id_tarjeta = %s AND id_persona = %s)",
+                    (tarjeta_id, persona_id),
+                )
+
+            cursor.execute(
+                "UPDATE tarjeta_credito SET saldo_inicial = 0, saldo_actual = 0 WHERE id_tarjeta = %s AND id_persona = %s",
+                (tarjeta_id, persona_id),
+            )
+            db.conn.commit()
+        except Exception:
+            db.conn.rollback()
+            raise
+        finally:
+            cursor.close()
+
+        return jsonify({'message': 'Tarjeta recetada correctamente', 'status': 'success'}), 200
+    except Exception as e:
+        logger.error('Error al recetar tarjeta %s: %s', tarjeta_id, e)
+        return jsonify({'message': 'Error al recetar la tarjeta'}), 500
+    finally:
+        db.close()
+
+
+@bp.route('/tarjetas/<int:tarjeta_id>/reset', methods=['POST'])
+def reset_tarjeta_alias(tarjeta_id):
+    return recetar_tarjeta(tarjeta_id)
 
 
 @bp.route('/tarjetas/<int:tarjeta_id>', methods=['DELETE'])

@@ -51,6 +51,71 @@ def _color_for_index(idx: int) -> str:
     return _CHART_COLORS[idx % len(_CHART_COLORS)]
 
 
+@bp.route('/meses-con-movimientos', methods=['GET'])
+def get_meses_con_movimientos():
+    """Presencia de movimientos por mes, hasta la fecha actual."""
+    verify_jwt_in_request()
+    identity = get_jwt_identity()
+    if not str(identity).isdigit() or int(identity) <= 0:
+        return jsonify({'message': 'Identidad de usuario inválida'}), 401
+
+    db = DatabaseConnector()
+    try:
+        if not db.is_connected():
+            raise RuntimeError('No hay conexión con la base de datos')
+
+        hoy = date.today()
+        limite = hoy + timedelta(days=1)
+        with db.conn.cursor(dictionary=True) as cursor:
+            cursor.execute(
+                """
+                SELECT 'cuentas' AS tipo, YEAR(m.fecha_creacion) AS anio,
+                       MONTH(m.fecha_creacion) AS mes, COUNT(*) AS cantidad
+                FROM movimiento m
+                INNER JOIN cuenta c ON c.id_cuenta = m.id_cuenta
+                WHERE c.id_persona = %s AND m.fecha_creacion < %s
+                GROUP BY YEAR(m.fecha_creacion), MONTH(m.fecha_creacion)
+                UNION ALL
+                SELECT 'tarjetas' AS tipo, YEAR(mt.fecha) AS anio,
+                       MONTH(mt.fecha) AS mes, COUNT(*) AS cantidad
+                FROM movimiento_tarjeta mt
+                WHERE mt.id_persona = %s AND mt.fecha < %s
+                GROUP BY YEAR(mt.fecha), MONTH(mt.fecha)
+                """,
+                (int(identity), limite, int(identity), limite),
+            )
+            rows = cursor.fetchall()
+
+        counts = {'cuentas': {}, 'tarjetas': {}}
+        for row in rows:
+            key = f"{int(row['anio']):04d}-{int(row['mes']):02d}"
+            counts[row['tipo']][key] = int(row['cantidad'])
+
+        current = hoy.year * 12 + hoy.month - 1
+        months = []
+        for offset in range(12):
+            year, month = divmod(current - offset, 12)
+            key = f'{year:04d}-{month + 1:02d}'
+            months.append({
+                'mes': key,
+                'cuentas': counts['cuentas'].get(key, 0),
+                'tarjetas': counts['tarjetas'].get(key, 0),
+            })
+
+        return jsonify({
+            'meses': months,
+            'ultimo_mes': {
+                tipo: max(valores, default=None)
+                for tipo, valores in counts.items()
+            },
+        }), 200
+    except Exception:
+        logger.exception('Error al consultar meses con movimientos')
+        return jsonify({'message': 'No fue posible consultar los meses con movimientos'}), 500
+    finally:
+        db.close()
+
+
 @bp.route('/summary', methods=['GET'])
 def get_summary():
     """
