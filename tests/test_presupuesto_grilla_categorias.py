@@ -112,6 +112,22 @@ class TestPresupuestoGrillaCategorias(unittest.TestCase):
         self.assertEqual(norm[2]['tipo'], 'ingreso')
         self.assertFalse(norm[2]['es_fijo'])
 
+    def test_categorias_homonimas_conservan_identidad_y_totales(self):
+        catalog = [
+            {'id_categoria': 1, 'nombre': 'Otros', 'parent_id': 10},
+            {'id_categoria': 2, 'nombre': 'Otros', 'parent_id': 20},
+        ]
+        lines = _normalize_lines([
+            {'id_categoria': 1, 'categoria': 'Otros', 'estimado': 100},
+        ])
+        self.assertEqual(lines[0]['id_categoria'], 1)
+        lines[0]['real'] = 30
+        merged, _, _ = _merge_catalog_categories_into_lines(
+            lines, catalog, {1: 30, 2: 40}, {}, 'mensual'
+        )
+        self.assertEqual(len(merged), 2)
+        self.assertEqual({line['id_categoria']: line['real'] for line in merged}, {1: 30, 2: 40})
+
     def test_merge_catalog_sugiere_gasto_fijo_para_servicios(self):
         catalog = [
             {'id_categoria': 86, 'nombre': 'Luz', 'parent_id': 13},

@@ -8,7 +8,9 @@ App Presupuesto centraliza la operación financiera personal en una sola herrami
 
 - registro de cuentas bancarias y movimientos,
 - seguimiento de tarjetas de crédito y diferidos,
-- gestión de presupuesto por categoría,
+- gestión de presupuesto por categoría y dinero libre del mes,
+- préstamos con cuotas, intereses, seguros y otros cargos,
+- metas de ahorro con aportes y retiros manuales,
 - análisis de consumo y tendencias,
 - automatización de clasificación de movimientos,
 - análisis de patrimonio, saldos y metas.
@@ -52,6 +54,11 @@ pip install -r requirements.txt
 
 ### Inicializar la base de datos
 
+Para una instalación nueva, revisa primero [la guía de base de datos](docs/DATABASE_SETUP.md).
+Si ya tienes datos, haz una copia de seguridad antes de cualquier migración: no
+ejecutes scripts de creación o seed sin revisar su alcance. Las tablas de
+préstamos y metas tienen migraciones aditivas documentadas en esa guía.
+
 ```powershell
 $env:Path = "C:\xampp\mysql\bin;" + $env:Path
 .\base_de_datos\db\init_db.bat
@@ -74,9 +81,9 @@ Luego abrir:
 2. Dashboard con KPIs financieros principales.
 3. Gestión de cuentas y movimientos bancarios.
 4. Registro y categorización de tarjetas de crédito.
-5. Presupuesto y análisis por categorías.
-6. Revisión de saldos, metas e inversiones.
-7. Uso de la optimización de clasificación para agrupar movimientos repetidos.
+5. Presupuesto mensual, dinero libre y análisis por categorías.
+6. Registro de préstamos y seguimiento de metas de ahorro independientes.
+7. Revisión de saldos e inversiones y uso de la optimización de clasificación.
 
 ## Estructura relevante del repositorio
 
@@ -101,6 +108,7 @@ app-presopuesto/
 │   │   ├── tarjetas.py
 │   │   ├── inversiones.py
 │   │   ├── metas.py
+│   │   ├── prestamos.py
 │   │   ├── productos.py
 │   │   ├── cuentas_bancarias.py
 │   │   ├── categorias.py
@@ -137,6 +145,7 @@ app-presopuesto/
 - KPIs de patrimonio, flujo del mes y cuentas.
 - Visualización consolidada del estado económico personal.
 - Integración con saldos reales por persona y por producto.
+- Presencia de movimientos por mes para cuentas y tarjetas; no confirma que los extractos estén completos.
 
 ### Cuentas y movimientos
 
@@ -152,15 +161,25 @@ app-presopuesto/
 
 ### Presupuesto y categorías
 
-- Definición de presupuestos por categoría.
-- Catalogación de gastos e ingresos.
-- Alineación con la optimización de clasificación.
+- Hoja anual y mensual con categorías y subcategorías desplegables.
+- Gastos reales con compras positivas de tarjeta y exclusión de pagos bancarios de tarjeta identificados; los abonos se excluyen y algunos requieren revisión.
+- Dinero libre a partir de ingresos y gastos presupuestados, diferidos, cuotas de préstamos y ajustes manuales.
+
+### Préstamos
+
+- Registro de capital, tasa, cuotas, seguros y otros cargos.
+- Pagos parciales y abonos extraordinarios; registro bancario opcional. El plan es una estimación, no incluye mora ni variaciones de tasa.
+
+### Metas de ahorro
+
+- Metas independientes de los presupuestos, con objetivo, fecha opcional, progreso e historial.
+- Aportes y retiros manuales: no transfieren dinero ni modifican cuentas bancarias.
 
 ### Análisis y reportes
 
-- Tendency and distribution by month.
-- Comparatives and consumption indicators.
-- Visualization with Chart.js and custom summaries.
+- Períodos móviles hasta hoy para las cifras principales de consumo.
+- Comparativa del mes actual parcial con el anterior completo y presupuesto por categoría del mes.
+- Indicador orientativo de salud financiera sujeto a datos y clasificación suficientes; algunas secciones antiguas todavía usan solo cuentas bancarias.
 
 ### Optimización de clasificación
 
@@ -200,6 +219,8 @@ app-presopuesto/
 - La parte desktop Flet está desfasada respecto a la web y no es prioridad de desarrollo.
 - Algunos scripts históricos requieren saneamiento para instalaciones nuevas o limpias.
 - El proyecto combina módulos modernos con código heredado en distintos puntos del repositorio.
+- Las metas no ofrecen eliminación de metas ni movimientos; sus movimientos no se vinculan automáticamente con cuentas.
+- Abonos de tarjeta potencialmente correspondientes a devoluciones requieren revisión; no se descuentan automáticamente.
 
 ## Verificación rápida
 

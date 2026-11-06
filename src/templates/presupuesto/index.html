@@ -307,6 +307,7 @@
                 </div>
             </div>
 
+            <div id="abonosRevision" class="alert alert-warning mx-3" style="display:none" role="alert"></div>
             <!-- Tabla de presupuesto -->
             <div class="table-responsive" style="max-height: 650px; overflow-y: auto;">
                 <table class="table table-hover align-middle mb-0" id="tablaPresupuesto">
@@ -424,6 +425,7 @@ const budgetSheetState = {
     top3: [],
     filtroActivo: 'todas',
     busquedaTexto: '',
+    gruposAbiertos: new Set(),
 };
 
 let modalNuevaCategoriaInstancia = null;
@@ -534,6 +536,11 @@ async function cargarHoja() {
         }
 
         const data = await api.getPresupuestoSheet(params);
+        budgetSheetState.gruposAbiertos.clear();
+        const aviso = document.getElementById('abonosRevision');
+        const abonos = Number(data.abonos_por_revisar || 0);
+        aviso.style.display = abonos ? '' : 'none';
+        aviso.textContent = abonos ? `${abonos} abono(s) de tarjeta sin clasificación clara se excluyeron del gasto. Revisa si son devoluciones o ajustes; no se han modificado los movimientos.` : '';
         budgetSheetState.presupuesto = data.presupuesto;
         budgetSheetState.year = data.year;
         budgetSheetState.periodo = data.periodo;
@@ -565,15 +572,14 @@ async function cargarHoja() {
 function combinarConCatalogoLocal() {
     if (!budgetSheetState.categoriasCatalogo.length) return;
 
-    const existentes = new Set(
-        budgetSheetState.lineas.map(l => (l.categoria || '').trim().toLowerCase())
-    );
+    const existentes = new Set(budgetSheetState.lineas.filter(l => l.id_categoria).map(l => Number(l.id_categoria)));
+    const nombresSinId = new Set(budgetSheetState.lineas.filter(l => !l.id_categoria).map(l => (l.categoria || '').trim().toLowerCase()));
 
     const freqDefecto = budgetSheetState.periodo === 'mensual' ? 'Mensualmente' : 'Anual';
 
     budgetSheetState.categoriasCatalogo.forEach(cat => {
         const nombre = (cat.nombre || '').trim();
-        if (nombre && !existentes.has(nombre.toLowerCase())) {
+        if (nombre && !existentes.has(Number(cat.id)) && !nombresSinId.has(nombre.toLowerCase())) {
             const esIngreso = cat.parent_id === 75 || nombre.toLowerCase() === 'ingresos' || esNombreIngreso(nombre);
             budgetSheetState.lineas.push(normalizeLine({
                 id_categoria: cat.id,
@@ -589,7 +595,7 @@ function combinarConCatalogoLocal() {
                 notas: '',
                 en_catalogo: true,
             }));
-            existentes.add(nombre.toLowerCase());
+            existentes.add(Number(cat.id));
         }
     });
 
@@ -718,6 +724,12 @@ function renderDerivedBanner() {
     banner.innerHTML = '';
 }
 
+function alternarGrupo(id) {
+    if (budgetSheetState.gruposAbiertos.has(id)) budgetSheetState.gruposAbiertos.delete(id);
+    else budgetSheetState.gruposAbiertos.add(id);
+    renderLineas();
+}
+
 function renderLineas() {
     const body = document.getElementById('sheetBody');
     if (!budgetSheetState.lineas.length) {
@@ -792,7 +804,31 @@ function renderLineas() {
         return;
     }
 
-    body.innerHTML = lineasFiltradas.map(item => {
+    const todos = budgetSheetState.lineas;
+    const padres = new Map(todos.filter(l => l.id_categoria).map(l => [Number(l.id_categoria), l]));
+    const idsConHijos = new Set(todos.filter(l => l.parent_id).map(l => Number(l.parent_id)));
+    const grupos = new Map();
+    lineasFiltradas.forEach(item => {
+        const parentId = item.parent_id && padres.has(Number(item.parent_id))
+            ? Number(item.parent_id)
+            : (idsConHijos.has(Number(item.id_categoria)) ? Number(item.id_categoria) : null);
+        const key = parentId === null ? `linea-${item.indexReal}` : `grupo-${parentId}`;
+        if (!grupos.has(key)) grupos.set(key, { parentId, items: [] });
+        grupos.get(key).items.push(item);
+    });
+    const filtrando = budgetSheetState.filtroActivo !== 'todas' || Boolean(budgetSheetState.busquedaTexto);
+    body.innerHTML = Array.from(grupos.values()).map(grupo => {
+        const abierto = filtrando || budgetSheetState.gruposAbiertos.has(grupo.parentId);
+        const encabezado = grupo.parentId === null ? '' : `
+            <tr class="table-light"><td colspan="13">
+                <button type="button" class="btn btn-sm btn-outline-primary"
+                    aria-expanded="${abierto}" onclick="alternarGrupo(${grupo.parentId})">
+                    <i class="fas fa-chevron-${abierto ? 'down' : 'right'} me-2"></i>${escapeHtml(padres.get(grupo.parentId).categoria)}
+                    <span class="badge bg-secondary ms-2">${grupo.items.length}</span>
+                </button>
+            </td></tr>`;
+        if (!abierto && grupo.parentId !== null) return encabezado;
+        return encabezado + grupo.items.map(item => {
         const estado = calcularEstado(item);
         const diffClass = item.diferencia > 0 ? 'diff-positive' : (item.diferencia < 0 ? 'diff-negative' : 'diff-neutral');
         const desvioClass = Math.abs(item.desvio_pct) > item.tolerancia ? 'diff-negative' : 'diff-neutral';
@@ -824,7 +860,8 @@ function renderLineas() {
                 <td>
                     <div class="cat-badge">
                         ${tagPadre}
-                        <span>${escapeHtml(item.categoria)}</span>
+                        <span>${item.parent_id ? '↳ ' : ''}${escapeHtml(item.categoria)}</span>
+                        ${grupo.parentId === Number(item.id_categoria) ? '<span class="badge bg-primary ms-1">Principal</span>' : ''}
                         ${!item.en_catalogo ? '<span class="badge bg-secondary ms-1" style="font-size:0.65rem;">Manual</span>' : ''}
                     </div>
                 </td>
@@ -870,8 +907,8 @@ function renderLineas() {
                 <td class="text-end ${desvioClass}" style="font-size:0.85rem;">
                     ${item.estimado > 0 ? `${item.desvio_pct > 0 ? '+' : ''}${item.desvio_pct.toFixed(1)}%` : (item.real > 0 ? 'Sin pto.' : '0%')}
                 </td>
-                <td class="real-cell text-end">${formatCurrency(item.real, 'ARS')}</td>
-                <td class="text-end ${diffClass}">${item.diferencia > 0 ? '+' : ''}${formatCurrency(item.diferencia, 'ARS')}</td>
+                <td class="real-cell text-end">${formatCurrency(item.real, 'COP')}</td>
+                <td class="text-end ${diffClass}">${item.diferencia > 0 ? '+' : ''}${formatCurrency(item.diferencia, 'COP')}</td>
                 <td>
                     <input class="form-control form-control-sm"
                            type="text"
@@ -888,6 +925,7 @@ function renderLineas() {
                 </td>
             </tr>
         `;
+        }).join('');
     }).join('');
 
     const statsInfo = document.getElementById('footerStatsInfo');
@@ -1061,28 +1099,28 @@ function actualizarResumenEnVivo() {
     const flujoNetoReal = ingresosReal - egresosReal;
 
     const elIngEst = document.getElementById('sumIngresosEstimado');
-    if (elIngEst) elIngEst.textContent = formatCurrency(ingresosEst, 'ARS');
+    if (elIngEst) elIngEst.textContent = formatCurrency(ingresosEst, 'COP');
     const elIngReal = document.getElementById('sumIngresosReal');
-    if (elIngReal) elIngReal.textContent = formatCurrency(ingresosReal, 'ARS');
+    if (elIngReal) elIngReal.textContent = formatCurrency(ingresosReal, 'COP');
 
     const elEgEst = document.getElementById('sumEgresosEstimado');
-    if (elEgEst) elEgEst.textContent = formatCurrency(egresosEst, 'ARS');
+    if (elEgEst) elEgEst.textContent = formatCurrency(egresosEst, 'COP');
     const elEgReal = document.getElementById('sumEgresosReal');
-    if (elEgReal) elEgReal.textContent = formatCurrency(egresosReal, 'ARS');
+    if (elEgReal) elEgReal.textContent = formatCurrency(egresosReal, 'COP');
 
     const elFijos = document.getElementById('sumFijos');
-    if (elFijos) elFijos.textContent = formatCurrency(fijos, 'ARS');
+    if (elFijos) elFijos.textContent = formatCurrency(fijos, 'COP');
     const elVariables = document.getElementById('sumVariables');
-    if (elVariables) elVariables.textContent = formatCurrency(variables, 'ARS');
+    if (elVariables) elVariables.textContent = formatCurrency(variables, 'COP');
 
     const elFlujo = document.getElementById('sumFlujoNeto');
     if (elFlujo) {
-        elFlujo.textContent = formatCurrency(flujoNetoEst, 'ARS');
+        elFlujo.textContent = formatCurrency(flujoNetoEst, 'COP');
         elFlujo.className = flujoNetoEst >= 0 ? 'text-success' : 'text-danger';
     }
     const elFlujoReal = document.getElementById('sumFlujoNetoReal');
     if (elFlujoReal) {
-        elFlujoReal.textContent = formatCurrency(flujoNetoReal, 'ARS');
+        elFlujoReal.textContent = formatCurrency(flujoNetoReal, 'COP');
         elFlujoReal.className = flujoNetoReal >= 0 ? 'text-success fw-bold' : 'text-danger fw-bold';
     }
 
@@ -1092,7 +1130,7 @@ function actualizarResumenEnVivo() {
     }
 
     const weekly = document.getElementById('weeklyTarget');
-    if (weekly) weekly.value = formatCurrency(egresosEst / 4.33, 'ARS');
+    if (weekly) weekly.value = formatCurrency(egresosEst / 4.33, 'COP');
 
     const totalPresupuestadas = budgetSheetState.lineas.filter(l => l.estimado > 0 || l.importe > 0).length;
     const statCover = document.getElementById('statCategoriasCover');
@@ -1123,7 +1161,7 @@ function calcularTop3() {
     }
 
     wrap.style.display = '';
-    wrap.innerHTML = `<strong><i class="fas fa-fire me-1 text-danger"></i>Top 3 desvíos críticos de gastos:</strong> ${budgetSheetState.top3.map(item => `${escapeHtml(item.categoria)} (+${formatCurrency(item.gap, 'ARS')})`).join(' · ')}`;
+    wrap.innerHTML = `<strong><i class="fas fa-fire me-1 text-danger"></i>Top 3 desvíos críticos de gastos:</strong> ${budgetSheetState.top3.map(item => `${escapeHtml(item.categoria)} (+${formatCurrency(item.gap, 'COP')})`).join(' · ')}`;
 }
 
 function resaltarTop3Criticas() {
@@ -1213,6 +1251,7 @@ async function derivarMensual() {
         }
 
         await api.deriveMonthlyBudget(payload);
+        avisarPresupuestoActualizado();
         showToast('Hoja mensual derivada desde el presupuesto anual.', 'success');
         await cargarHoja();
     } catch (error) {
@@ -1307,6 +1346,7 @@ async function guardarHoja() {
         const lineasPresupuestadas = budgetSheetState.lineas
             .filter(l => l.estimado > 0 || l.importe > 0 || (l.notas && l.notas.trim()))
             .map((linea, index) => ({
+                id_categoria: linea.id_categoria,
                 categoria: (linea.categoria || '').trim(),
                 frecuencia: linea.frecuencia || 'Mensualmente',
                 tipo: linea.tipo || 'egreso',
@@ -1330,6 +1370,7 @@ async function guardarHoja() {
             nombre: document.getElementById('sheetName').value.trim() || `Presupuesto ${document.getElementById('sheetYear').value}`,
             descripcion: document.getElementById('sheetDescription').value.trim(),
             lineas: lineasPresupuestadas.length ? lineasPresupuestadas : budgetSheetState.lineas.map((l, idx) => ({
+                id_categoria: l.id_categoria,
                 categoria: l.categoria,
                 frecuencia: l.frecuencia,
                 tipo: l.tipo || 'egreso',
@@ -1343,6 +1384,7 @@ async function guardarHoja() {
         };
 
         const response = await api.savePresupuestoSheet(payload);
+        avisarPresupuestoActualizado();
         budgetSheetState.presupuesto = response.presupuesto;
         budgetSheetState.derivadoDesde = response.derivado_desde_anual;
         
@@ -1357,6 +1399,14 @@ async function guardarHoja() {
     } catch (error) {
         console.error(error);
         showToast(error.message || 'No se pudo guardar la hoja.', 'danger');
+    }
+}
+
+function avisarPresupuestoActualizado() {
+    try {
+        localStorage.setItem('presupuestoActualizado', `${Date.now()}-${Math.random()}`);
+    } catch (error) {
+        console.warn('No se pudo avisar a otras pestañas del cambio de presupuesto:', error);
     }
 }
 

@@ -26,6 +26,8 @@ set SEED_DIR=%BASE_DIR%01_core\seed
 set DROP_DIR=%BASE_DIR%01_core\drop
 set MAINT_DIR=%BASE_DIR%02_maintenance
 set HASH_MIGRATION_FILE=%MAINT_DIR%\2026-04-12_hash_legacy_persona_passwords.sql
+set PRESTAMOS_MIGRATION_FILE=%MAINT_DIR%\2026-11-06_prestamos.sql
+set METAS_MIGRATION_FILE=%MAINT_DIR%\2026-11-06_metas_ahorro.sql
 
 REM Construir comando MySQL sin forzar prompt cuando DB_PASS está vacío
 set MYSQL_BASE=mysql -u %DB_USER% -h %DB_HOST% -P %DB_PORT%
@@ -286,6 +288,36 @@ if exist "%SEED_DIR%\insert_initial_data.sql" (
 )
 
 :MAINTENANCE_ONLY
+
+if exist "%METAS_MIGRATION_FILE%" (
+    echo Instalando tablas de metas de ahorro...
+    %MYSQL_BASE% %DB_NAME% < "%METAS_MIGRATION_FILE%"
+    if errorlevel 1 (
+        echo ERROR en migracion de metas de ahorro
+        set /a ERROR_COUNT+=1
+    ) else (
+        echo Tablas de metas de ahorro verificadas correctamente
+        set /a SUCCESS_COUNT+=1
+    )
+) else (
+    echo ERROR: archivo de migracion de metas de ahorro no encontrado
+    set /a ERROR_COUNT+=1
+)
+
+if exist "%PRESTAMOS_MIGRATION_FILE%" (
+    echo Instalando tablas de prestamos...
+    %MYSQL_BASE% %DB_NAME% < "%PRESTAMOS_MIGRATION_FILE%"
+    if errorlevel 1 (
+        echo ERROR en migracion de prestamos
+        set /a ERROR_COUNT+=1
+    ) else (
+        echo Tablas de prestamos verificadas correctamente
+        set /a SUCCESS_COUNT+=1
+    )
+) else (
+    echo ERROR: archivo de migracion de prestamos no encontrado
+    set /a ERROR_COUNT+=1
+)
 
 if /I "%INSTALL_MODE%"=="maintenance" (
     echo ============================================================================

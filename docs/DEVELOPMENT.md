@@ -56,6 +56,17 @@ Usa la integración del editor para revisar errores Python y de imports.
 pytest tests -q
 ```
 
+Las pruebas de integración de metas, préstamos y presupuesto usan MySQL local
+y están deshabilitadas por defecto. Crean y eliminan bases temporales con
+nombres únicos; requieren un servidor de pruebas local y permisos para crear y
+eliminar esas bases. No apuntan a la base de datos de la aplicación:
+
+```powershell
+$env:PRESTAMOS_TEST_MYSQL = '1'
+.\venv\Scripts\python.exe -m pytest tests\test_metas_mysql.py tests\test_prestamos_mysql.py tests\test_presupuesto_mejoras_mysql.py -q
+Remove-Item Env:\PRESTAMOS_TEST_MYSQL
+```
+
 Si vas a trabajar el ETL o pruebas manuales:
 
 ```powershell

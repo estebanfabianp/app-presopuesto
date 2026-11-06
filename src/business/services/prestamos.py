@@ -22,6 +22,8 @@ def dinero(valor):
         raise ValueError('El importe no es válido') from None
     if not resultado.is_finite() or not Decimal('0') <= resultado <= Decimal('9999999999999.99'):
         raise ValueError('El importe debe ser un número no negativo dentro del límite permitido')
+    if resultado != resultado.quantize(CENTAVO, rounding=ROUND_HALF_UP):
+        raise ValueError('Los importes admiten hasta dos decimales')
     return resultado.quantize(CENTAVO, rounding=ROUND_HALF_UP)
 
 

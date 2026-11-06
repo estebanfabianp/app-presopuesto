@@ -107,7 +107,7 @@ QUICK_ACTIONS = {
         'label': 'Crear Meta',
         'icon': 'fa-bullseye',
         'color': 'success',
-        'destination': '/metas-ahorro',  # Ruta navegable
+        'destination': '/metas',  # Ruta navegable
     },
     'ajustar_presupuesto': {
         'label': 'Ajustar Presupuesto',

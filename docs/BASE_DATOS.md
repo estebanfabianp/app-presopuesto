@@ -18,8 +18,8 @@ base_de_datos/db/
 
 ## Flujo recomendado
 
-1. Levantar MySQL/MariaDB.
-2. Ejecutar `init_db.bat`.
+1. Levantar MySQL/MariaDB y respaldar los datos existentes.
+2. Revisar el modo y los scripts aplicables en [la guía de base de datos](DATABASE_SETUP.md), y ejecutar `init_db.bat` cuando corresponda.
 3. Verificar el resumen final del batch.
 4. Si la base ya existía, confirmar que el modo fue `maintenance`.
 
@@ -48,6 +48,7 @@ Ejecuta únicamente:
 
 - verificaciones seguras,
 - mantenimiento compatible,
+- creación de las tablas de préstamos y metas si faltan,
 - migración de contraseñas legacy,
 - resumen de estado.
 
@@ -67,11 +68,7 @@ Características:
 
 ## Estado actual de la base
 
-Validado en esta línea de trabajo:
-
-- conexión correcta a MySQL,
-- batch reejecutable sobre una base existente,
-- salida final sin errores en modo mantenimiento.
+El estado y la compatibilidad dependen de la instalación. Comprueba el resultado de cada migración y el esquema de la base concreta antes de utilizarlo.
 
 ## Riesgos pendientes
 

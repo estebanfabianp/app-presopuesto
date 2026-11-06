@@ -37,13 +37,17 @@
                 <option value="12">Últimos 12 meses</option>
                 <option value="24">Últimos 24 meses</option>
                 <option value="36">Últimos 36 meses</option>
-                <option value="desde_2023">Desde 2023</option>
+                <option value="desde_2023">Desde enero de 2023 (aprox.)</option>
             </select>
             <button class="btn btn-sm btn-outline-secondary" onclick="recargarTodo()">
                 <i class="fas fa-sync-alt"></i>
             </button>
         </div>
     </div>
+
+    <div id="estadoAnalisis" class="alert alert-info" role="status">Cargando análisis...</div>
+    <div id="coberturaAnalisis" class="small text-muted mb-3">Consultando meses con movimientos...</div>
+    <p class="small text-muted">El resumen y las gráficas usan movimientos bancarios y compras de tarjeta; se excluyen los pagos bancarios de tarjeta identificados y todos los abonos, incluidos posibles reembolsos que requieren revisión. La presencia de movimientos no confirma que los extractos estén completos. El presupuesto y la proyección corresponden al mes actual. La comparación enfrenta el mes actual hasta hoy con el mes anterior completo. El selector usa períodos móviles.</p>
 
     <!-- KPIs principales -->
     <div class="row g-3 mb-4">
@@ -105,7 +109,8 @@
                 </div>
                 <div class="card-body">
                     <div class="display-6 fw-bold" id="scoreValor">--</div>
-                    <div class="text-muted small mb-3">Indice de 0 a 100</div>
+                    <div class="text-muted small mb-3" id="scoreMensaje">Cargando indicador...</div>
+                    <div class="text-muted small mb-3">Estimación del mes hasta hoy, independiente del filtro. Usa ingresos y gastos reales de cuentas y compras de tarjeta; clasifica cada gasto por su categoría en la hoja mensual. Excluye abonos y pagos de tarjeta identificados. Puede variar si faltan extractos. Parte de 100 y resta puntos si el ahorro es menor al 20%, los gastos fijos superan el 50% del gasto o el uso promedio de tarjetas activas supera el 50%. Sin tarjetas activas, ese componente no aplica.</div>
                     <div class="small text-muted">Ahorro</div>
                     <div class="fw-semibold mb-1" id="scoreAhorro">--</div>
                     <div class="small text-muted">Gasto fijo / gasto total</div>
@@ -170,7 +175,7 @@
         <div class="col-md-5">
             <div class="card h-100">
                 <div class="card-header">
-                    <span class="fw-semibold"><i class="fas fa-piggy-bank me-1"></i>Top oportunidades de ahorro</span>
+                    <span class="fw-semibold"><i class="fas fa-piggy-bank me-1"></i>Oportunidades (solo cuentas bancarias)</span>
                 </div>
                 <div class="card-body" id="oportunidadesWrap">
                     <div class="text-muted small">Cargando oportunidades...</div>
@@ -184,7 +189,7 @@
         <div class="col-md-6">
             <div class="card h-100">
                 <div class="card-header">
-                    <span class="fw-semibold"><i class="fas fa-triangle-exclamation me-1"></i>Anomalias de gasto</span>
+                    <span class="fw-semibold"><i class="fas fa-triangle-exclamation me-1"></i>Anomalías (solo cuentas bancarias)</span>
                 </div>
                 <div class="table-responsive" style="max-height:280px; overflow-y:auto;">
                     <table class="table table-sm table-hover mb-0">
@@ -204,7 +209,7 @@
         <div class="col-md-3">
             <div class="card h-100">
                 <div class="card-header">
-                    <span class="fw-semibold"><i class="fas fa-calendar-week me-1"></i>Cohortes</span>
+                    <span class="fw-semibold"><i class="fas fa-calendar-week me-1"></i>Cohortes (solo cuentas)</span>
                 </div>
                 <div class="card-body">
                     <div class="small text-muted mb-2">Gasto por dia de semana</div>
@@ -218,9 +223,10 @@
         <div class="col-md-3">
             <div class="card h-100">
                 <div class="card-header">
-                    <span class="fw-semibold"><i class="fas fa-layer-group me-1"></i>Fijo vs variable</span>
+                    <span class="fw-semibold"><i class="fas fa-layer-group me-1"></i>Fijo vs variable estimado (solo cuentas)</span>
                 </div>
                 <div class="card-body">
+                    <div class="small text-muted mb-2">Clasificación aproximada por nombre de categoría; no utiliza la marca de fijo del presupuesto.</div>
                     <div class="small text-muted">Gasto fijo</div>
                     <div class="fw-semibold" id="fvFijo">--</div>
                     <div class="progress mini-progress mb-2"><div id="fvFijoBar" class="progress-bar bg-warning" style="width:0%"></div></div>
@@ -281,7 +287,7 @@
                         <hr class="my-2">
                         <div class="text-muted small">
                             <i class="fas fa-info-circle me-1"></i>
-                            Estos umbrales pueden personalizarse editando <code>src/config/analisis_thresholds.py</code>
+                            Estos umbrales pueden personalizarse editando <code>src/analisis_thresholds.py</code>
                         </div>
                     </div>
                 </div>
@@ -356,10 +362,7 @@
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span class="fw-semibold"><i class="fas fa-fire me-1"></i>Top gastos del periodo</span>
-                    <select class="form-select form-select-sm" id="selTopMeses" onchange="cargarTopGastos()" style="width:auto;">
-                        <option value="1" selected>Este mes</option>
-                        <option value="3">3 meses</option>
-                    </select>
+                    <small class="text-muted">Período seleccionado</small>
                 </div>
                 <div class="card-body p-0">
                     <div id="loadingTop" class="text-center py-4 text-muted small">
@@ -414,10 +417,25 @@
 ======================================================== */
 const BASE_AN = '/analisis';
 
-const apiGet = (endpoint) => api.request('GET', endpoint);
+let datosVista = null;
+let revisionVista = 0;
+const apiGet = (endpoint) => {
+    if (endpoint.startsWith(`${BASE_AN}/resumen?`)) return Promise.resolve(datosVista.resumen);
+    if (endpoint.startsWith(`${BASE_AN}/por-categoria?`)) return Promise.resolve(datosVista.por_categoria);
+    if (endpoint.startsWith(`${BASE_AN}/tendencia?`)) return Promise.resolve(datosVista.tendencia);
+    if (endpoint === `${BASE_AN}/comparativa-meses`) return Promise.resolve(datosVista.comparativa);
+    if (endpoint.startsWith(`${BASE_AN}/top-gastos?`)) return Promise.resolve(datosVista.top);
+    if (endpoint === `${BASE_AN}/presupuesto-categorias`) return Promise.resolve({
+        presupuesto_total: datosVista.resumen.presupuesto_total, categorias: datosVista.presupuesto_categorias
+    });
+    return api.request('GET', endpoint);
+};
 
 const fmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
 const fmtPct = v => (v !== null && v !== undefined) ? `${v > 0 ? '+' : ''}${v}%` : '—';
+const escapeAnalisis = value => String(value ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+})[c]);
 
 let chartCategoria = null;
 let chartTendencia = null;
@@ -439,18 +457,36 @@ function getMeses() {
     return parseInt(value, 10);
 }
 
-function recargarTodo() {
+async function recargarTodo() {
     const m = getMeses();
+    const revision = ++revisionVista;
+    const estado = document.getElementById('estadoAnalisis');
+    estado.className = 'alert alert-info';
+    estado.textContent = 'Cargando análisis...';
+    limpiarScore('Cargando indicador...');
+    try {
+        const vista = await api.request('GET', `${BASE_AN}/vista-consumo?meses=${m}`);
+        if (revision !== revisionVista) return;
+        datosVista = vista;
+    } catch (error) {
+        if (revision !== revisionVista) return;
+        console.error('Error al cargar análisis:', error);
+        estado.className = 'alert alert-danger';
+        estado.textContent = 'No fue posible cargar el análisis. Reintenta con el botón de recargar; las cifras anteriores pueden estar desactualizadas.';
+        limpiarScore('No fue posible cargar el indicador.');
+        return;
+    }
+    estado.textContent = `Período móvil: ${datosVista.inicio} a ${datosVista.fin}. ${datosVista.movimientos_periodo} movimientos de ingreso o gasto; revisa si los extractos están completos.`;
+    cargarCobertura();
     const selected = document.getElementById('selMeses').value;
     const lbl = selected === 'desde_2023'
-        ? 'desde 2023'
+        ? 'desde enero de 2023 (aprox.)'
         : (m === 1 ? 'último mes' : `últimos ${m} meses`);
     document.getElementById('lblPeriodoCat').textContent  = lbl;
     document.getElementById('lblPeriodoTend').textContent = lbl;
     cargarResumen(m);
-    cargarScoreSalud(m);
-    cargarProyeccion();
-    cargarAlertas();
+    mostrarIndicadoresMes();
+    cargarScoreSalud(revision);
     cargarPresupuestoCategorias();
     cargarAnomalias(m);
     cargarOportunidades();
@@ -463,6 +499,40 @@ function recargarTodo() {
     cargarTarjetas();
 }
 
+async function cargarCobertura() {
+    const wrap = document.getElementById('coberturaAnalisis');
+    try {
+        const data = await api.request('GET', '/dashboard/meses-con-movimientos');
+        wrap.textContent = 'Últimos 12 meses (cuentas / tarjetas): ' + data.meses.map(m =>
+            `${m.mes}: ${m.cuentas > 0 ? 'con' : 'sin'} cuentas, ${m.tarjetas > 0 ? 'con' : 'sin'} tarjetas`
+        ).join(' · ') + '. Esto no confirma extractos completos.';
+    } catch (error) {
+        console.error('Error al consultar meses con movimientos:', error);
+        wrap.textContent = 'No fue posible consultar los meses con movimientos.';
+    }
+}
+
+function mostrarIndicadoresMes() {
+    const d = datosVista;
+    const proyeccion = d.movimientos_mes > 0;
+    const hoy = new Date();
+    const factor = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate() / hoy.getDate();
+    const gasto = d.resumen.gasto_mes * factor;
+    const ingreso = d.ingresos_mes * factor;
+    document.getElementById('proyGastos').textContent = proyeccion ? fmt.format(gasto) : 'Sin datos';
+    document.getElementById('proyIngresos').textContent = proyeccion ? fmt.format(ingreso) : 'Sin datos';
+    document.getElementById('proyAhorro').textContent = proyeccion ? fmt.format(ingreso - gasto) : 'Sin datos';
+    document.getElementById('proyMensaje').textContent = proyeccion
+        ? 'Estimación lineal según el ritmo del mes; puede ser inexacta si faltan extractos o hay ingresos irregulares.'
+        : 'No hay movimientos de ingreso o gasto este mes; no se puede proyectar.';
+    const pct = d.resumen.pct_presupuesto;
+    document.getElementById('alertasWrap').textContent = !d.movimientos_mes
+        ? 'Sin movimientos suficientes este mes para evaluar alertas de consumo.'
+        : pct === null ? 'No hay presupuesto mensual guardado para comparar.'
+        : pct >= 85 ? `Atención: el gasto registrado representa ${pct}% del presupuesto mensual.`
+        : `Gasto registrado: ${pct}% del presupuesto. Comprueba que los extractos estén completos.`;
+}
+
 async function cargarResumen(meses) {
     try {
         const d = await apiGet(`${BASE_AN}/resumen?meses=${meses}`);
@@ -472,7 +542,7 @@ async function cargarResumen(meses) {
         const ahorroEl = document.getElementById('kpiAhorro');
         ahorroEl.textContent = fmt.format(d.ahorro);
         ahorroEl.className   = `fs-4 fw-bold ${d.ahorro >= 0 ? 'text-success' : 'text-danger'}`;
-        document.getElementById('kpiTasaAhorro').textContent = `Tasa de ahorro: ${d.tasa_ahorro}%`;
+        document.getElementById('kpiTasaAhorro').textContent = d.tasa_ahorro === null ? 'Tasa de ahorro: sin ingresos' : `Tasa de ahorro: ${d.tasa_ahorro}%`;
 
         if (d.pct_presupuesto !== null) {
             const pct = Math.min(d.pct_presupuesto, 100);
@@ -493,7 +563,12 @@ async function cargarPorCategoria(meses) {
     try {
         const data = await apiGet(`${BASE_AN}/por-categoria?meses=${meses}`);
         document.getElementById('loadingCat').style.display = 'none';
-        if (!data.length) return;
+        if (chartCategoria) { chartCategoria.destroy(); chartCategoria = null; }
+        if (!data.length) {
+            document.getElementById('loadingCat').textContent = 'Sin gastos registrados en el período.';
+            document.getElementById('loadingCat').style.display = '';
+            return;
+        }
 
         const labels  = data.map(r => r.categoria);
         const valores = data.map(r => r.total);
@@ -532,7 +607,12 @@ async function cargarTendencia(meses) {
     try {
         const data = await apiGet(`${BASE_AN}/tendencia?meses=${meses}`);
         document.getElementById('loadingTend').style.display = 'none';
-        if (!data.length) return;
+        if (chartTendencia) { chartTendencia.destroy(); chartTendencia = null; }
+        if (!data.length) {
+            document.getElementById('loadingTend').textContent = 'Sin movimientos registrados en el período.';
+            document.getElementById('loadingTend').style.display = '';
+            return;
+        }
 
         if (chartTendencia) {
             chartTendencia.destroy();
@@ -619,7 +699,11 @@ async function cargarComparativa() {
     try {
         const data = await apiGet(`${BASE_AN}/comparativa-meses`);
         document.getElementById('loadingComp').style.display = 'none';
-        if (!data.length) return;
+        if (!data.length) {
+            document.getElementById('loadingComp').textContent = 'Sin gastos registrados en los dos meses.';
+            document.getElementById('loadingComp').style.display = '';
+            return;
+        }
         document.getElementById('tablaCompWrap').style.display = '';
 
         document.getElementById('tbodyComp').innerHTML = data.map(r => {
@@ -631,7 +715,7 @@ async function cargarComparativa() {
                 varHtml = `<span class="${cls}"><i class="fas ${icon} me-1"></i>${fmtPct(varVal)}</span>`;
             }
             return `<tr>
-                <td>${r.categoria}</td>
+                <td>${escapeAnalisis(r.categoria)}</td>
                 <td class="text-end">${fmt.format(r.mes_anterior)}</td>
                 <td class="text-end fw-semibold">${fmt.format(r.mes_actual)}</td>
                 <td class="text-end">${varHtml}</td>
@@ -644,19 +728,23 @@ async function cargarComparativa() {
 }
 
 async function cargarTopGastos() {
-    const meses = parseInt(document.getElementById('selTopMeses').value);
+    const meses = getMeses();
     document.getElementById('loadingTop').style.display = '';
     document.getElementById('tablaTopWrap').style.display = 'none';
     try {
         const data = await apiGet(`${BASE_AN}/top-gastos?meses=${meses}&limite=10`);
         document.getElementById('loadingTop').style.display = 'none';
-        if (!data.length) return;
+        if (!data.length) {
+            document.getElementById('loadingTop').textContent = 'Sin gastos registrados en el período.';
+            document.getElementById('loadingTop').style.display = '';
+            return;
+        }
         document.getElementById('tablaTopWrap').style.display = '';
 
         document.getElementById('tbodyTop').innerHTML = data.map(r => `<tr>
             <td>${r.fecha}</td>
-            <td>${r.descripcion || '<span class="text-muted">—</span>'}</td>
-            <td><span class="badge bg-secondary-subtle text-secondary">${r.categoria}</span></td>
+            <td>${escapeAnalisis(r.descripcion) || '<span class="text-muted">—</span>'} <small class="text-muted">(${escapeAnalisis(r.origen)})</small></td>
+            <td><span class="badge bg-secondary-subtle text-secondary">${escapeAnalisis(r.categoria)}</span></td>
             <td class="text-end fw-semibold text-danger">${fmt.format(r.monto)}</td>
         </tr>`).join('');
     } catch(e) {
@@ -725,18 +813,33 @@ async function cargarTarjetas() {
     }
 }
 
-async function cargarScoreSalud(meses) {
+function limpiarScore(mensaje) {
+    document.getElementById('scoreValor').textContent = '—';
+    const nivel = document.getElementById('scoreNivel');
+    nivel.textContent = 'No disponible';
+    nivel.className = 'score-badge score-mid';
+    for (const id of ['scoreAhorro', 'scoreFijo', 'scoreTarjetas']) {
+        document.getElementById(id).textContent = '—';
+    }
+    document.getElementById('scoreMensaje').textContent = mensaje;
+}
+
+async function cargarScoreSalud(revision) {
     try {
-        const d = await apiGet(`${BASE_AN}/score-salud?meses=${meses}`);
-        document.getElementById('scoreValor').textContent = d.score?.toFixed ? d.score.toFixed(1) : d.score;
+        const d = await apiGet(`${BASE_AN}/score-salud`);
+        if (revision !== revisionVista) return;
+        document.getElementById('scoreValor').textContent = d.score === null ? '—' : `${d.score.toFixed(1)} / 100`;
         const elNivel = document.getElementById('scoreNivel');
-        elNivel.textContent = d.nivel || '--';
-        elNivel.className = `score-badge ${d.score >= 80 ? 'score-ok' : d.score >= 60 ? 'score-mid' : 'score-risk'}`;
-        document.getElementById('scoreAhorro').textContent = `${d.componentes?.tasa_ahorro ?? 0}%`;
-        document.getElementById('scoreFijo').textContent = `${d.componentes?.pct_gasto_fijo ?? 0}%`;
-        document.getElementById('scoreTarjetas').textContent = `${d.componentes?.uso_tarjetas ?? 0}%`;
+        elNivel.textContent = d.nivel;
+        elNivel.className = `score-badge ${d.score === null ? 'score-mid' : d.score >= 80 ? 'score-ok' : d.score >= 60 ? 'score-mid' : 'score-risk'}`;
+        document.getElementById('scoreAhorro').textContent = d.componentes.tasa_ahorro === null ? '—' : `${d.componentes.tasa_ahorro}%`;
+        document.getElementById('scoreFijo').textContent = d.componentes.pct_gasto_fijo === null ? '—' : `${d.componentes.pct_gasto_fijo}%`;
+        document.getElementById('scoreTarjetas').textContent = d.componentes.uso_tarjetas === null ? 'No disponible / no aplica' : `${d.componentes.uso_tarjetas}%`;
+        document.getElementById('scoreMensaje').textContent = d.razones.length ? d.razones.join(' ') : `Datos del ${d.inicio} al ${d.fin}.`;
     } catch (e) {
+        if (revision !== revisionVista) return;
         console.error('Error score:', e);
+        limpiarScore('No fue posible cargar el indicador. Intenta recargar.');
     }
 }
 
@@ -771,25 +874,48 @@ async function cargarPresupuestoCategorias() {
     try {
         const d = await apiGet(`${BASE_AN}/presupuesto-categorias`);
         document.getElementById('lblPresupuestoTotal').textContent = `Total: ${fmt.format(d.presupuesto_total || 0)}`;
-        document.getElementById('tbodyPresupuestoCat').innerHTML = (d.categorias || []).map(r => {
+        const categorias = d.categorias || [];
+        const grupos = new Map();
+        categorias.forEach(r => {
+            const key = r.parent_id ? `grupo-${r.parent_id}` : `categoria-${r.id_categoria ?? r.categoria}`;
+            if (!grupos.has(key)) grupos.set(key, { nombre: r.nombre_padre || r.categoria, items: [] });
+            grupos.get(key).items.push(r);
+        });
+        const fila = r => {
             const badge = r.estado === 'verde'
                 ? '<span class="badge bg-success-subtle text-success">Verde</span>'
                 : r.estado === 'amarillo'
                     ? '<span class="badge bg-warning-subtle text-warning">Amarillo</span>'
                     : r.estado === 'rojo'
                         ? '<span class="badge bg-danger-subtle text-danger">Rojo</span>'
-                        : '<span class="badge bg-secondary-subtle text-secondary">Sin presupuesto</span>';
+                        : r.estado === 'sin-datos'
+                            ? '<span class="badge bg-secondary-subtle text-secondary">Sin datos</span>'
+                            : '<span class="badge bg-secondary-subtle text-secondary">Sin presupuesto</span>';
             return `<tr>
-                <td>${r.categoria}</td>
+                <td>${r.parent_id ? '↳ ' : ''}${escapeAnalisis(r.categoria)}</td>
                 <td class="text-end">${fmt.format(r.presupuesto || 0)}</td>
                 <td class="text-end">${fmt.format(r.ejecutado || 0)}</td>
-                <td class="text-end ${r.desviacion > 0 ? 'text-danger' : 'text-success'}">${fmt.format(r.desviacion || 0)}</td>
+                <td class="text-end ${r.estado === 'sin-datos' ? 'text-muted' : r.desviacion > 0 ? 'text-danger' : 'text-success'}">${r.estado === 'sin-datos' ? '—' : fmt.format(r.desviacion || 0)}</td>
                 <td class="text-end">${badge}</td>
             </tr>`;
-        }).join('');
+        };
+        document.getElementById('tbodyPresupuestoCat').innerHTML = Array.from(grupos.values()).map((grupo, i) => {
+            const filas = grupo.items.map(fila).join('');
+            if (!grupo.items.some(item => item.parent_id)) return filas;
+            return `<tr><td colspan="5"><button type="button" class="btn btn-sm btn-outline-primary" aria-expanded="false" onclick="alternarCategoriasAnalisis(${i},this)">${escapeAnalisis(grupo.nombre)} (${grupo.items.length})</button></td></tr>
+                <tr id="grupoAnalisis${i}" style="display:none"><td colspan="5"><table class="table table-sm mb-0"><tbody>${filas}</tbody></table></td></tr>`;
+        }).join('') || '<tr><td colspan="5" class="text-center text-muted">Sin presupuesto mensual guardado ni gastos registrados.</td></tr>';
     } catch (e) {
         console.error('Error presupuesto categorias:', e);
+        document.getElementById('tbodyPresupuestoCat').innerHTML = '<tr><td colspan="5" class="text-danger">No se pudo cargar el presupuesto por categoría.</td></tr>';
     }
+}
+
+function alternarCategoriasAnalisis(index, button) {
+    const fila = document.getElementById(`grupoAnalisis${index}`);
+    const abierto = fila.style.display === 'none';
+    fila.style.display = abierto ? '' : 'none';
+    button.setAttribute('aria-expanded', String(abierto));
 }
 
 async function cargarAnomalias(meses) {
@@ -803,6 +929,7 @@ async function cargarAnomalias(meses) {
         </tr>`).join('') || '<tr><td colspan="4" class="text-center text-muted">Sin anomalias detectadas</td></tr>';
     } catch (e) {
         console.error('Error anomalias:', e);
+        document.getElementById('tbodyAnomalias').innerHTML = '<tr><td colspan="4" class="text-danger">No se pudieron cargar las anomalías.</td></tr>';
     }
 }
 
@@ -852,6 +979,7 @@ async function cargarOportunidades() {
         }).join('') || '<div class="text-muted small">No se detectaron oportunidades relevantes.</div>';
     } catch (e) {
         console.error('Error oportunidades:', e);
+        document.getElementById('oportunidadesWrap').textContent = 'No se pudieron cargar las oportunidades.';
     }
 }
 
@@ -880,6 +1008,7 @@ async function cargarCohortes(meses) {
             <div class="progress mini-progress"><div class="progress-bar bg-secondary" style="width:${(q2/tot)*100}%"></div></div>`;
     } catch (e) {
         console.error('Error cohortes:', e);
+        document.getElementById('cohortesDiasWrap').textContent = 'No se pudo cargar el análisis de cuentas.';
     }
 }
 
@@ -893,6 +1022,8 @@ async function cargarFijoVariable(meses) {
         document.getElementById('fvVarBar').style.width = `${Math.min(100, d.pct_variable || 0)}%`;
     } catch (e) {
         console.error('Error fijo/variable:', e);
+        document.getElementById('fvFijo').textContent = 'No disponible';
+        document.getElementById('fvVariable').textContent = 'No disponible';
     }
 }
 

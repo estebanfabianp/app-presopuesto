@@ -28,6 +28,15 @@ class TestLibreMes(unittest.TestCase):
         self.assertAlmostEqual(resultado['dinero_libre_mes'], -20.0)
         self.assertEqual(resultado['estado'], 'negativo')
 
+    def test_incluye_gastos_variables(self):
+        resultado = calcular_dinero_libre_mes(
+            ingresos_mensuales=100, gastos_fijos_mensuales=20,
+            gastos_variables_mensuales=15, prestamos_mensuales=15,
+        )
+        self.assertEqual(resultado['compromiso_total'], 50)
+        self.assertEqual(resultado['dinero_libre_mes'], 50)
+        self.assertEqual(resultado['gastos_variables_mensuales'], 15)
+
     def test_derivacion_anual_a_mensual(self):
         annual_lines = [
             {

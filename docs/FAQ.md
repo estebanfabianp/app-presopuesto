@@ -17,7 +17,7 @@ MySQL o MariaDB, con inicialización oficial desde `base_de_datos/db/init_db.bat
 
 ## ¿La API web ya cubre todo el sistema?
 
-La cobertura web ya incluye autenticación, dashboard, presupuestos, transacciones, reportes, tarjetas, inversiones, metas, productos, categorías, beneficiarios, constantes, programadas y análisis.
+La cobertura web ya incluye autenticación, dashboard, presupuestos, transacciones, reportes, tarjetas, préstamos, inversiones, metas, productos, categorías, beneficiarios, constantes, programadas y análisis.
 
 El repositorio sigue en modo híbrido porque aún existen flujos heredados en Flet, pero la web es la interfaz principal.
 
@@ -27,7 +27,15 @@ El sistema soporta migración automática de contraseñas legacy a SHA-256 al pr
 
 ## ¿Puedo reejecutar la inicialización de la base sin destruir datos?
 
-Sí, si la base ya existe el batch entra en modo `maintenance` y evita scripts no idempotentes.
+Si la base ya existe, el batch entra en modo `maintenance` y evita los scripts históricos de creación y seed, pero sí aplica migraciones y otras tareas de mantenimiento. Haz una copia de seguridad y revisa [la guía de base de datos](DATABASE_SETUP.md) antes de ejecutarlo.
+
+## ¿Las metas de ahorro modifican mis cuentas bancarias?
+
+No. Los aportes y retiros de metas son registros manuales independientes de cuentas y presupuestos; no realizan transferencias ni cambian saldos bancarios.
+
+## ¿Por qué no aparece una puntuación de salud financiera?
+
+El indicador necesita ingresos y gastos reales del mes y que cada categoría de gasto esté clasificada de forma consistente en la hoja mensual. También requiere saldo y límite válidos para cada tarjeta activa. La pantalla explica qué información falta.
 
 ## ¿Por qué hay carpetas `legacy` o vistas viejas?
 

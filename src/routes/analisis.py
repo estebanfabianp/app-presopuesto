@@ -2,7 +2,8 @@
 
 import calendar
 import logging
-from datetime import date
+from datetime import date, timedelta
+from dateutil.relativedelta import relativedelta
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
@@ -74,6 +75,146 @@ def _table_exists(db: DatabaseConnector, table_name: str) -> bool:
                 (table_name,),
         ) or []
         return bool(rows)
+
+
+def _datos_consumo(db, user_id, inicio, fin):
+    """Movimientos reales compatibles con el criterio de la hoja de presupuesto."""
+    if not db.conn:
+        raise RuntimeError('No hay conexión para consultar movimientos')
+    with db.conn.cursor(dictionary=True) as cursor:
+        cursor.execute(
+            """
+            SELECT DATE(m.fecha_creacion) AS fecha, m.monto, LOWER(tm.nombre) AS tipo,
+                   m.id_categoria, COALESCE(c.nombre,'Sin categoría') AS categoria,
+                   c.parent_id, cp.nombre AS nombre_padre, COALESCE(m.nota,'') AS descripcion, 'cuenta' AS origen
+            FROM movimiento m JOIN cuenta cu ON cu.id_cuenta=m.id_cuenta
+            JOIN tipo_movimiento tm ON tm.id_tipo=m.id_tipo
+            LEFT JOIN categoria c ON c.id_categoria=m.id_categoria
+            LEFT JOIN categoria cp ON cp.id_categoria=c.parent_id
+            WHERE cu.id_persona=%s AND m.fecha_creacion >= %s AND m.fecha_creacion < %s
+              AND LOWER(tm.nombre) IN ('ingreso','gasto')
+              AND (LOWER(tm.nombre) <> 'gasto'
+                   OR LOWER(COALESCE(c.nombre,'')) <> 'pagos de tarjeta de crédito')
+            UNION ALL
+            SELECT mt.fecha, mt.valor, 'gasto', mt.id_categoria,
+                   COALESCE(c.nombre,'Sin categoría'), c.parent_id, cp.nombre, COALESCE(mt.nota,''), 'tarjeta'
+            FROM movimiento_tarjeta mt LEFT JOIN categoria c ON c.id_categoria=mt.id_categoria
+            LEFT JOIN categoria cp ON cp.id_categoria=c.parent_id
+            WHERE mt.id_persona=%s AND mt.fecha >= %s AND mt.fecha < %s
+              AND LOWER(COALESCE(mt.estado,''))='compra' AND mt.valor > 0
+            """,
+            (user_id, inicio, fin, user_id, inicio, fin),
+        )
+        return cursor.fetchall()
+
+
+def _detalle_presupuesto(db, user_id, inicio, fin):
+    if not db.conn:
+        raise RuntimeError('No hay conexión para consultar presupuesto')
+    with db.conn.cursor(dictionary=True) as cursor:
+        cursor.execute(
+            """
+            SELECT pd.id_categoria, COALESCE(c.nombre,pd.categoria_nombre,'Sin categoría') AS categoria,
+                   c.parent_id, cp.nombre AS nombre_padre, SUM(pd.monto_estimado) AS presupuesto
+            FROM presupuesto_detalle pd
+            JOIN presupuesto p ON p.id_presupuesto=pd.id_presupuesto
+            LEFT JOIN categoria c ON c.id_categoria=pd.id_categoria
+            LEFT JOIN categoria cp ON cp.id_categoria=c.parent_id
+            WHERE p.id_presupuesto=(
+                SELECT MAX(p2.id_presupuesto) FROM presupuesto p2
+                WHERE p2.id_persona=%s AND p2.fecha_inicio=%s AND p2.fecha_fin=%s
+            ) AND (pd.tipo='egreso' OR pd.tipo IS NULL)
+            GROUP BY pd.id_categoria,c.nombre,pd.categoria_nombre,c.parent_id,cp.nombre
+            """, (user_id, inicio, fin),
+        )
+        return cursor.fetchall()
+
+
+@bp.route('/vista-consumo', methods=['GET'])
+def get_vista_consumo():
+    """Datos consistentes de la vista, con rango móvil y comparación mensual."""
+    verify_jwt_in_request()
+    user_id = _get_user_id()
+    meses = _get_meses(3)
+    hoy = date.today()
+    inicio = hoy - relativedelta(months=meses)
+    fin = hoy + timedelta(days=1)
+    mes_actual = hoy.replace(day=1)
+    mes_anterior = mes_actual - relativedelta(months=1)
+    mes_fin = mes_actual + relativedelta(months=1) - timedelta(days=1)
+    db = DatabaseConnector()
+    try:
+        movimientos = _datos_consumo(db, user_id, min(inicio, mes_anterior), fin)
+        presupuesto = _detalle_presupuesto(db, user_id, mes_actual, mes_fin)
+        periodo = [m for m in movimientos if m['fecha'] >= inicio]
+        ingresos = sum(float(m['monto']) for m in periodo if m['tipo'] == 'ingreso')
+        gastos = sum(float(m['monto']) for m in periodo if m['tipo'] == 'gasto')
+        actuales = [m for m in movimientos if m['fecha'] >= mes_actual and m['tipo'] == 'gasto']
+        anteriores = [m for m in movimientos if mes_anterior <= m['fecha'] < mes_actual and m['tipo'] == 'gasto']
+        movimientos_mes = sum(1 for m in movimientos if m['fecha'] >= mes_actual)
+        por_cat = {}
+        tendencias = {}
+        for m in periodo:
+            key = m['fecha'].strftime('%Y-%m')
+            mes = tendencias.setdefault(key, {'mes': key, 'ingresos': 0.0, 'gastos': 0.0})
+            mes['ingresos' if m['tipo'] == 'ingreso' else 'gastos'] += float(m['monto'])
+            if m['tipo'] == 'gasto':
+                key = m['id_categoria'] if m['id_categoria'] is not None else 'sin_categoria'
+                cat = por_cat.setdefault(key, {'categoria': m['categoria'], 'total': 0.0, 'transacciones': 0})
+                cat['total'] += float(m['monto'])
+                cat['transacciones'] += 1
+        detalle = {}
+        for p in presupuesto:
+            key = p['id_categoria'] if p['id_categoria'] is not None else ('manual', p['categoria'])
+            cat = detalle.setdefault(key, {'id_categoria': p['id_categoria'], 'categoria': p['categoria'],
+                                           'parent_id': p['parent_id'], 'nombre_padre': p['nombre_padre'], 'presupuesto': 0.0, 'ejecutado': 0.0})
+            cat['presupuesto'] += float(p['presupuesto'] or 0)
+        for m in actuales:
+            key = m['id_categoria'] if m['id_categoria'] is not None else ('manual', 'Sin categoría')
+            cat = detalle.setdefault(key, {'id_categoria': m['id_categoria'], 'categoria': m['categoria'],
+                                           'parent_id': m['parent_id'], 'nombre_padre': m['nombre_padre'], 'presupuesto': 0.0, 'ejecutado': 0.0})
+            cat['ejecutado'] += float(m['monto'])
+        for cat in detalle.values():
+            p, e = cat['presupuesto'], cat['ejecutado']
+            cat['desviacion'] = round(e - p, 2)
+            cat['estado'] = ('sin-datos' if not movimientos_mes else
+                             'sin-presupuesto' if p <= 0 else
+                             'verde' if e / p < .8 else 'amarillo' if e / p <= 1 else 'rojo')
+        comparativa = {}
+        for lista, campo in ((actuales, 'mes_actual'), (anteriores, 'mes_anterior')):
+            for m in lista:
+                key = m['id_categoria'] if m['id_categoria'] is not None else 'sin_categoria'
+                item = comparativa.setdefault(key, {'categoria': m['categoria'], 'mes_actual': 0.0, 'mes_anterior': 0.0})
+                item[campo] += float(m['monto'])
+        for item in comparativa.values():
+            previo = item['mes_anterior']
+            item['variacion'] = round((item['mes_actual'] - previo) / previo * 100, 1) if previo else None
+        total_presupuesto = sum(float(p['presupuesto'] or 0) for p in presupuesto)
+        gasto_mes = sum(float(m['monto']) for m in actuales)
+        ingresos_mes = sum(float(m['monto']) for m in movimientos if m['fecha'] >= mes_actual and m['tipo'] == 'ingreso')
+        for item in tendencias.values():
+            item['ahorro'] = item['ingresos'] - item['gastos']
+        return jsonify({
+            'inicio': inicio.isoformat(), 'fin': hoy.isoformat(),
+            'ingresos_mes': ingresos_mes,
+            'resumen': {'ingresos': ingresos, 'gastos': gastos, 'ahorro': ingresos - gastos,
+                        'tasa_ahorro': round((ingresos - gastos) / ingresos * 100, 1) if ingresos > 0 else None,
+                        'gasto_mes': gasto_mes, 'presupuesto_total': total_presupuesto,
+                        'pct_presupuesto': round(gasto_mes / total_presupuesto * 100, 1) if total_presupuesto > 0 else None},
+            'por_categoria': sorted(por_cat.values(), key=lambda c: c['total'], reverse=True)[:15],
+            'tendencia': sorted(tendencias.values(), key=lambda c: c['mes']),
+            'presupuesto_categorias': list(detalle.values()),
+            'comparativa': sorted(comparativa.values(), key=lambda c: c['mes_actual'], reverse=True)[:12],
+            'top': [{'fecha': m['fecha'].isoformat(), 'monto': float(m['monto']), 'categoria': m['categoria'],
+                     'descripcion': m['descripcion'], 'origen': m['origen']}
+                    for m in sorted((m for m in periodo if m['tipo'] == 'gasto'), key=lambda m: float(m['monto']), reverse=True)[:10]],
+            'movimientos_periodo': len(periodo), 'movimientos_mes': movimientos_mes,
+        })
+    except Exception:
+        logger.exception('Error al calcular análisis de consumo')
+        return jsonify({'message': 'No fue posible calcular el análisis de consumo'}), 500
+    finally:
+        db.close()
 
 
 # ──────────────────────────────────────────────────────────────
@@ -420,95 +561,82 @@ def get_comparativa():
 def get_score_salud():
     verify_jwt_in_request()
     user_id = _get_user_id()
-    meses = _get_meses(3)
+    hoy = date.today()
+    inicio = hoy.replace(day=1)
+    fin_mes = inicio + relativedelta(months=1) - timedelta(days=1)
     db = DatabaseConnector()
     try:
-        flujo = db.execute_query(
-            """
-            SELECT
-                COALESCE(SUM(CASE WHEN LOWER(CONVERT(tm.nombre USING utf8mb4)) = 'ingreso' THEN m.monto ELSE 0 END), 0) AS ingresos,
-                COALESCE(SUM(CASE WHEN LOWER(CONVERT(tm.nombre USING utf8mb4)) = 'gasto' THEN m.monto ELSE 0 END), 0) AS gastos,
-                COALESCE(SUM(CASE
-                    WHEN LOWER(CONVERT(tm.nombre USING utf8mb4)) = 'gasto'
-                     AND LOWER(CONVERT(COALESCE(cg.nombre, '') USING utf8mb4)) REGEXP 'arriendo|alquiler|servicio|luz|agua|gas|internet|colegio|prestamo|credito|seguro|nomina|hipoteca|suscrip'
-                    THEN m.monto ELSE 0 END), 0) AS gastos_fijos
-            FROM movimiento m
-            INNER JOIN cuenta c ON c.id_cuenta = m.id_cuenta
-            INNER JOIN tipo_movimiento tm ON tm.id_tipo = m.id_tipo
-            LEFT JOIN categoria cg ON cg.id_categoria = m.id_categoria
-            WHERE c.id_persona = %s
-              AND m.fecha_creacion >= DATE_SUB(CURDATE(), INTERVAL %s MONTH)
-            """,
-            (user_id, meses),
-        )
-        ingresos = _safe_float(flujo[0]['ingresos']) if flujo else 0.0
-        gastos = _safe_float(flujo[0]['gastos']) if flujo else 0.0
-        gastos_fijos = _safe_float(flujo[0]['gastos_fijos']) if flujo else 0.0
-        tasa_ahorro = ((ingresos - gastos) / ingresos * 100) if ingresos > 0 else 0.0
-        pct_fijos = (gastos_fijos / gastos * 100) if gastos > 0 else 0.0
-
-        uso_tarjeta = db.execute_query(
-            """
-            SELECT COALESCE(AVG(CASE WHEN tc.limite_credito > 0 THEN (tc.saldo_actual / tc.limite_credito) * 100 ELSE 0 END), 0) AS uso_promedio
-            FROM tarjeta_credito tc
-            WHERE tc.id_persona = %s
-            """,
-            (user_id,),
-        )
-        pct_uso_tarjetas = _safe_float(uso_tarjeta[0]['uso_promedio']) if uso_tarjeta else 0.0
-
-        variacion = db.execute_query(
-            """
-            SELECT
-                COALESCE(SUM(CASE
-                    WHEN MONTH(m.fecha_creacion)=MONTH(CURDATE()) AND YEAR(m.fecha_creacion)=YEAR(CURDATE())
-                    THEN m.monto ELSE 0 END), 0) AS gasto_actual,
-                COALESCE(SUM(CASE
-                    WHEN MONTH(m.fecha_creacion)=MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
-                     AND YEAR(m.fecha_creacion)=YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
-                    THEN m.monto ELSE 0 END), 0) AS gasto_anterior
-            FROM movimiento m
-            INNER JOIN cuenta c ON c.id_cuenta = m.id_cuenta
-            INNER JOIN tipo_movimiento tm ON tm.id_tipo = m.id_tipo
-            WHERE c.id_persona = %s
-              AND LOWER(CONVERT(tm.nombre USING utf8mb4)) = 'gasto'
-              AND m.fecha_creacion >= DATE_SUB(CURDATE(), INTERVAL 2 MONTH)
-            """,
-            (user_id,),
-        )
-        gasto_actual = _safe_float(variacion[0]['gasto_actual']) if variacion else 0.0
-        gasto_anterior = _safe_float(variacion[0]['gasto_anterior']) if variacion else 0.0
-        var_gasto = ((gasto_actual - gasto_anterior) / gasto_anterior * 100) if gasto_anterior > 0 else 0.0
-
-        score = 100.0
-        score -= max(0.0, (SCORE_TARGETS['tasa_ahorro_min'] - tasa_ahorro)) * SCORE_PENALTIES['ahorro_diferencia']
-        score -= max(0.0, (pct_fijos - SCORE_TARGETS['pct_gasto_fijo_ideal'])) * SCORE_PENALTIES['fijo_exceso']
-        score -= max(0.0, (pct_uso_tarjetas - SCORE_TARGETS['pct_uso_tarjetas_ideal'])) * SCORE_PENALTIES['tarjeta_exceso']
-        score -= max(0.0, var_gasto - SCORE_TARGETS['variacion_gasto_max']) * SCORE_PENALTIES['variacion_exceso']
-        score = max(0.0, min(100.0, round(score, 1)))
-
-        if score >= SCORE_THRESHOLDS['excelente']:
-            nivel = 'Excelente'
-        elif score >= SCORE_THRESHOLDS['estable']:
-            nivel = 'Estable'
-        elif score >= SCORE_THRESHOLDS['en_riesgo']:
-            nivel = 'En riesgo'
-        else:
-            nivel = 'Critico'
-
-        return jsonify({
-            'score': score,
-            'nivel': nivel,
-            'componentes': {
-                'tasa_ahorro': round(tasa_ahorro, 1),
-                'pct_gasto_fijo': round(pct_fijos, 1),
-                'uso_tarjetas': round(pct_uso_tarjetas, 1),
-                'variacion_gasto': round(var_gasto, 1),
-            },
-        })
-    except Exception as e:
-        logger.error('Error score-salud: %s', e)
-        return jsonify({'error': str(e)}), 500
+        movimientos = _datos_consumo(db, user_id, inicio, hoy + timedelta(days=1))
+        with db.conn.cursor(dictionary=True) as cursor:
+            cursor.execute(
+                """
+                SELECT pd.id_categoria, MIN(pd.es_fijo) AS minimo, MAX(pd.es_fijo) AS maximo
+                FROM presupuesto_detalle pd
+                WHERE pd.id_presupuesto=(
+                    SELECT MAX(p.id_presupuesto) FROM presupuesto p
+                    WHERE p.id_persona=%s AND p.fecha_inicio=%s AND p.fecha_fin=%s
+                ) AND (pd.tipo='egreso' OR pd.tipo IS NULL)
+                GROUP BY pd.id_categoria
+                """, (user_id, inicio, fin_mes),
+            )
+            clasificaciones = {r['id_categoria']: r for r in cursor.fetchall() if r['id_categoria'] is not None}
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS cantidad,
+                       SUM(CASE WHEN limite_credito IS NULL OR limite_credito <= 0 OR saldo_actual IS NULL
+                           THEN 1 ELSE 0 END) AS incompletas,
+                       AVG(CASE WHEN limite_credito > 0 AND saldo_actual IS NOT NULL
+                           THEN GREATEST(saldo_actual, 0) / limite_credito * 100 END) AS uso
+                FROM tarjeta_credito WHERE id_persona=%s
+                  AND COALESCE(LOWER(estado), 'activa') IN ('activa', 'activo')
+                """, (user_id,),
+            )
+            tarjetas = cursor.fetchone()
+        ingresos = sum(float(m['monto']) for m in movimientos if m['tipo'] == 'ingreso')
+        egresos = [m for m in movimientos if m['tipo'] == 'gasto']
+        gastos = sum(float(m['monto']) for m in egresos)
+        sin_clasificar = sorted({m['categoria'] for m in egresos
+            if m['id_categoria'] not in clasificaciones
+            or clasificaciones[m['id_categoria']]['minimo'] is None
+            or clasificaciones[m['id_categoria']]['minimo'] != clasificaciones[m['id_categoria']]['maximo']})
+        razones = []
+        if ingresos <= 0:
+            razones.append('Registra ingresos reales del mes.')
+        if gastos <= 0:
+            razones.append('Registra gastos reales del mes.')
+        if sin_clasificar:
+            razones.append('Clasifica como fija o variable en el presupuesto mensual cada categoría de gasto, sin marcas contradictorias: ' + ', '.join(sin_clasificar) + '.')
+        if tarjetas['incompletas']:
+            razones.append('Completa el saldo y el límite de las tarjetas activas.')
+        tasa_ahorro = (ingresos - gastos) / ingresos * 100 if ingresos > 0 else None
+        gastos_fijos = sum(float(m['monto']) for m in egresos
+            if m['id_categoria'] in clasificaciones
+            and clasificaciones[m['id_categoria']]['minimo'] == 1
+            and clasificaciones[m['id_categoria']]['maximo'] == 1)
+        pct_fijos = gastos_fijos / gastos * 100 if gastos > 0 and not sin_clasificar else None
+        uso = float(tarjetas['uso']) if tarjetas['cantidad'] and not tarjetas['incompletas'] else None
+        score = None
+        nivel = 'Sin datos suficientes'
+        if not razones and tasa_ahorro is not None and pct_fijos is not None:
+            score = 100.0
+            score -= max(0.0, SCORE_TARGETS['tasa_ahorro_min'] - tasa_ahorro) * SCORE_PENALTIES['ahorro_diferencia']
+            score -= max(0.0, pct_fijos - SCORE_TARGETS['pct_gasto_fijo_ideal']) * SCORE_PENALTIES['fijo_exceso']
+            if uso is not None:
+                score -= max(0.0, uso - SCORE_TARGETS['pct_uso_tarjetas_ideal']) * SCORE_PENALTIES['tarjeta_exceso']
+            score = max(0.0, min(100.0, round(score, 1)))
+            nivel = ('Excelente' if score >= SCORE_THRESHOLDS['excelente'] else
+                     'Estable' if score >= SCORE_THRESHOLDS['estable'] else
+                     'En riesgo' if score >= SCORE_THRESHOLDS['en_riesgo'] else 'Crítico')
+        return jsonify({'score': score, 'nivel': nivel, 'razones': razones,
+                        'inicio': inicio.isoformat(), 'fin': hoy.isoformat(),
+                        'componentes': {
+                            'tasa_ahorro': round(tasa_ahorro, 1) if tasa_ahorro is not None else None,
+                            'pct_gasto_fijo': round(pct_fijos, 1) if pct_fijos is not None else None,
+                            'uso_tarjetas': round(uso, 1) if uso is not None else None,
+                        }})
+    except Exception:
+        logger.exception('Error score-salud')
+        return jsonify({'error': 'No fue posible calcular la salud financiera'}), 500
     finally:
         db.close()
 

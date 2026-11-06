@@ -26,7 +26,7 @@ Este índice organiza la documentación vigente del proyecto por objetivo y por 
 - `ETL_TARJETA_CREDITO.md` — carga y transformación de movimientos de tarjeta.
 - `ETL_CUENTA_BANCARIA.md` — ETL de extractos bancarios.
 - `THRESHOLDS_GUIDE.md` — guía de thresholds y reglas automáticas.
-- `CHANGES_THRESHOLDS_ACTIONS.md` — cambios operativos y acciones asociadas.
+- `CHANGES_THRESHOLDS_ACTIONS.md` — informe histórico de cambios y acciones; contrasta sus ejemplos con las guías vigentes.
 - `guides/CONSTANTS_QUICK_START.md` — guía rápida para usar constantes del sistema.
 - `guides/CONSTANTS_VIEW_GUIDE.md` — visión de uso y mantenimiento de constantes.
 - `guides/ETL_QUICK_START.md` — arranque rápido de procesos ETL.
@@ -41,6 +41,8 @@ Este índice organiza la documentación vigente del proyecto por objetivo y por 
 
 - `status/MEJORAS_3_RESUMEN_FINAL.md` — resumen final de mejoras aplicadas.
 - `status/PRUEBAS_DIFERIDOS_RESUMEN.md` — estado y resultados de pruebas diferidas.
+
+Los archivos de `status/` y las guías de migraciones fechadas documentan el momento en que se realizaron; no garantizan el estado actual. Para funcionamiento vigente consulta la guía de usuario y la referencia API.
 
 ## 7. Cómo elegir la documentación correcta
 

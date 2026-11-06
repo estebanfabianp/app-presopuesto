@@ -124,6 +124,8 @@ Campos relevantes:
 - `id_categoria`
 - `categoria_nombre`
 - `frecuencia`
+- `tipo` (ingreso o egreso)
+- `es_fijo` (clasificación de la línea de egreso)
 - `monto_importe`
 - `monto_estimado`
 - `notas`
@@ -132,6 +134,22 @@ Campos relevantes:
 Relación:
 
 - `presupuesto 1 -> N presupuesto_detalle`
+
+### Préstamos
+
+- `prestamo`: propietario, acreedor, capital, tasa, frecuencia y condiciones del plan.
+- `prestamo_cuota`: cuotas, capital e interés y sus importes pagados.
+- `prestamo_cargo`: seguros y otros cargos por cuota, con su importe pagado.
+- `prestamo_pago`: historial con desglose y referencia de operación; puede vincularse a un movimiento bancario.
+
+Las relaciones son `persona 1 -> N prestamo`, `prestamo 1 -> N prestamo_cuota`, `prestamo_cuota 1 -> N prestamo_cargo` y `prestamo 1 -> N prestamo_pago`.
+
+### Metas de ahorro
+
+- `meta_ahorro`: propietario, nombre, monto objetivo, fecha objetivo opcional y referencia de creación.
+- `meta_ahorro_movimiento`: aporte o retiro, monto, nota, referencia y fecha de registro.
+
+La relación es `persona 1 -> N meta_ahorro 1 -> N meta_ahorro_movimiento`. El saldo se calcula como aportes menos retiros; no hay vínculo automático a cuenta bancaria ni presupuesto. Las referencias UUID evitan repetir una misma operación.
 
 ### Tarjeta y movimiento_tarjeta
 

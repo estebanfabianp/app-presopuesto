@@ -26,7 +26,7 @@ base_de_datos/db/init_db.bat
 - `full`: para una base vacía.
 - `maintenance`: para una base ya inicializada.
 
-6. Ejecuta la migración de contraseñas legacy a SHA-256.
+6. Ejecuta tareas de mantenimiento, incluidas las migraciones de préstamos y metas y la migración de contraseñas legacy.
 7. Reporta estadísticas finales de tablas, vistas, funciones, procedimientos y triggers.
 
 ## Ejecución recomendada
@@ -38,15 +38,34 @@ $env:Path = "C:\xampp\mysql\bin;" + $env:Path
 
 ## Modo `maintenance`
 
-Si la base ya contiene tablas, el batch evita reejecutar scripts no idempotentes de estructura y seed. En ese modo:
+Si la base ya contiene tablas, el batch evita reejecutar scripts no idempotentes de estructura y seed. Antes de ejecutar cualquier mantenimiento, haz una copia de seguridad y revisa los scripts que se van a aplicar. En ese modo:
 
-- no recrea tablas,
-- no recrea claves foráneas,
 - no vuelve a insertar seed histórico,
-- sí ejecuta tareas seguras de mantenimiento,
-- sí corre la migración de contraseñas legacy.
+- crea si faltan las tablas de préstamos y metas con sus claves foráneas,
+- ejecuta otras tareas de mantenimiento, incluida la migración de contraseñas legacy.
 
-Esto permite reruns seguros sobre bases existentes.
+`CREATE TABLE IF NOT EXISTS` no actualiza la estructura de una tabla que ya exista: verifica el esquema si procedes de una instalación diferente.
+
+## Migraciones para préstamos y metas
+
+En una base existente, después de respaldarla, se pueden aplicar por separado
+estos scripts aditivos usando el cliente MySQL, con un usuario autorizado y
+seleccionando la base correcta:
+
+- `base_de_datos/db/02_maintenance/2026-11-06_prestamos.sql`: `prestamo`, `prestamo_cuota`, `prestamo_cargo` y `prestamo_pago`.
+- `base_de_datos/db/02_maintenance/2026-11-06_metas_ahorro.sql`: `meta_ahorro` y `meta_ahorro_movimiento`.
+
+Por ejemplo, desde PowerShell con el cliente disponible en `PATH`:
+
+```powershell
+Get-Content -Raw .\base_de_datos\db\02_maintenance\2026-11-06_prestamos.sql | mysql -u USUARIO -p app_presupuesto
+Get-Content -Raw .\base_de_datos\db\02_maintenance\2026-11-06_metas_ahorro.sql | mysql -u USUARIO -p app_presupuesto
+```
+
+Sustituye `USUARIO` y el nombre de la base si corresponde. El cliente solicitará
+la contraseña; no la incluyas en el comando ni en archivos versionados. Las
+migraciones no convierten presupuestos en metas. Confirma los resultados y
+revisa los errores antes de utilizar los módulos.
 
 ## Manejo de contraseña vacía
 

@@ -32,7 +32,9 @@ Comportamiento del batch:
 - Crea la base `app_presupuesto` si no existe.
 - Ejecuta instalación completa si la base está vacía.
 - Entra en modo mantenimiento si detecta tablas existentes.
-- Ejecuta la migración de contraseñas legacy a SHA-256.
+- Aplica tareas de mantenimiento, incluidas las tablas de préstamos y metas y la migración de contraseñas legacy.
+
+Antes de ejecutar mantenimiento sobre datos existentes, haz una copia de seguridad y revisa [la guía de base de datos](DATABASE_SETUP.md), incluidas las migraciones específicas de préstamos y metas.
 
 ## 3. Configurar variables de entorno para la versión web
 

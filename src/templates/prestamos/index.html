@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Préstamos - App Presupuesto{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <h1 class="page-title"><i class="fas fa-hand-holding-dollar"></i> Préstamos</h1>
+    <p class="text-muted">Registra préstamos que debes en pesos colombianos (COP), consulta sus cuotas y controla seguros y otros cargos.</p>
+    <div id="prestamoAviso" role="alert" hidden></div>
+    <div class="row g-3">
+        <div class="col-xl-4">
+            <section class="card mb-3">
+                <div class="card-header"><h2 class="h5 mb-0">Nuevo préstamo</h2></div>
+                <form id="formPrestamo" class="card-body">
+                    <label class="form-label" for="nombrePrestamo">Nombre</label>
+                    <input class="form-control mb-2" id="nombrePrestamo" maxlength="120" required>
+                    <label class="form-label" for="acreedorPrestamo">Banco o acreedor</label>
+                    <input class="form-control mb-2" id="acreedorPrestamo" maxlength="120" required>
+                    <label class="form-label" for="capitalPrestamo">Capital inicial</label>
+                    <input class="form-control mb-2" id="capitalPrestamo" type="number" min="0.01" step="0.01" required>
+                    <label class="form-label" for="tasaPrestamo">Interés efectivo anual (%)</label>
+                    <input class="form-control mb-2" id="tasaPrestamo" type="number" min="0" max="1000" step="0.0001" value="0" required>
+                    <label class="form-label" for="numeroCuotas">Número de cuotas</label>
+                    <input class="form-control mb-2" id="numeroCuotas" type="number" min="1" max="360" value="12" required>
+                    <label class="form-label" for="frecuenciaPrestamo">Frecuencia</label>
+                    <select class="form-select mb-2" id="frecuenciaPrestamo">
+                        <option value="mensual">Mensual</option><option value="semanal">Semanal</option>
+                        <option value="quincenal">Quincenal (15 y fin de mes)</option>
+                        <option value="trimestral">Trimestral</option><option value="anual">Anual</option>
+                    </select>
+                    <label class="form-label" for="metodoPrestamo">Amortización</label>
+                    <select class="form-select mb-2" id="metodoPrestamo">
+                        <option value="frances">Cuota fija (francés)</option>
+                        <option value="capital_fijo">Capital fijo (cuota decreciente)</option>
+                    </select>
+                    <label class="form-label" for="primeraFecha">Primera fecha de vencimiento</label>
+                    <input class="form-control mb-2" id="primeraFecha" type="date" required>
+                    <p class="small text-muted">Las cuotas son una estimación con periodos iguales. Para quincenal, selecciona el día 15 o el último día del mes.</p>
+                    <h3 class="h6">Cargos fijos por cuota</h3>
+                    <p class="small text-muted">Ejemplo: seguro de vida. Después puedes ajustarlos por cuota.</p>
+                    <div id="cargosIniciales"></div>
+                    <button class="btn btn-sm btn-outline-secondary mb-3" type="button" id="agregarCargoInicial">Añadir cargo</button>
+                    <button class="btn btn-primary w-100" type="submit">Crear préstamo</button>
+                </form>
+            </section>
+        </div>
+        <div class="col-xl-8">
+            <section class="card mb-3">
+                <div class="card-header"><h2 class="h5 mb-0">Mis préstamos</h2></div>
+                <div class="card-body" id="listaPrestamos">Cargando...</div>
+            </section>
+            <section class="card mb-3" id="detallePrestamo" hidden>
+                <div class="card-header"><h2 class="h5 mb-0" id="detalleTitulo"></h2></div>
+                <div class="card-body">
+                    <p id="detalleResumen"></p>
+                    <p class="small text-muted">Los pagos parciales se aplican primero a cargos, después a intereses y finalmente a capital. Solo se puede pagar la primera cuota pendiente.</p>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead><tr><th>Cuota</th><th>Vence</th><th>Capital</th><th>Interés</th><th>Cargos</th><th>Pendiente</th><th>Estado</th><th>Acción</th></tr></thead>
+                            <tbody id="cuotasPrestamo"></tbody>
+                        </table>
+                    </div>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="abrirAbono">Abono extraordinario a capital</button>
+                    <h3 class="h6 mt-4">Historial de pagos</h3>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead><tr><th>Fecha</th><th>Concepto</th><th>Total</th><th>Capital</th><th>Interés</th><th>Cargos pagados</th></tr></thead>
+                            <tbody id="pagosPrestamo"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+            <section class="card mb-3" id="panelPago" hidden>
+                <div class="card-header"><h2 class="h5 mb-0" id="tituloPago"></h2></div>
+                <form class="card-body" id="formPago">
+                    <label class="form-label" for="montoPago">Importe</label>
+                    <input class="form-control mb-2" id="montoPago" type="number" min="0.01" step="0.01" required>
+                    <label class="form-label" for="fechaPago">Fecha del pago</label>
+                    <input class="form-control mb-2" id="fechaPago" type="date" required>
+                    <label class="form-label" for="cuentaPago">Cuenta bancaria (opcional)</label>
+                    <select class="form-select mb-2" id="cuentaPago"><option value="">No registrar movimiento bancario</option></select>
+                    <p class="small text-muted">Si seleccionas una cuenta, el importe completo, incluido el capital, se registra como gasto y afecta el dashboard. Evita duplicarlo si ya importaste ese movimiento.</p>
+                    <button type="submit" class="btn btn-primary">Registrar pago</button>
+                    <button type="button" class="btn btn-outline-secondary" id="cancelarPago">Cancelar</button>
+                </form>
+            </section>
+            <section class="card mb-3" id="panelAjuste" hidden>
+                <div class="card-header"><h2 class="h5 mb-0" id="tituloAjuste"></h2></div>
+                <form class="card-body" id="formAjuste">
+                    <label class="form-label" for="capitalAjuste">Capital</label>
+                    <input class="form-control mb-2" id="capitalAjuste" type="number" min="0" step="0.01" required>
+                    <label class="form-label" for="interesAjuste">Interés</label>
+                    <input class="form-control mb-2" id="interesAjuste" type="number" min="0" step="0.01" required>
+                    <p class="small text-muted">Solo la próxima cuota permite cambiar capital e interés; el cambio recalcula las cuotas posteriores y conserva sus cargos.</p>
+                    <div id="cargosAjuste"></div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="agregarCargoAjuste">Añadir cargo</button>
+                    <div><button type="submit" class="btn btn-primary">Guardar ajuste</button>
+                    <button type="button" class="btn btn-outline-secondary" id="cancelarAjuste">Cancelar</button></div>
+                </form>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/prestamos.js') }}"></script>
+{% endblock %}

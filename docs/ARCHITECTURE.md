@@ -81,12 +81,20 @@ MySQL / MariaDB
 - `src/routes/presupuesto.py`
 - `src/routes/categorias.py`
 - Manejo del catálogo de categorías y presupuestos por concepto.
+- La hoja mensual guarda ingresos y egresos, incluyendo la marca de gastos fijos. `src/business/services/libre_mes.py` calcula el dinero libre a partir de los valores suministrados.
+
+### Préstamos y metas
+
+- `src/routes/prestamos.py` y `src/business/services/prestamos.py`: plan de cuotas, cargos y pagos.
+- `src/routes/metas.py` y `src/static/js/metas.js`: metas y movimientos manuales por propietario.
+- Las metas no crean movimientos de cuentas ni reutilizan presupuestos; los pagos de préstamo pueden crear un movimiento bancario solo si se selecciona una cuenta.
 
 ### Análisis y reportes
 
 - `src/routes/analisis.py`
 - `src/routes/reportes.py`
 - Visualización de consumo, tendencias, comparativas y KPIs de operación.
+- El endpoint de vista de consumo reúne movimientos de cuenta y compras de tarjeta con el presupuesto mensual; el indicador de salud clasifica gastos reales usando la hoja del mes. Algunas secciones analíticas heredadas siguen limitadas a cuentas.
 
 ### Optimización de clasificación
 

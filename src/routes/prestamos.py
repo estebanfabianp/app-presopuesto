@@ -191,10 +191,13 @@ def detalle(prestamo_id):
             prestamo = _obtener_prestamo(cursor, prestamo_id, usuario)
             prestamo['saldo'] = _saldo_capital(cursor, prestamo)
             cuotas = _cuotas(cursor, prestamo_id)
+            for cuota in cuotas:
+                cuota['fecha'] = cuota['fecha'].isoformat()
             cursor.execute('SELECT * FROM prestamo_pago WHERE id_prestamo = %s ORDER BY id DESC', (prestamo_id,))
             pagos = cursor.fetchall()
             for pago in pagos:
                 pago['cargos'] = json.loads(pago['cargos'])
+                pago['fecha'] = pago['fecha'].isoformat()
             return jsonify({'prestamo': prestamo, 'cuotas': cuotas, 'pagos': pagos})
     except Exception as exc:
         return _respuesta_error(exc)
@@ -212,7 +215,8 @@ def cuentas():
     try:
         db = _conexion()
         with db.conn.cursor(dictionary=True) as cursor:
-            cursor.execute('SELECT id_cuenta, nombre, moneda FROM cuenta WHERE id_persona=%s ORDER BY nombre',
+            cursor.execute("SELECT id_cuenta, nombre, moneda FROM cuenta WHERE id_persona=%s "
+                           "AND UPPER(TRIM(moneda))='COP' ORDER BY nombre",
                            (usuario,))
             return jsonify({'cuentas': cursor.fetchall()})
     except Exception as exc:
@@ -344,10 +348,11 @@ def registrar_pago(prestamo_id):
 
             movimiento_id = None
             if cuenta_id is not None:
-                cursor.execute('SELECT id_cuenta FROM cuenta WHERE id_cuenta=%s AND id_persona=%s',
+                cursor.execute("SELECT id_cuenta FROM cuenta WHERE id_cuenta=%s AND id_persona=%s "
+                               "AND UPPER(TRIM(moneda))='COP'",
                                (cuenta_id, usuario))
                 if not cursor.fetchone():
-                    raise ValueError('La cuenta bancaria no pertenece al usuario')
+                    raise ValueError('La cuenta bancaria no pertenece al usuario o no está en COP')
                 cursor.execute("SELECT id_tipo FROM tipo_movimiento WHERE LOWER(TRIM(nombre))='gasto' LIMIT 1")
                 tipo_gasto = cursor.fetchone()
                 if not tipo_gasto:

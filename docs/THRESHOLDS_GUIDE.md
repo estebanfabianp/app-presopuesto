@@ -2,7 +2,7 @@
 
 ## Resumen Rápido
 
-Los umbrales están centralizados en **[src/analisis_thresholds.py](src/analisis_thresholds.py)** para facilitar ajustes sin modificar lógica de Flask.
+Algunos umbrales de endpoints están definidos en [analisis_thresholds.py](../src/analisis_thresholds.py). La vista principal también contiene valores propios en el backend y en JavaScript; no todos se actualizan automáticamente al modificar ese archivo.
 
 ## Umbrales Actuales (Por Defecto)
 
@@ -14,28 +14,26 @@ Los umbrales están centralizados en **[src/analisis_thresholds.py](src/analisis
 | ⚠️ En riesgo | 40-59 | Requiere atención |
 | ❌ Crítico | < 40 | Necesita intervención urgente |
 
-**Metas ideales:**
-- Ahorro: ≥ 20% de ingresos
-- Gasto fijo: ~50% ideal
-- Variación mes-a-mes: ±10%
+El score orientativo es del mes hasta hoy, parte de 100 y resta puntos por ahorro inferior al 20%, gasto fijo superior al 50% y uso promedio de tarjetas activas superior al 50%. Clasifica gastos reales según la hoja mensual y no aplica variación mes a mes. Sin ingresos, gastos o clasificación suficiente devuelve «Sin datos suficientes». La fórmula y las limitaciones están en [la referencia API](API_REFERENCE.md#análisis-de-consumo-apianalisis).
 
 ### 💳 Alertas (Tarjetas de Crédito)
+Estos umbrales corresponden al endpoint heredado de alertas, no al indicador principal actual.
 - **🟡 Aviso**: Uso ≥ **70%** del cupo
 - **❌ Crítica**: Uso ≥ **90%** del cupo
 
 ### 🎯 Alertas (Presupuesto Mensual)
-- **🟡 Aviso**: Gasto ≥ **85%** del presupuesto
-- **❌ Crítica**: Gasto ≥ **100%** (sobrepresupuesto)
+La pantalla principal muestra atención desde el **85%** del presupuesto mensual, siempre que haya movimientos. El endpoint heredado distingue aviso desde 85% y nivel crítico desde 100%.
 
 ### 📈 Presupuesto por Categoría (Semáforo)
 - **🟢 Verde**: < 80% ejecutado
 - **🟡 Amarillo**: 80-100% ejecutado
 - **🔴 Rojo**: > 100% ejecutado
+- **Sin datos**: no hay movimientos de ingreso o gasto en el mes.
 
 ## Cómo Personalizar
 
 ### Ejemplo: Bajar tarjetas a 60%
-[src/analisis_thresholds.py](src/analisis_thresholds.py) línea ~45:
+[analisis_thresholds.py](../src/analisis_thresholds.py):
 ```python
 ALERT_THRESHOLDS = {
     'tarjeta_warning': 0.60,  # Cambiar de 0.70 a 0.60
@@ -44,7 +42,7 @@ ALERT_THRESHOLDS = {
 ```
 
 ### Ejemplo: Ajustar meta de ahorro a 25%
-[src/analisis_thresholds.py](src/analisis_thresholds.py) línea ~15:
+[analisis_thresholds.py](../src/analisis_thresholds.py):
 ```python
 SCORE_TARGETS = {
     'tasa_ahorro_min': 25.0,  # Cambiar de 20.0 a 25.0
@@ -52,25 +50,24 @@ SCORE_TARGETS = {
 }
 ```
 
-## Botones de Acción Rápida
+## Acciones rápidas
 
-Las oportunidades incluyen botones que navegan a:
+La configuración define las siguientes rutas de acciones. Su disponibilidad y destino deben comprobarse en cada instalación: algunas acciones de la pantalla heredada conservan rutas antiguas.
 
 | Acción | Ruta | Caso de uso |
 |--------|------|------------|
 | Ajustar Presupuesto | `/presupuesto` | Categoría con gasto alto |
 | Revisar Suscripciones | `/nueva-transaccion` | Suscripciones detectadas |
-| Crear Meta | `/metas-ahorro` | Objetivo de ahorro (futuro) |
+| Crear Meta | `/metas` | Objetivo de ahorro |
 | Ver Tarjetas | `/tarjeta` | Alerta de tarjeta (futuro) |
 
 ## Archivos Relacionados
 
-- **Backend**: [src/routes/analisis.py](src/routes/analisis.py) - Endpoints que usan los thresholds
-- **Frontend**: [src/templates/analisis/index.html](src/templates/analisis/index.html) - UI con botones de acción
-- **Config**: [src/analisis_thresholds.py](src/analisis_thresholds.py) - **← Edita aquí**
+- **Backend**: [analisis.py](../src/routes/analisis.py) - endpoints y vista de consumo
+- **Frontend**: [index.html](../src/templates/analisis/index.html) - pantalla de análisis
+- **Config**: [analisis_thresholds.py](../src/analisis_thresholds.py)
 
 ## Notas
 
-- Los umbrales se aplican en **tiempo de ejecución** (sin reiniciar app necesariamente)
-- Cambios se reflejan inmediatamente en el próximo request / reload
-- Todos los valores en porcentaje se usan como decimales (0.70 = 70%)
+- Reinicia el servidor tras modificar configuración Python y recarga el navegador. Revisa también textos y valores independientes de la interfaz para mantenerlos coherentes.
+- Algunos umbrales son porcentajes (`20.0` = 20%) y otros son proporciones (`0.70` = 70%); consulta cada campo antes de cambiarlo.

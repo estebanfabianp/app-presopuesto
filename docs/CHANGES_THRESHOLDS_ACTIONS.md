@@ -1,5 +1,7 @@
 # Cambios Implementados - Umbrales Personalizables y Botones de Acción
 
+> Informe histórico: describe una etapa anterior y puede incluir rutas, reglas y pantallas que ya cambiaron. Para el comportamiento vigente, consulta [la guía de umbrales](THRESHOLDS_GUIDE.md) y [la referencia API](API_REFERENCE.md).
+
 ## 1. ✅ Umbrales Centralizados y Personalizables
 
 ### Archivo: `src/analisis_thresholds.py` (NUEVO)

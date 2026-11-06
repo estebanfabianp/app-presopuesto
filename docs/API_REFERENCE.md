@@ -65,6 +65,40 @@ Cierre de sesión del lado cliente.
 
 ---
 
+### Préstamos (`/api/prestamos`)
+
+Todas las rutas requieren autenticación y están limitadas al propietario.
+Los préstamos se registran en COP. Aplicar primero la migración
+`base_de_datos/db/02_maintenance/2026-11-06_prestamos.sql` a la base existente;
+no ejecutar el script de inicialización para actualizar una base con datos.
+
+- `GET /api/prestamos` lista préstamos y saldos de capital.
+- `POST /api/prestamos` crea el préstamo y las cuotas: recibe `nombre`,
+  `acreedor`, `capital`, `tasa_ea` (porcentaje efectivo anual con hasta cuatro
+  decimales), `numero_cuotas` (1–360), `frecuencia` (`semanal`, `quincenal`,
+  `mensual`, `trimestral`, `anual`), `metodo` (`frances`, `capital_fijo`),
+  `primera_fecha` (`AAAA-MM-DD`) y `cargos` (lista de `{nombre, monto}`).
+- `GET /api/prestamos/<id>` devuelve el préstamo, las cuotas con cargos y su
+  historial de pagos. `GET /api/prestamos/cuentas` devuelve cuentas en COP.
+- `PUT /api/prestamos/<id>/cuotas/<numero>` ajusta `capital`, `interes` y
+  `cargos`. Solo puede cambiarse capital e interés en la primera cuota
+  pendiente sin pagos; en cuotas futuras solo se pueden cambiar cargos.
+- `POST /api/prestamos/<id>/pagos` recibe `tipo` (`cuota` o `abono`),
+  `numero_cuota` para pagos ordinarios, `monto`, `fecha`, `referencia` UUID e
+  `id_cuenta` opcional. Una referencia repetida no registra un segundo pago.
+
+La tasa se convierte a periodos iguales (52, 24, 12, 4 o 1 por año); para
+quincenal los vencimientos son el día 15 y el último del mes. El plan es una
+estimación: no calcula intereses diarios, mora ni variaciones de tasa. Los
+pagos ordinarios se aplican en orden a cargos, interés y capital, y no pueden
+exceder la cuota. Un abono extraordinario recalcula las cuotas pendientes sin
+alterar sus cargos; si cancela el capital, se cancelan las cuotas pendientes y
+sus cargos estimados. No se puede abonar mientras exista una cuota parcialmente
+pagada. Si se selecciona una cuenta bancaria, se registra el importe completo
+como gasto, incluyendo capital, lo cual afecta el dashboard.
+
+---
+
 ### Dashboard (`/api/dashboard`)
 
 #### `GET /api/dashboard/overview`
@@ -138,9 +172,11 @@ Elimina presupuesto y su relación en `presupuesto_categoria`.
 
 Obtiene una hoja de presupuesto anual o mensual con líneas de detalle, totales y valor real calculado por categoría. Soporta el parámetro `todas=true` (activo por defecto) que combina automáticamente todas las categorías del catálogo activo del usuario con sus importes reales ejecutados, permitiendo presupuestar directamente en formato grilla. Las líneas diferencian `tipo` (`ingreso` | `egreso`), `es_fijo` (booleano para egresos) y el resumen desglosa `ingresos_estimado`, `ingresos_real`, `egresos_estimado`, `egresos_real`, `fijos_total`, `variables_total`, `flujo_neto_estimado` y `flujo_neto_real`.
 
+El gasto real incluye compras positivas de tarjeta y excluye movimientos bancarios en la categoría `Pagos de Tarjeta de Crédito` para evitar contarlas dos veces. Los abonos no se restan ni se suman, pues no existe una clasificación fiable entre pagos y devoluciones: `abonos_por_revisar` indica los que no se identifican como pagos bancarios evidentes. Revisa esos movimientos antes de interpretar el gasto neto; no se modifican los registros.
+
 #### `POST /api/presupuesto/hoja`
 
-Guarda una hoja de presupuesto con múltiples líneas, diferenciando ingresos y egresos, frecuencia y bandera de gasto fijo.
+Guarda una hoja de presupuesto con múltiples líneas, diferenciando ingresos y egresos, frecuencia y bandera de gasto fijo. Cada línea puede incluir `id_categoria`; se valida que pertenezca al catálogo disponible para el usuario. Cabecera, detalles y asociaciones se guardan en una única transacción.
 
 ```json
 {
@@ -174,8 +210,8 @@ Guarda una hoja de presupuesto con múltiples líneas, diferenciando ingresos y 
 #### `GET /api/presupuesto/libre-mes`
 
 Calcula el dinero libre del mes:
-`dinero_libre = ingresos_mensuales - gastos_fijos_mensuales - deudas_mensuales (diferidos + préstamos) - otros`.
-Toma automáticamente los gastos fijos marcados (`es_fijo = 1`) en el presupuesto mensual del usuario y devuelve el desglose de conceptos (`gastos_fijos_detalle`), deudas del mes y la fórmula detallada.
+`dinero_libre = ingresos_mensuales - gastos_fijos_mensuales - gastos_variables_mensuales - deudas_mensuales (diferidos + préstamos) - otros`.
+Toma los ingresos y egresos estimados de la hoja mensual guardada del mes actual, con los egresos separados en `gastos_fijos_mensuales` y `gastos_variables_mensuales`. Los ingresos reales de movimientos no se suman a los presupuestados; si no hay hoja mensual guardada, el ingreso automático es cero. Devuelve `gastos_presupuesto_detalle` y `presupuesto_mensual_guardado` para indicar su origen; `gastos_fijos_detalle` sigue disponible. Cada importe puede modificarse mediante el parámetro correspondiente. Los préstamos incluyen el saldo pendiente de capital, intereses y cargos de cuotas no canceladas con vencimiento en el mes actual. No incluyas esas mismas cuotas ni los diferidos también en el presupuesto o en otros compromisos; la aplicación advierte del posible doble conteo, pero no puede identificarlo automáticamente.
 
 #### `POST /api/presupuesto/hoja/derivar`
 
@@ -296,25 +332,31 @@ Resumen de inversiones activas: total invertido, rendimiento estimado, próximos
 
 ### Metas de Ahorro (`/api/metas`)
 
+Las metas son independientes de los presupuestos. Los aportes y retiros son manuales y no crean transacciones ni modifican saldos bancarios. Para bases existentes aplicar la migración aditiva `base_de_datos/db/02_maintenance/2026-11-06_metas_ahorro.sql`; no convierte ni elimina presupuestos.
+
 #### `GET /api/metas/summary`
 
-Resumen: total metas, monto acumulado, metas vigentes por vencer.
+Resumen de las metas reales, sus objetivos y su avance global según aportes menos retiros; los campos heredados `gasto_mes` y `presupuesto_vigente` son `null` porque no representan ahorro.
 
 #### `GET /api/metas`
 
-Lista metas del usuario.
+Lista metas del usuario con ahorrado, faltante y progreso. El progreso puede superar el 100%.
 
 #### `POST /api/metas`
 
-Crea una nueva meta.
+Crea una meta con `nombre`, `objetivo` positivo, `fecha_objetivo` opcional (ISO) y `referencia` UUID. Reintentar la misma solicitud con la misma referencia no crea una meta duplicada.
+
+#### `GET /api/metas/<id>`
+
+Devuelve la meta y su historial de movimientos manuales.
 
 #### `PUT /api/metas/<id>`
 
-Actualiza meta existente.
+Actualiza `nombre`, `objetivo` y `fecha_objetivo` sin modificar el historial; se permite un objetivo inferior al saldo.
 
-#### `DELETE /api/metas/<id>`
+#### `POST /api/metas/<id>/movimientos`
 
-Elimina meta.
+Registra `tipo` (`aporte` o `retiro`), `monto` positivo, `nota` opcional y `referencia` UUID. Se registra la fecha y hora del servidor. Un retiro no puede superar el ahorro; un reintento con la misma referencia y datos no duplica el registro. No se eliminan movimientos ni metas desde esta API.
 
 ---
 
@@ -464,6 +506,16 @@ Devuelve listas auxiliares para poblar selectores:
 
 ### Análisis de Consumo (`/api/analisis`)
 
+#### `GET /api/analisis/vista-consumo?meses=<n>`
+
+Datos principales de la pantalla: rango móvil desde la fecha actual menos `n` meses hasta hoy inclusive; ingresos y gastos reales, tendencia, categorías y principales movimientos. Los gastos incluyen compras positivas de tarjeta y excluyen pagos bancarios de tarjeta identificados y abonos. La ejecución compara el mes actual con los importes de egreso de la hoja mensual guardada; la comparativa utiliza el mes actual hasta hoy y el mes anterior completo. Los meses con movimientos no garantizan extractos completos. Los paneles de anomalías, oportunidades, cohortes y fijo/variable aún utilizan únicamente movimientos de cuentas.
+
+#### `GET /api/analisis/score-salud`
+
+Indicador orientativo del mes calendario hasta hoy, independiente del filtro móvil. Usa los ingresos y gastos reales de las mismas fuentes de `vista-consumo` y clasifica los gastos por ID de categoría según la marca `es_fijo` de la última hoja mensual guardada. No infiere clasificaciones por nombre ni por categoría padre. Si falta ingreso o gasto, una categoría no está en la hoja, tiene marcas contradictorias o una tarjeta activa carece de saldo o límite positivo, devuelve `score: null` y `razones`; no trata datos ausentes como cero. Devuelve `inicio`, `fin`, `nivel` y `componentes` (`tasa_ahorro`, `pct_gasto_fijo` y `uso_tarjetas`, este último `null` si no hay tarjetas activas).
+
+La puntuación parte de 100: resta un punto por cada punto porcentual de ahorro bajo el 20%, medio punto por cada punto de gasto fijo sobre el 50% y 0,6 puntos por cada punto de uso promedio de tarjetas activas sobre el 50%; se limita a 0–100. Sin tarjetas activas no se aplica penalización por uso. Se excluye la variación mensual, ya que el mes actual es parcial y no es comparable con el mes anterior completo. La puntuación depende de extractos completos y saldos de tarjeta actualizados.
+
 #### `GET /api/analisis/resumen?meses=<n>`
 
 KPIs del periodo: ingresos, gastos, ahorro neto, tasa de ahorro, gasto del mes actual y ejecución vs presupuesto vigente.
@@ -488,7 +540,7 @@ Gasto por categoría comparando mes actual vs mes anterior con porcentaje de var
 
 Resumen de uso de cada tarjeta de crédito: límite, saldo, disponible, porcentaje de uso, gasto del mes y cantidad de diferidos activos.
 
-Parámetro `meses` soportado (1–120) en todos los endpoints que lo aceptan. Valor especial `desde_2024` calculado dinámicamente en el cliente (meses desde enero 2024 hasta hoy).
+Los endpoints que aceptan `meses` lo validan según sus propios límites. En la pantalla, la opción «Desde enero de 2023 (aprox.)» calcula un número de meses móviles; no representa exactamente el 1 de enero de 2023. Los endpoints heredados de resumen, categoría, tendencia y comparativa no son la fuente principal de la pantalla y pueden usar criterios distintos a `vista-consumo`.
 
 ---
 

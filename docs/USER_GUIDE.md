@@ -48,6 +48,7 @@ Resumen financiero ampliado:
 - Alertas de presupuesto y flujo mensual.
 - Gráficos de dona por categoría, tendencia mensual y flujo semanal.
 - Rankings de categorías/beneficiarios y próximos compromisos programados.
+- Meses recientes con presencia de movimientos bancarios y de tarjeta. Esta presencia no confirma que los extractos estén completos.
 
 ### Transacciones (`/transacciones`)
 
@@ -56,9 +57,16 @@ Resumen financiero ampliado:
 
 ### Presupuesto (`/presupuesto`)
 
-- Listado de presupuestos con avance de ejecución.
-- Crear, editar y eliminar presupuestos.
-- Asociar categorías a cada presupuesto.
+- Usa la hoja anual o mensual y despliega cada categoría para revisar sus subcategorías.
+- Guarda la hoja mensual para actualizar los valores utilizados en otras pantallas.
+- La ejecución incluye compras positivas de tarjeta y excluye pagos bancarios identificados como `Pagos de Tarjeta de Crédito` para evitar duplicados. Los abonos se excluyen; posibles devoluciones requieren revisión.
+
+### Dinero libre del mes (`/presupuesto/libre-mes`)
+
+- Usa automáticamente ingresos y gastos fijos y variables de la hoja mensual guardada, más diferidos y cuotas pendientes de préstamos.
+- Permite ajustar las cifras para simular otros escenarios. Es una proyección basada en presupuesto, no el saldo bancario real.
+- La gráfica muestra la proporción comprometida y advierte si los compromisos superan los ingresos.
+- No vuelvas a incluir en la hoja o en otros compromisos las mismas cuotas de préstamos o diferidos ya sumadas automáticamente: se contarían dos veces.
 
 ### Reportes (`/reportes`)
 
@@ -82,9 +90,22 @@ Resumen financiero ampliado:
 
 KPIs de inversiones activas: monto total, rendimiento estimado y próximos vencimientos.
 
+### Préstamos (`/prestamos`)
+
+1. Crea un préstamo con acreedor, capital, tasa efectiva anual, número y frecuencia de cuotas y fecha inicial.
+2. Agrega seguros u otros cargos por cuota y consulta el plan estimado.
+3. Registra pagos parciales o abonos a capital. Los pagos ordinarios se aplican primero a cargos, después a interés y por último a capital.
+4. Opcionalmente registra el pago en una cuenta bancaria; el importe completo se registra como gasto. Evita duplicarlo si ya importaste el movimiento.
+
+Las cuotas son una estimación: no incluyen intereses diarios, mora ni cambios automáticos de tasa.
+
 ### Metas de Ahorro (`/metas`)
 
-Crear y seguir metas de ahorro vinculadas a presupuestos. Ver progreso y metas por vencer.
+1. Crea una meta con nombre, monto objetivo y fecha opcional.
+2. Abre **Ver detalle** para registrar aportes o retiros y consultar su historial.
+3. Consulta el ahorro acumulado, el monto faltante y el porcentaje de avance; el objetivo y la fecha se pueden editar.
+
+Las metas son independientes de los presupuestos. Los movimientos se registran manualmente con fecha y hora actuales y **no transfieren dinero ni modifican cuentas bancarias**. Un retiro no puede superar el ahorro acumulado. Por ahora no se pueden eliminar metas ni movimientos; para corregir un importe se puede registrar un movimiento contrario.
 
 ### Mis Productos (`/productos`)
 
@@ -121,7 +142,7 @@ Gestión de pagos recurrentes y cobros automáticos:
 
 ### Análisis de Consumo (`/analisis`)
 
-Dashboard analítico con selector de periodo (1, 3, 6, 12, 24, 36 meses o `Desde 2024`):
+Dashboard analítico con períodos móviles hasta hoy (1, 3, 6, 12, 24, 36 meses o desde enero de 2023 de forma aproximada):
 
 - **KPIs**: ingresos, gastos, ahorro neto con tasa de ahorro, y ejecución del presupuesto vigente.
 - **Gasto por categoría**: gráfico donut interactivo con las principales categorías del periodo.
@@ -129,6 +150,10 @@ Dashboard analítico con selector de periodo (1, 3, 6, 12, 24, 36 meses o `Desde
 - **Comparativa mes actual vs anterior**: tabla por categoría con indicador de variación (↑↓).
 - **Top gastos**: las 10 transacciones de mayor monto en el periodo seleccionado.
 - **Uso de tarjetas**: cards por tarjeta con barra de capacidad utilizada, gasto del mes y diferidos activos.
+- **Presupuesto por categoría**: importes de egreso de la hoja mensual guardada y gastos reales del mes, con subcategorías desplegables.
+- **Salud financiera**: indicador orientativo del mes actual hasta hoy, independiente del filtro móvil. Usa ingresos y gastos reales, la marca de fijo o variable de cada categoría en la hoja mensual y el uso de tarjetas activas. Si faltan datos o clasificaciones consistentes, explica qué falta en lugar de dar una puntuación.
+
+Las cifras principales incluyen cuentas y compras positivas de tarjeta; excluyen pagos bancarios de tarjeta identificados y abonos. La comparación enfrenta el mes actual parcial con el mes anterior completo. La proyección de fin de mes es lineal y puede ser inexacta. Anomalías, oportunidades, cohortes y fijo/variable aún se calculan solo con cuentas; la clasificación fijo/variable de esa sección es aproximada por nombre.
 
 ### Optimización de Clasificación (`/optimizacion-categorias`)
 
@@ -156,9 +181,9 @@ Módulo de clasificación automática de movimientos:
 
 El menú lateral agrupa los módulos en secciones:
 
-- **Principal**: Dashboard, Transacciones, Presupuesto, Reportes, Transacciones Programadas, Análisis, Optimización de Clasificación.
-- **Productos**: Mis Productos, Cuentas Bancarias, Tarjetas, Inversiones, Metas de Ahorro.
-- **Catálogos**: Categorías, Beneficiarios, Constantes.
+- **Principal**: Dashboard, Transacciones, Presupuesto, Dinero libre del mes, Reportes, Transacciones Programadas y Análisis.
+- **Productos**: Mis Productos, Cuentas Bancarias, Tarjetas, Préstamos, Inversiones y Metas de Ahorro.
+- **Catálogos**: Categorías, Optimización de Clasificación, Beneficiarios y Constantes.
 - **Cuenta**: Perfil, Configuración.
 
 ## 6. ETL de tarjeta de crédito
